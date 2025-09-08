@@ -35,6 +35,7 @@ namespace GlpiPlugin\Advancedldap;
 
 use CommonGLPI;
 use AuthLDAP;
+use Glpi\Application\View\TemplateRenderer;
 
 /**
  * Main class for Advanced LDAP Sync functionality
@@ -97,60 +98,56 @@ class AdvancedLdapSync extends CommonGLPI
         // Get all available asset types in GLPI
         $asset_types = self::getAllAssetTypes();
 
-        echo "<div class='spaced'>";
-        echo "<div class='center'>";
-        echo "<h3>" . __('Available GLPI Asset Types for Synchronization', 'advancedldap') . "</h3>";
-        echo "</div>";
-
-        echo "<div class='table-responsive mt-3'>";
-        echo "<table class='tab_cadre_fixe'>";
-        echo "<tr class='tab_bg_1'>";
-        echo "<th width='10%'>" . __('Icon') . "</th>";
-        echo "<th width='80%'>" . __('Asset Type') . "</th>";
-        echo "<th width='10%'>" . __('Type') . "</th>";
-        echo "</tr>";
-
-        // Separate native and generic assets
+        // Separate native and generic assets for dropdown with separators and icons
+        $available_assets = [];
+        $assets_icons = [];
+        
+        // Add native assets with separator
         $native_assets = [];
         $generic_assets = [];
         
         foreach ($asset_types as $itemtype => $info) {
-            if (($info['type'] ?? 'native') === 'generic') {
-                $generic_assets[$itemtype] = $info;
+            if ($info['type'] === 'native') {
+                $native_assets[$itemtype] = $info['name'];
+                $assets_icons[$itemtype] = $info['icon'];
             } else {
-                $native_assets[$itemtype] = $info;
+                $generic_assets[$itemtype] = $info['name'];
+                $assets_icons[$itemtype] = $info['icon'];
+            }
+        }
+        
+        // Build dropdown array with separators
+        if (!empty($native_assets)) {
+            $available_assets['native_separator'] = '--- ' . __('Native Assets') . ' ---';
+            foreach ($native_assets as $itemtype => $name) {
+                $available_assets[$itemtype] = $name;
+            }
+        }
+        
+        if (!empty($generic_assets)) {
+            $available_assets['generic_separator'] = '--- ' . __('Generic Assets') . ' ---';
+            foreach ($generic_assets as $itemtype => $name) {
+                $available_assets[$itemtype] = $name;
             }
         }
 
-        // Display native assets first
-        foreach ($native_assets as $itemtype => $info) {
-            echo "<tr class='tab_bg_2'>";
-            echo "<td class='center'>";
-            if (!empty($info['icon'])) {
-                echo "<i class='" . $info['icon'] . "'></i>";
-            }
-            echo "</td>";
-            echo "<td><strong>" . $info['name'] . "</strong></td>";
-            echo "<td class='center'><span class='badge bg-primary'>" . __('Native') . "</span></td>";
-            echo "</tr>";
-        }
+        // Prepare current configuration (empty for now, will be implemented later)
+        $current_config = [
+            'is_active' => 0,
+            'asset_types' => []
+        ];
 
-        // Display generic assets with different styling
-        foreach ($generic_assets as $itemtype => $info) {
-            echo "<tr class='tab_bg_2'>";
-            echo "<td class='center'>";
-            if (!empty($info['icon'])) {
-                echo "<i class='" . $info['icon'] . "'></i>";
-            }
-            echo "</td>";
-            echo "<td><strong>" . $info['name'] . "</strong></td>";
-            echo "<td class='center'><span class='badge bg-secondary'>" . __('Generic') . "</span></td>";
-            echo "</tr>";
-        }
+        // Check if user can edit
+        $can_edit = $authldap->can($ID, UPDATE);
 
-        echo "</table>";
-        echo "</div>";
-        echo "</div>";
+        // Use TemplateRenderer to display the form
+        TemplateRenderer::getInstance()->display('@advancedldap/ldap_sync.html.twig', [
+            'authldap' => $authldap,
+            'available_assets' => $available_assets,
+            'current_config' => $current_config,
+            'can_edit' => $can_edit,
+            'sync_elements' => [] // Empty for now, will be populated later
+        ]);
     }
 
     /**
@@ -178,7 +175,7 @@ class AdvancedLdapSync extends CommonGLPI
             'PDU' => ['name' => __('PDU'), 'icon' => 'ti ti-plug'],
             'PassiveDCEquipment' => ['name' => __('Passive equipment'), 'icon' => 'ti ti-device-desktop-analytics'],
             'Unmanaged' => ['name' => __('Unmanaged device'), 'icon' => 'ti ti-question-mark'],
-            'Cable' => ['name' => __('Cable'), 'icon' => 'ti ti-cable'],
+            'Cable' => ['name' => __('Cable'), 'icon' => 'ti ti-line'],
             'User' => ['name' => __('User'), 'icon' => 'ti ti-user'],
             'Group' => ['name' => __('Group'), 'icon' => 'ti ti-users'],
             'Entity' => ['name' => __('Entity'), 'icon' => 'ti ti-building'],
@@ -253,7 +250,7 @@ class AdvancedLdapSync extends CommonGLPI
                     $generic_key = 'GenericAsset_' . $data['id'];
                     
                     $generic_assets[$generic_key] = [
-                        'name' => $display_name . ' (' . __('Generic', 'advancedldap') . ')',
+                        'name' => $display_name,
                         'icon' => 'ti ' . $data['icon'] ?? 'ti ti-package',
                         'asset_definition_id' => $data['id'],
                         'system_name' => $system_name
