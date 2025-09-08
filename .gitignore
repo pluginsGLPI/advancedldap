@@ -4,3 +4,6 @@ vendor/
 .gh_token
 *.min.*
 var
+CLAUDE.md
+ldap-notes.md
+dummy_data.ldif
