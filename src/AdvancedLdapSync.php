@@ -94,11 +94,177 @@ class AdvancedLdapSync extends CommonGLPI
             return false;
         }
 
+        // Get all available asset types in GLPI
+        $asset_types = self::getAllAssetTypes();
+
         echo "<div class='spaced'>";
         echo "<div class='center'>";
-        echo "<h3>" . __('Advanced LDAP Synchronization', 'advancedldap') . "</h3>";
-        echo "<p>" . __('Configuration will be implemented in a future version.', 'advancedldap') . "</p>";
+        echo "<h3>" . __('Available GLPI Asset Types for Synchronization', 'advancedldap') . "</h3>";
+        echo "</div>";
+
+        echo "<div class='table-responsive mt-3'>";
+        echo "<table class='tab_cadre_fixe'>";
+        echo "<tr class='tab_bg_1'>";
+        echo "<th width='10%'>" . __('Icon') . "</th>";
+        echo "<th width='80%'>" . __('Asset Type') . "</th>";
+        echo "<th width='10%'>" . __('Type') . "</th>";
+        echo "</tr>";
+
+        // Separate native and generic assets
+        $native_assets = [];
+        $generic_assets = [];
+        
+        foreach ($asset_types as $itemtype => $info) {
+            if (($info['type'] ?? 'native') === 'generic') {
+                $generic_assets[$itemtype] = $info;
+            } else {
+                $native_assets[$itemtype] = $info;
+            }
+        }
+
+        // Display native assets first
+        foreach ($native_assets as $itemtype => $info) {
+            echo "<tr class='tab_bg_2'>";
+            echo "<td class='center'>";
+            if (!empty($info['icon'])) {
+                echo "<i class='" . $info['icon'] . "'></i>";
+            }
+            echo "</td>";
+            echo "<td><strong>" . $info['name'] . "</strong></td>";
+            echo "<td class='center'><span class='badge bg-primary'>" . __('Native') . "</span></td>";
+            echo "</tr>";
+        }
+
+        // Display generic assets with different styling
+        foreach ($generic_assets as $itemtype => $info) {
+            echo "<tr class='tab_bg_2'>";
+            echo "<td class='center'>";
+            if (!empty($info['icon'])) {
+                echo "<i class='" . $info['icon'] . "'></i>";
+            }
+            echo "</td>";
+            echo "<td><strong>" . $info['name'] . "</strong></td>";
+            echo "<td class='center'><span class='badge bg-secondary'>" . __('Generic') . "</span></td>";
+            echo "</tr>";
+        }
+
+        echo "</table>";
         echo "</div>";
         echo "</div>";
+    }
+
+    /**
+     * Get all available asset types in GLPI
+     *
+     * @return array
+     */
+    public static function getAllAssetTypes()
+    {
+        $asset_types = [];
+
+        // Common GLPI native asset types
+        $native_types = [
+            'Computer' => ['name' => __('Computer'), 'icon' => 'ti ti-device-laptop'],
+            'Monitor' => ['name' => __('Monitor'), 'icon' => 'ti ti-device-desktop'],
+            'Software' => ['name' => __('Software'), 'icon' => 'ti ti-app-window'],
+            'NetworkEquipment' => ['name' => __('Network equipment'), 'icon' => 'ti ti-router'],
+            'Peripheral' => ['name' => __('Device'), 'icon' => 'ti ti-device-gamepad'],
+            'Printer' => ['name' => __('Printer'), 'icon' => 'ti ti-printer'],
+            'CartridgeItem' => ['name' => __('Cartridge'), 'icon' => 'ti ti-package'],
+            'ConsumableItem' => ['name' => __('Consumable'), 'icon' => 'ti ti-box'],
+            'Phone' => ['name' => __('Phone'), 'icon' => 'ti ti-phone'],
+            'Rack' => ['name' => __('Rack'), 'icon' => 'ti ti-server'],
+            'Enclosure' => ['name' => __('Enclosure'), 'icon' => 'ti ti-building-warehouse'],
+            'PDU' => ['name' => __('PDU'), 'icon' => 'ti ti-plug'],
+            'PassiveDCEquipment' => ['name' => __('Passive equipment'), 'icon' => 'ti ti-device-desktop-analytics'],
+            'Unmanaged' => ['name' => __('Unmanaged device'), 'icon' => 'ti ti-question-mark'],
+            'Cable' => ['name' => __('Cable'), 'icon' => 'ti ti-cable'],
+            'User' => ['name' => __('User'), 'icon' => 'ti ti-user'],
+            'Group' => ['name' => __('Group'), 'icon' => 'ti ti-users'],
+            'Entity' => ['name' => __('Entity'), 'icon' => 'ti ti-building'],
+            'Location' => ['name' => __('Location'), 'icon' => 'ti ti-map-pin'],
+            'Supplier' => ['name' => __('Supplier'), 'icon' => 'ti ti-truck-delivery'],
+            'Contact' => ['name' => __('Contact'), 'icon' => 'ti ti-address-book'],
+            'Contract' => ['name' => __('Contract'), 'icon' => 'ti ti-file-text'],
+            'Document' => ['name' => __('Document'), 'icon' => 'ti ti-file'],
+        ];
+
+        // Add native asset types
+        foreach ($native_types as $itemtype => $info) {
+            if (class_exists($itemtype)) {
+                $asset_types[$itemtype] = [
+                    'name' => $info['name'],
+                    'icon' => $info['icon'],
+                    'type' => 'native'
+                ];
+            }
+        }
+
+        // Get generic asset types (AssetDefinition)
+        $generic_assets = self::getGenericAssets();
+        
+        foreach ($generic_assets as $itemtype => $info) {
+            $asset_types[$itemtype] = [
+                'name' => $info['name'],
+                'icon' => $info['icon'],
+                'type' => 'generic'
+            ];
+        }
+
+        return $asset_types;
+    }
+
+    /**
+     * Get generic (non-native) asset types
+     *
+     * @return array Array of generic asset types with their properties
+     */
+    public static function getGenericAssets()
+    { 
+        $generic_assets = [];
+
+        // Check if AssetDefinition class exists (GLPI 10.0+)
+        if (!class_exists('Glpi\\Asset\\AssetDefinition')) {
+            return $generic_assets;
+        }
+
+        try {            
+            // Use DB query instead of find() to get active asset definitions
+            global $DB;
+            
+            if (!$DB) {
+                return $generic_assets;
+            }
+            
+            $iterator = $DB->request([
+                'FROM'  => 'glpi_assets_assetdefinitions',
+                'WHERE' => ['is_active' => 1],
+                'ORDER' => 'system_name'
+            ]);
+
+            foreach ($iterator as $data) {
+                $system_name = $data['system_name'] ?? '';
+                
+                if (!empty($system_name)) {
+                    // Use system_name as display name if 'name' field doesn't exist
+                    $display_name = isset($data['name']) ? $data['name'] : $data['system_name'];
+                    
+                    // For generic assets, we use a generic identifier based on the asset definition ID
+                    $generic_key = 'GenericAsset_' . $data['id'];
+                    
+                    $generic_assets[$generic_key] = [
+                        'name' => $display_name . ' (' . __('Generic', 'advancedldap') . ')',
+                        'icon' => 'ti ' . $data['icon'] ?? 'ti ti-package',
+                        'asset_definition_id' => $data['id'],
+                        'system_name' => $system_name
+                    ];
+                }
+            }
+            
+        } catch (\Exception) {
+            // Silent fail - if there's an error accessing AssetDefinition, just return empty array
+        }
+
+        return $generic_assets;
     }
 }
