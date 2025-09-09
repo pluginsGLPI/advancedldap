@@ -158,11 +158,23 @@ class AdvancedLdapSync extends CommonGLPI
             $CFG_GLPI['state_types'] ?? []
         ));
         
+        // Get generic assets info first to identify them
+        $show_inactive = self::getConfigValue('show_inactive_generic_assets', 0);
+        $generic_assets_info = self::getGenericAssets($show_inactive);
+        $generic_names = array_column($generic_assets_info, 'name');
+        
         foreach ($native_itemtypes as $itemtype) {
             if (class_exists($itemtype) && method_exists($itemtype, 'getTypeName')) {
                 try {
+                    $display_name = $itemtype::getTypeName(1);
+                    
+                    // Skip if this is actually a generic asset
+                    if (in_array($display_name, $generic_names)) {
+                        continue;
+                    }
+                    
                     $asset_types[$itemtype] = [
-                        'name' => $itemtype::getTypeName(1),
+                        'name' => $display_name,
                         'type' => 'native'
                     ];
                 } catch (\Exception) {
@@ -171,8 +183,7 @@ class AdvancedLdapSync extends CommonGLPI
             }
         }
 
-        $show_inactive = self::getConfigValue('show_inactive_generic_assets', 0);
-        foreach (self::getGenericAssets($show_inactive) as $itemtype => $info) {
+        foreach ($generic_assets_info as $itemtype => $info) {
             $asset_types[$itemtype] = [
                 'name' => $info['name'],
                 'type' => 'generic'
@@ -181,6 +192,7 @@ class AdvancedLdapSync extends CommonGLPI
 
         return $asset_types;
     }
+
 
     /**
      * Get generic asset types from AssetDefinition
@@ -207,7 +219,7 @@ class AdvancedLdapSync extends CommonGLPI
             foreach ($iterator as $data) {
                 if (!empty($data['system_name'])) {
                     $generic_assets['GenericAsset_' . $data['id']] = [
-                        'name' => $data['name'] ?? $data['system_name'],
+                        'name' => $data['label'] ?? $data['name'] ?? $data['system_name'],
                         'asset_definition_id' => $data['id'],
                         'system_name' => $data['system_name']
                     ];
