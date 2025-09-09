@@ -11,8 +11,6 @@
  * ---------------------------------------------------------------------
  */
 
-use Glpi\Application\View\TemplateRenderer;
-
 /**
  * Asset Field Manager
  * 
@@ -95,7 +93,6 @@ class AssetFieldManager
                 continue;
             }
             
-            $field_id = $option['id'];
             $field_name = $option['name'];
             $field_key = $option['field'];
             
@@ -108,74 +105,5 @@ class AssetFieldManager
         asort($fields);
         
         return $fields;
-    }
-    
-    /**
-     * Render asset dropdown with AJAX update capability
-     * 
-     * @param string $name Name of the dropdown
-     * @param array $params Parameters for the dropdown
-     * @return string HTML output
-     */
-    public static function showAssetDropdown(string $name, array $params = []): string
-    {
-        $default_params = [
-            'value' => 0,
-            'display_emptychoice' => true,
-            'rand' => mt_rand(),
-            'width' => '200px'
-        ];
-        
-        $params = array_merge($default_params, $params);
-        $rand = $params['rand'];
-        
-        // Get available itemtypes
-        $itemtypes = self::getAvailableItemTypes();
-        
-        $out = "<select name='$name' id='dropdown_{$name}_{$rand}' class='form-select'>";
-        
-        if ($params['display_emptychoice']) {
-            $out .= "<option value='0'>" . Dropdown::EMPTY_VALUE . "</option>";
-        }
-        
-        foreach ($itemtypes as $itemtype => $label) {
-            $selected = ($params['value'] == $itemtype) ? 'selected' : '';
-            $out .= "<option value='$itemtype' $selected>$label</option>";
-        }
-        
-        $out .= "</select>";
-        
-        return $out;
-    }
-    
-    /**
-     * Generate AJAX update code for field dropdown
-     * 
-     * @param string $asset_dropdown_id ID of the asset dropdown
-     * @param string $field_dropdown_id ID of the field dropdown to update
-     * @param string $field_dropdown_name Name of the field dropdown
-     * @return string JavaScript code for AJAX update
-     */
-    public static function getAjaxUpdateCode(
-        string $asset_dropdown_id, 
-        string $field_dropdown_id, 
-        string $field_dropdown_name
-    ): string {
-        global $CFG_GLPI;
-        
-        $rand = mt_rand();
-        $params = [
-            'name' => $field_dropdown_name,
-            'rand' => $rand,
-            'itemtype' => '__VALUE__'
-        ];
-        
-        return Ajax::updateItemOnSelectEvent(
-            $asset_dropdown_id,
-            $field_dropdown_id,
-            $CFG_GLPI['root_doc'] . '/plugins/advancedldap/ajax/getAssetFields.php',
-            $params,
-            false
-        );
     }
 }
