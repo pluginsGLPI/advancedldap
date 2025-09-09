@@ -13,8 +13,7 @@
 
 include ('../../../inc/includes.php');
 
-// Include plugin classes
-require_once(GLPI_ROOT . '/plugins/advancedldap/src/AssetFieldManager.php');
+use GlpiPlugin\Advancedldap\AssetFieldManager;
 
 // Check user rights - use entity right like other GLPI plugins
 Session::checkRight('entity', UPDATE);

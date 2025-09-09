@@ -11,6 +11,11 @@
  * ---------------------------------------------------------------------
  */
 
+namespace GlpiPlugin\Advancedldap;
+
+use ReflectionClass;
+use Exception;
+
 /**
  * Asset Field Manager
  * 
