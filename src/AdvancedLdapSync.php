@@ -99,7 +99,9 @@ class AdvancedLdapSync extends CommonGLPI
         $available_assets = self::buildAssetDropdown();
 
         $current_config = [
-            'show_inactive_generic_assets' => self::getConfigValue('show_inactive_generic_assets', 0)
+            'show_inactive_generic_assets' => self::getConfigValue('show_inactive_generic_assets', 0),
+            'ldap_connection_filter' => self::getConfigValue('ldap_connection_filter', ''),
+            'ldap_base_dn' => self::getConfigValue('ldap_base_dn', '')
         ];
 
         TemplateRenderer::getInstance()->display('@advancedldap/ldap_sync.html.twig', [

@@ -11,6 +11,16 @@
             'disabled_values': ['native_separator', 'generic_separator']
         }) }}
         
+        {{ fields.textField('ldap_connection_filter', current_config.ldap_connection_filter|default(''), __('LDAP Connection Filter', 'advancedldap'), {
+            'helper': __('LDAP filter for synchronization (e.g., objectClass=user, objectClass=group)', 'advancedldap'),
+            'placeholder': 'objectClass=user'
+        }) }}
+        
+        {{ fields.textField('ldap_base_dn', current_config.ldap_base_dn|default(''), __('Base DN', 'advancedldap'), {
+            'helper': __('Base Distinguished Name for LDAP synchronization (e.g., ou=users,dc=example,dc=com)', 'advancedldap'),
+            'placeholder': 'ou=users,dc=example,dc=com'
+        }) }}
+        
         <hr>
         
         {{ fields.sliderField('show_inactive_generic_assets', current_config.show_inactive_generic_assets|default(0), __('Show inactive generic assets', 'advancedldap'), {
