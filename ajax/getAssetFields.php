@@ -34,7 +34,7 @@ echo "<select name='asset_field' class='form-select'>";
 echo "<option value=''>" . __('Select a field', 'advancedldap') . "</option>";
 
 foreach ($fields as $field_key => $field_label) {
-    $field_key = htmlspecialchars($field_key, ENT_QUOTES, 'UTF-8');
+    $field_key   = htmlspecialchars($field_key, ENT_QUOTES, 'UTF-8');
     $field_label = htmlspecialchars($field_label, ENT_QUOTES, 'UTF-8');
     echo "<option value='$field_key'>$field_label</option>";
 }

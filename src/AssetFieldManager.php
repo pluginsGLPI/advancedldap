@@ -32,7 +32,7 @@ class AssetFieldManager
     {
         // Use reflection to access the private getAllAssetTypes method from AdvancedLdapSync
         $reflection = new ReflectionClass('AdvancedLdapSync');
-        $method = $reflection->getMethod('getAllAssetTypes');
+        $method     = $reflection->getMethod('getAllAssetTypes');
         $method->setAccessible(true);
         
         $asset_types_full = $method->invoke(null);
@@ -99,7 +99,7 @@ class AssetFieldManager
             }
             
             $field_name = $option['name'];
-            $field_key = $option['field'];
+            $field_key  = $option['field'];
             
             // Create meaningful label
             $label = sprintf('%s (%s)', $field_name, $field_key);

@@ -219,9 +219,9 @@ class AdvancedLdapSync extends CommonGLPI
             foreach ($iterator as $data) {
                 if (!empty($data['system_name'])) {
                     $generic_assets['GenericAsset_' . $data['id']] = [
-                        'name' => $data['label'] ?? $data['name'] ?? $data['system_name'],
-                        'asset_definition_id' => $data['id'],
-                        'system_name' => $data['system_name']
+                        'name'                  => $data['label'] ?? $data['name'] ?? $data['system_name'],
+                        'asset_definition_id'   => $data['id'],
+                        'system_name'           => $data['system_name']
                     ];
                 }
             }
