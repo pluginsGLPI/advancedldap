@@ -6,34 +6,55 @@
         <h3>{{ __('Asset Type Selection') }}</h3>
     </div>
     <div class="card-body">
-        {% set asset_type_rand = random() %}
-        {{ fields.dropdownArrayField('asset_type', '', available_assets, __('Asset Type'), {
-            'width': '300px',
-            'disabled_values': ['native_separator', 'generic_separator'],
-            'rand': asset_type_rand
-        }) }}
+        <!-- Première rangée : Base DN et LDAP Connection Filter -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-database me-1"></i>{{ __('Base DN', 'advancedldap') }}</label>
+                    <input type="text" name="ldap_base_dn" class="form-control" 
+                           value="{{ current_config.ldap_base_dn|default('') }}" 
+                           placeholder="ou=users,dc=example,dc=com">
+                    <div class="form-text">{{ __('Base Distinguished Name for LDAP synchronization (e.g., ou=users,dc=example,dc=com)', 'advancedldap') }}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-filter me-1"></i>{{ __('LDAP Connection Filter', 'advancedldap') }}</label>
+                    <input type="text" name="ldap_connection_filter" class="form-control" 
+                           value="{{ current_config.ldap_connection_filter|default('') }}" 
+                           placeholder="objectClass=user">
+                    <div class="form-text">{{ __('LDAP filter for synchronization (e.g., objectClass=user, objectClass=group)', 'advancedldap') }}</div>
+                </div>
+            </div>
+        </div>
         
-        {{ fields.textField('ldap_connection_filter', current_config.ldap_connection_filter|default(''), __('LDAP Connection Filter', 'advancedldap'), {
-            'helper': __('LDAP filter for synchronization (e.g., objectClass=user, objectClass=group)', 'advancedldap'),
-            'placeholder': 'objectClass=user'
-        }) }}
-        
-        {{ fields.textField('ldap_base_dn', current_config.ldap_base_dn|default(''), __('Base DN', 'advancedldap'), {
-            'helper': __('Base Distinguished Name for LDAP synchronization (e.g., ou=users,dc=example,dc=com)', 'advancedldap'),
-            'placeholder': 'ou=users,dc=example,dc=com'
-        }) }}
-        
-        {% set asset_field_rand = asset_type_rand %}
-        
-        <div class="form-field row align-items-center">
-            <label class="col-form-label col-xxl-2 text-xxl-end">{{ __('Asset Field', 'advancedldap') }}</label>
-            <div class="col-xxl-10 field-container">
-                <div id="asset_field_dropdown_{{ asset_field_rand }}">
-                    <select name="asset_field" class="form-select" disabled>
-                        <option value="">{{ __('Select an asset type first', 'advancedldap') }}</option>
+        <!-- Seconde rangée : Asset Type et Asset Field -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-package me-1"></i>{{ __('Asset Type') }}</label>
+                    {% set asset_type_rand = random() %}
+                    <select name="asset_type" id="dropdown_asset_type{{ asset_type_rand }}" class="form-select">
+                        <option value="">{{ __('Select an asset type') }}</option>
+                        {% for key, value in available_assets %}
+                            {% if key not in ['native_separator', 'generic_separator'] %}
+                                <option value="{{ key }}">{{ value }}</option>
+                            {% endif %}
+                        {% endfor %}
                     </select>
                 </div>
-                <div class="form-text">{{ __('Select which field of the asset to map with LDAP', 'advancedldap') }}</div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-input-search me-1"></i>{{ __('Asset Field', 'advancedldap') }}</label>
+                    {% set asset_field_rand = asset_type_rand %}
+                    <div id="asset_field_dropdown_{{ asset_field_rand }}">
+                        <select name="asset_field" class="form-select" disabled>
+                            <option value="">{{ __('Select an asset type first', 'advancedldap') }}</option>
+                        </select>
+                    </div>
+                    <div class="form-text">{{ __('Select which field of the asset to map with LDAP', 'advancedldap') }}</div>
+                </div>
             </div>
         </div>
         
