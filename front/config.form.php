@@ -33,6 +33,8 @@
 
 include('../../../inc/includes.php');
 
+global $CFG_GLPI;
+
 Session::checkRight('config', UPDATE);
 
 if (isset($_POST['update_config'])) {
@@ -49,8 +51,9 @@ if (isset($_POST['update_config'])) {
     Session::addMessageAfterRedirect(__('Configuration updated successfully', 'advancedldap'), false, INFO);
     
     // Redirect back to the AuthLDAP form
-    if (isset($_POST['authldap_id']) && is_numeric($_POST['authldap_id'])) {
-        Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($_POST['authldap_id']));
+    $authldap_id = $_POST['authldap_id'] ?? null;
+    if ($authldap_id && is_numeric($authldap_id)) {
+        Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id));
     } else {
         Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.php");
     }

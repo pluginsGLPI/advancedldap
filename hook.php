@@ -46,3 +46,16 @@ function plugin_advancedldap_uninstall(): bool
 {
     return true;
 }
+
+/**
+ * Hook to add menu items
+ */
+function plugin_advancedldap_getMenuEntries($menu): array
+{
+    $menu['plugins']['advancedldap'] = [
+        'title' => __('Advanced LDAP'),
+        'page' => '/plugins/advancedldap/front/dropdown_demo.php',
+        'icon' => 'ti-settings',
+    ];
+    return $menu;
+}

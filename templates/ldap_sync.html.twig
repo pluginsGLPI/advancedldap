@@ -6,9 +6,11 @@
         <h3>{{ __('Asset Type Selection') }}</h3>
     </div>
     <div class="card-body">
+        {% set asset_type_rand = random() %}
         {{ fields.dropdownArrayField('asset_type', '', available_assets, __('Asset Type'), {
             'width': '300px',
-            'disabled_values': ['native_separator', 'generic_separator']
+            'disabled_values': ['native_separator', 'generic_separator'],
+            'rand': asset_type_rand
         }) }}
         
         {{ fields.textField('ldap_connection_filter', current_config.ldap_connection_filter|default(''), __('LDAP Connection Filter', 'advancedldap'), {
@@ -20,6 +22,20 @@
             'helper': __('Base Distinguished Name for LDAP synchronization (e.g., ou=users,dc=example,dc=com)', 'advancedldap'),
             'placeholder': 'ou=users,dc=example,dc=com'
         }) }}
+        
+        {% set asset_field_rand = asset_type_rand %}
+        
+        <div class="form-field row align-items-center">
+            <label class="col-form-label col-xxl-2 text-xxl-end">{{ __('Asset Field', 'advancedldap') }}</label>
+            <div class="col-xxl-10 field-container">
+                <div id="asset_field_dropdown_{{ asset_field_rand }}">
+                    <select name="asset_field" class="form-select" disabled>
+                        <option value="">{{ __('Select an asset type first', 'advancedldap') }}</option>
+                    </select>
+                </div>
+                <div class="form-text">{{ __('Select which field of the asset to map with LDAP', 'advancedldap') }}</div>
+            </div>
+        </div>
         
         <hr>
         
@@ -40,3 +56,35 @@
     </div>
 </div>
 </form>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
+        var itemtype = $(this).val();
+        var container = $('#asset_field_dropdown_{{ asset_field_rand }}');
+        
+        console.log('Asset type changed to:', itemtype);
+        
+        if (!itemtype || itemtype === '0' || itemtype === '') {
+            container.html('<select name="asset_field" class="form-select" disabled><option value="">Select an asset type first</option></select>');
+            return;
+        }
+        
+        container.html('<select name="asset_field" class="form-select" disabled><option>Loading fields...</option></select>');
+        
+        $.post('{{ config('root_doc') }}/plugins/advancedldap/ajax/getAssetFields.php', {
+            itemtype: itemtype,
+            name: 'asset_field',
+            rand: {{ asset_field_rand }}
+        })
+        .done(function(data) {
+            console.log('AJAX success, data length:', data.length);
+            container.html(data);
+        })
+        .fail(function(xhr, status, error) {
+            console.log('AJAX failed:', status, error);
+            container.html('<select name="asset_field" class="form-select" disabled><option>Error loading fields</option></select>');
+        });
+    });
+});
+</script>
