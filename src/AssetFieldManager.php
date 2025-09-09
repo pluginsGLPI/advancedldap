@@ -25,47 +25,46 @@ use Glpi\Asset\AssetDefinition;
 class AssetFieldManager
 {
     /**
-     * Get available itemtypes for assets (inspired by AdvancedLdapSync::getAllAssetTypes)
+     * Get available itemtypes for assets
      * 
      * @return array Array of itemtype => label
      */
     public static function getAvailableItemTypes(): array
     {
-        // Use reflection to access the private getAllAssetTypes method from AdvancedLdapSync
+        // Access AdvancedLdapSync::getAllAssetTypes() via reflection
         $reflection = new ReflectionClass('AdvancedLdapSync');
         $method     = $reflection->getMethod('getAllAssetTypes');
         $method->setAccessible(true);
         
         $asset_types_full = $method->invoke(null);
         
-        // Convert from ['itemtype' => ['name' => ..., 'type' => ...]] 
-        // to ['itemtype' => 'name'] format
+        // Extract only the names from the full asset types data
         $itemtypes = [];
         foreach ($asset_types_full as $itemtype => $info) {
             $itemtypes[$itemtype] = $info['name'];
         }
         
-        // Sort by label
+        // Sort alphabetically by display name
         asort($itemtypes);
         
         return $itemtypes;
     }
     
     /**
-     * Get fields for a specific itemtype
+     * Get fields for a specific itemtype or generic asset
      * 
-     * @param string $itemtype The class name of the item or generic asset identifier
+     * @param string $itemtype Class name (e.g. 'Computer') or generic asset ID (e.g. 'GenericAsset_123')
      * @return array Array of field_key => field_label
      */
     public static function getItemTypeFields(string $itemtype): array
     {
-        // Check if it's a generic asset (format: GenericAsset_ID)
+        // Handle generic assets (format: GenericAsset_ID)
         if (str_starts_with($itemtype, 'GenericAsset_')) {
             $asset_definition_id = (int)str_replace('GenericAsset_', '', $itemtype);
             return self::getGenericAssetFields($asset_definition_id);
         }
         
-        // Handle regular itemtypes
+        // Handle standard GLPI itemtypes
         if (!class_exists($itemtype)) {
             return [];
         }
@@ -128,19 +127,19 @@ class AssetFieldManager
     private static function getGenericAssetFields(int $asset_definition_id): array
     {
         try {
-            // 1. Get the asset definition from glpi_assets_assetdefinitions
+            // Load asset definition from database
             $definition = new AssetDefinition();
             if (!$definition->getFromDB($asset_definition_id)) {
                 return [];
             }
             
-            // 2. Get all available fields (core + custom)
+            // Get all fields (native + custom)
             $all_fields = $definition->getAllFields();
             
-            // 3. Get fields display configuration from JSON fields_display
+            // Load field visibility configuration
             $fields_display = $definition->getDecodedFieldsField();
             
-            // Create a map of field_key => field_options for quick lookup
+            // Build lookup map for field options
             $field_options_map = [];
             foreach ($fields_display as $field_config) {
                 $field_options_map[$field_config['key']] = $field_config['field_options'] ?? [];
@@ -148,12 +147,12 @@ class AssetFieldManager
             
             $fields = [];
             foreach ($all_fields as $field_key => $field_info) {
-                // 4. Skip fields that are not in fields_display (means they are disabled/hidden)
+                // Skip fields not in display configuration (disabled)
                 if (!isset($field_options_map[$field_key])) {
                     continue;
                 }
                 
-                // Also skip fields explicitly marked as hidden
+                // Skip fields explicitly marked as hidden
                 if (isset($field_options_map[$field_key]['hidden']) && $field_options_map[$field_key]['hidden'] === true) {
                     continue;
                 }
@@ -166,12 +165,12 @@ class AssetFieldManager
                 
                 $field_label = $field_info['text'];
                 
-                // Add indicator for custom fields (stored in custom_fields JSON)
+                // Mark custom fields with indicator
                 if (str_starts_with($field_key, 'custom_')) {
                     $field_label .= ' (Custom)';
                 }
                 
-                // Use clean field label
+                // Store clean field label
                 $fields[$field_key] = $field_label;
             }
             
