@@ -37,7 +37,9 @@
                     <select name="asset_type" id="dropdown_asset_type{{ asset_type_rand }}" class="form-select">
                         <option value="">{{ __('Select an asset type') }}</option>
                         {% for key, value in available_assets %}
-                            {% if key not in ['native_separator', 'generic_separator'] %}
+                            {% if key in ['native_separator', 'generic_separator'] %}
+                                <option disabled>{{ value }}</option>
+                            {% else %}
                                 <option value="{{ key }}">{{ value }}</option>
                             {% endif %}
                         {% endfor %}
