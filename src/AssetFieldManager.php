@@ -148,7 +148,12 @@ class AssetFieldManager
             
             $fields = [];
             foreach ($all_fields as $field_key => $field_info) {
-                // 4. Skip fields that are marked as hidden (field_options.hidden = true)
+                // 4. Skip fields that are not in fields_display (means they are disabled/hidden)
+                if (!isset($field_options_map[$field_key])) {
+                    continue;
+                }
+                
+                // Also skip fields explicitly marked as hidden
                 if (isset($field_options_map[$field_key]['hidden']) && $field_options_map[$field_key]['hidden'] === true) {
                     continue;
                 }
