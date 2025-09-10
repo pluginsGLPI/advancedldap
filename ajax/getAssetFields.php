@@ -5,15 +5,18 @@
  *
  * Advanced LDAP Plugin for GLPI
  *
- * @copyright 2024
- * @license   https://www.gnu.org/licenses/gpl-3.0.html
+ * @copyright Copyright (C) 2018-2025 by Teclib'.
+ * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
+ * @license   MIT https://opensource.org/licenses/mit-license.php
+ * @link      https://github.com/pluginsGLPI/advancedldap
  *
  * ---------------------------------------------------------------------
  */
 
 include('../../../inc/includes.php');
 
-use GlpiPlugin\Advancedldap\AssetFieldManager;
+use GlpiPlugin\Advancedldap\Bootstrap;
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 
 // Check user rights - use entity right like other GLPI plugins
 Session::checkRight('entity', UPDATE);
@@ -26,8 +29,18 @@ if (!isset($_POST['itemtype']) || empty($_POST['itemtype'])) {
 
 $itemtype = $_POST['itemtype'];
 
-// Get fields for the itemtype
-$fields = AssetFieldManager::getItemTypeFields($itemtype);
+try {
+    // Initialize services using Bootstrap
+    $container = Bootstrap::getContainer();
+    $assetFieldProvider = $container->get(AssetFieldProviderInterface::class);
+
+    // Get fields for the itemtype
+    $fields = $assetFieldProvider->getItemTypeFields($itemtype);
+} catch (Exception $e) {
+    error_log("Advanced LDAP AJAX Error: " . $e->getMessage());
+    http_response_code(500);
+    exit;
+}
 
 // Generate dropdown HTML
 echo "<select name='asset_field' class='form-select'>";

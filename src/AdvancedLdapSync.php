@@ -25,7 +25,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2025 by the advancedldap plugin team.
+ * @copyright Copyright (C) 2018-2025 by Teclib'.
+ * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -33,30 +34,57 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use CommonGLPI;
 use AuthLDAP;
-use Config;
+use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
+use GlpiPlugin\Advancedldap\Container\ServiceContainer;
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
+use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
+use GlpiPlugin\Advancedldap\Services\AssetFieldService;
+use GlpiPlugin\Advancedldap\Services\LdapTestService;
 
 /**
- * Main class for Advanced LDAP Sync functionality
+ * Advanced LDAP synchronization functionality
  */
 class AdvancedLdapSync extends CommonGLPI
 {
     public static $rightname = 'config';
+
+    private ServiceContainer $container;
+    private AssetFieldProviderInterface $assetFieldProvider;
+    private ConfigurationInterface $configuration;
+    private LdapTestService $ldapTestService;
+
+    /**
+     * @param ServiceContainer|null $container Optional service container
+     */
+    public function __construct(?ServiceContainer $container = null)
+    {
+        parent::__construct();
+
+        $this->container = $container ?? ServiceContainer::getInstance();
+        $this->assetFieldProvider = $this->container->get(AssetFieldProviderInterface::class);
+        $this->configuration = $this->container->get(ConfigurationInterface::class);
+        $this->ldapTestService = $this->container->get(LdapTestService::class);
+    }
 
     /**
      * Get tab name for AuthLDAP item
      *
      * @param CommonGLPI $item         Item for which tab is displayed
      * @param int        $withtemplate Template mode
-     * @return array
+     * @return array<int, string>|string Tab names or empty string
      */
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof AuthLDAP && $item->can($item->getID(), READ)) {
             return [
-                1 => self::createTabEntry(__('Items to synchronize', 'advancedldap'), 0, $item::class, "ti ti-adjustments-alt"),
+                1 => self::createTabEntry(
+                    __('Items to synchronize', 'advancedldap'),
+                    0,
+                    $item::class,
+                    "ti ti-adjustments-alt",
+                ),
             ];
         }
         return '';
@@ -68,12 +96,13 @@ class AdvancedLdapSync extends CommonGLPI
      * @param CommonGLPI $item      Item for which tab is displayed
      * @param int        $tabnum    Tab number
      * @param int        $withtemplate Template mode
-     * @return bool
+     * @return bool Success status
      */
-    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0): bool
     {
-        if ($item instanceof AuthLDAP && $tabnum == 1) {
-            self::showAdvancedSyncForm($item);
+        if ($item instanceof AuthLDAP && $tabnum === 1) {
+            $instance = new self();
+            $instance->showAdvancedSyncForm($item);
         }
         return true;
     }
@@ -84,66 +113,40 @@ class AdvancedLdapSync extends CommonGLPI
      * @param AuthLDAP $authldap AuthLDAP instance
      * @return void
      */
-    public static function showAdvancedSyncForm(AuthLDAP $authldap)
+    public function showAdvancedSyncForm(AuthLDAP $authldap): void
     {
-        $ID = $authldap->getField('id');
+        $id = $authldap->getField('id');
 
-        if (!$authldap->can($ID, READ)) {
+        if (!$authldap->can($id, READ)) {
             return;
         }
 
-        $available_assets = self::buildAssetDropdown();
-
-        $current_config = [
-            'show_inactive_generic_assets' => self::getConfigValue('show_inactive_generic_assets', 0),
-            'ldap_connection_filter' => self::getConfigValue('ldap_connection_filter', ''),
-            'ldap_base_dn' => self::getConfigValue('ldap_base_dn', ''),
-        ];
-
-        // Check if we need to run a test
-        $test_results = null;
-        if (isset($_GET['test_ldap']) && $_GET['test_ldap'] == '1') {
-            $test_base_dn = $_GET['test_base_dn'] ?? '';
-            $test_filter = $_GET['test_filter'] ?? '';
-            $test_asset_type = $_GET['test_asset_type'] ?? '';
-            $test_asset_field = $_GET['test_asset_field'] ?? '';
-            
-            if (!empty($test_base_dn) && !empty($test_filter)) {
-                $test_results = LdapTester::testLdapFilter(
-                    $ID,
-                    $test_base_dn,
-                    $test_filter,
-                    $test_asset_type,
-                    $test_asset_field
-                );
-                
-                // Repopulate form fields with test values
-                $current_config['ldap_base_dn'] = $test_base_dn;
-                $current_config['ldap_connection_filter'] = $test_filter;
-            }
-        }
+        $available_assets = $this->buildAssetDropdown();
+        $current_config = $this->getCurrentConfiguration();
+        $test_results = $this->handleTestRequest($id, $current_config);
 
         TemplateRenderer::getInstance()->display('@advancedldap/ldap_sync.html.twig', [
             'authldap' => $authldap,
             'available_assets' => $available_assets,
             'current_config' => $current_config,
-            'can_edit' => $authldap->can($ID, UPDATE),
+            'can_edit' => $authldap->can($id, UPDATE),
             'test_results' => $test_results,
         ]);
     }
 
     /**
-     * Build dropdown array with asset types separated by categories
-     *
-     * @return array
+     * @return array<string, string> Asset types grouped by category
      */
-    private static function buildAssetDropdown()
+    private function buildAssetDropdown(): array
     {
-        $asset_types = self::getAllAssetTypes();
         $available_assets = [];
 
-        $native_assets = array_filter($asset_types, fn($info) => $info['type'] === 'native');
-        $generic_assets = array_filter($asset_types, fn($info) => $info['type'] === 'generic');
+        // Separate assets by type
+        $assetFieldService = $this->assetFieldProvider;
+        $all_asset_types = $assetFieldService instanceof AssetFieldService ? $assetFieldService->getAllAssetTypes() : [];
+
+        $native_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'native');
+        $generic_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'generic');
 
         if (!empty($native_assets)) {
             $available_assets['native_separator'] = '--- ' . __('Native Assets') . ' ---';
@@ -163,114 +166,60 @@ class AdvancedLdapSync extends CommonGLPI
     }
 
     /**
-     * Get all available asset types in GLPI
-     *
-     * @return array
+     * @return array<string, mixed>
      */
-    private static function getAllAssetTypes()
+    private function getCurrentConfiguration(): array
     {
-        global $CFG_GLPI;
-        $asset_types = [];
-
-        // Collect native asset types from GLPI configuration
-        $native_itemtypes = array_unique(array_merge(
-            $CFG_GLPI['asset_types'] ?? [],
-            $CFG_GLPI['inventory_types'] ?? [],
-            $CFG_GLPI['state_types'] ?? [],
-        ));
-
-        // Get generic assets info to avoid duplicates
-        $show_inactive = self::getConfigValue('show_inactive_generic_assets', 0);
-        $generic_assets_info = self::getGenericAssets($show_inactive);
-        $generic_names = array_column($generic_assets_info, 'name');
-
-        // Process native assets
-        foreach ($native_itemtypes as $itemtype) {
-            // Check if class exists and has getTypeName method
-            if (class_exists($itemtype) && method_exists($itemtype, 'getTypeName')) {
-                try {
-                    $display_name = $itemtype::getTypeName(1);
-
-                    // Skip if this is actually a generic asset to avoid duplicates
-                    if (in_array($display_name, $generic_names)) {
-                        continue;
-                    }
-
-                    $asset_types[$itemtype] = [
-                        'name' => $display_name,
-                        'type' => 'native',
-                    ];
-                } catch (\Exception) {
-                    // Skip faulty classes
-                    continue;
-                }
-            }
-        }
-
-        // Add generic assets
-        foreach ($generic_assets_info as $itemtype => $info) {
-            $asset_types[$itemtype] = [
-                'name' => $info['name'],
-                'type' => 'generic',
-            ];
-        }
-
-        return $asset_types;
+        return [
+            'show_inactive_generic_assets' => $this->configuration->get('show_inactive_generic_assets', 0),
+            'ldap_connection_filter' => $this->configuration->get('ldap_connection_filter', ''),
+            'ldap_base_dn' => $this->configuration->get('ldap_base_dn', ''),
+        ];
     }
 
-
     /**
-     * Get generic asset types from AssetDefinition
-     *
-     * @param int $show_inactive Whether to include inactive assets
-     * @return array Array of generic asset types
+     * @param int $authldap_id
+     * @param array $current_config
+     * @return array<string, mixed>|null
      */
-    private static function getGenericAssets($show_inactive = 0)
+    private function handleTestRequest(int $authldap_id, array &$current_config): ?array
     {
-        // Check if AssetDefinition class exists (GLPI 10.0+)
-        if (!class_exists('Glpi\\Asset\\AssetDefinition')) {
-            return [];
+        if (!isset($_GET['test_ldap']) || $_GET['test_ldap'] !== '1') {
+            return null;
         }
 
-        try {
-            global $DB;
+        $test_base_dn = $_GET['test_base_dn'] ?? '';
+        $test_filter = $_GET['test_filter'] ?? '';
+        $test_asset_type = $_GET['test_asset_type'] ?? '';
+        $test_asset_field = $_GET['test_asset_field'] ?? '';
 
-            // Query asset definitions table with optional filter for active assets only
-            $iterator = $DB->request([
-                'FROM'  => 'glpi_assets_assetdefinitions',
-                'WHERE' => $show_inactive ? [] : ['is_active' => 1], // Filter by active status if requested
-                'ORDER' => 'system_name',
-            ]);
-
-            $generic_assets = [];
-            foreach ($iterator as $data) {
-                // Only process assets with a valid system name
-                if (!empty($data['system_name'])) {
-                    // Build asset entry with fallback for display name
-                    $generic_assets['GenericAsset_' . $data['id']] = [
-                        'name'                  => $data['label'] ?? $data['name'] ?? $data['system_name'], // Priority: label > name > system_name
-                        'asset_definition_id'   => $data['id'],
-                        'system_name'           => $data['system_name'],
-                    ];
-                }
-            }
-
-            return $generic_assets;
-        } catch (\Exception) {
-            // Return empty array on any database or processing error
-            return [];
+        if (empty($test_base_dn) || empty($test_filter)) {
+            return null;
         }
+
+        $test_results = $this->ldapTestService->testLdapFilter(
+            $authldap_id,
+            $test_base_dn,
+            $test_filter,
+            $test_asset_type,
+            $test_asset_field,
+        );
+
+        $current_config['ldap_base_dn'] = $test_base_dn;
+        $current_config['ldap_connection_filter'] = $test_filter;
+
+        return $test_results;
     }
 
     /**
      * Update plugin configuration
      *
-     * @param array $config Configuration values to update
-     * @return bool
+     * @param array<string, mixed> $config Configuration values to update
+     * @return bool Success status
      */
-    public static function updateConfig($config)
+    public function updateConfig(array $config): bool
     {
-        return Config::setConfigurationValues('plugin:Advancedldap', $config);
+        return $this->configuration->set($config);
     }
 
     /**
@@ -278,10 +227,10 @@ class AdvancedLdapSync extends CommonGLPI
      *
      * @param string $key Configuration key
      * @param mixed $default Default value if key doesn't exist
-     * @return mixed
+     * @return mixed Configuration value
      */
-    public static function getConfigValue($key, $default = null)
+    public function getConfigValue(string $key, $default = null)
     {
-        return Config::getConfigurationValue('plugin:Advancedldap', $key, $default);
+        return $this->configuration->get($key, $default);
     }
 }

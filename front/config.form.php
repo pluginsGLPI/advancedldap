@@ -59,14 +59,14 @@ if (isset($_POST['update_config'])) {
     } else {
         Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.php");
     }
-} else if (isset($_POST['test_ldap_filter'])) {
+} elseif (isset($_POST['test_ldap_filter'])) {
     // Handle LDAP filter test
     $authldap_id = $_POST['authldap_id'] ?? null;
     $ldap_base_dn = trim($_POST['ldap_base_dn'] ?? '');
     $ldap_connection_filter = trim($_POST['ldap_connection_filter'] ?? '');
     $asset_type = $_POST['asset_type'] ?? '';
     $asset_field = $_POST['asset_field'] ?? '';
-    
+
     // Redirect back to the AuthLDAP form with test parameters
     $redirect_url = $CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id);
     $redirect_url .= "&test_ldap=1";
@@ -74,7 +74,7 @@ if (isset($_POST['update_config'])) {
     $redirect_url .= "&test_filter=" . urlencode($ldap_connection_filter);
     $redirect_url .= "&test_asset_type=" . urlencode($asset_type);
     $redirect_url .= "&test_asset_field=" . urlencode($asset_field);
-    
+
     Html::redirect($redirect_url);
 }
 
