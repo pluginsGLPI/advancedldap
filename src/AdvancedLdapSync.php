@@ -72,12 +72,8 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        if ($item instanceof AuthLDAP) {
-            switch ($tabnum) {
-                case 1:
-                    self::showAdvancedSyncForm($item);
-                    break;
-            }
+        if ($item instanceof AuthLDAP && $tabnum == 1) {
+            self::showAdvancedSyncForm($item);
         }
         return true;
     }
@@ -152,23 +148,26 @@ class AdvancedLdapSync extends CommonGLPI
         global $CFG_GLPI;
         $asset_types = [];
 
+        // Collect native asset types from GLPI configuration
         $native_itemtypes = array_unique(array_merge(
             $CFG_GLPI['asset_types'] ?? [],
             $CFG_GLPI['inventory_types'] ?? [],
             $CFG_GLPI['state_types'] ?? []
         ));
         
-        // Get generic assets info first to identify them
+        // Get generic assets info to avoid duplicates
         $show_inactive = self::getConfigValue('show_inactive_generic_assets', 0);
         $generic_assets_info = self::getGenericAssets($show_inactive);
         $generic_names = array_column($generic_assets_info, 'name');
         
+        // Process native assets
         foreach ($native_itemtypes as $itemtype) {
+            // Check if class exists and has getTypeName method
             if (class_exists($itemtype) && method_exists($itemtype, 'getTypeName')) {
                 try {
                     $display_name = $itemtype::getTypeName(1);
                     
-                    // Skip if this is actually a generic asset
+                    // Skip if this is actually a generic asset to avoid duplicates
                     if (in_array($display_name, $generic_names)) {
                         continue;
                     }
@@ -178,11 +177,13 @@ class AdvancedLdapSync extends CommonGLPI
                         'type' => 'native'
                     ];
                 } catch (\Exception) {
+                    // Skip faulty classes
                     continue;
                 }
             }
         }
 
+        // Add generic assets
         foreach ($generic_assets_info as $itemtype => $info) {
             $asset_types[$itemtype] = [
                 'name' => $info['name'],
@@ -202,6 +203,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     private static function getGenericAssets($show_inactive = 0)
     {
+        // Check if AssetDefinition class exists (GLPI 10.0+)
         if (!class_exists('Glpi\\Asset\\AssetDefinition')) {
             return [];
         }
@@ -209,17 +211,20 @@ class AdvancedLdapSync extends CommonGLPI
         try {
             global $DB;
             
+            // Query asset definitions table with optional filter for active assets only
             $iterator = $DB->request([
                 'FROM'  => 'glpi_assets_assetdefinitions',
-                'WHERE' => $show_inactive ? [] : ['is_active' => 1],
+                'WHERE' => $show_inactive ? [] : ['is_active' => 1], // Filter by active status if requested
                 'ORDER' => 'system_name'
             ]);
 
             $generic_assets = [];
             foreach ($iterator as $data) {
+                // Only process assets with a valid system name
                 if (!empty($data['system_name'])) {
+                    // Build asset entry with fallback for display name
                     $generic_assets['GenericAsset_' . $data['id']] = [
-                        'name'                  => $data['label'] ?? $data['name'] ?? $data['system_name'],
+                        'name'                  => $data['label'] ?? $data['name'] ?? $data['system_name'], // Priority: label > name > system_name
                         'asset_definition_id'   => $data['id'],
                         'system_name'           => $data['system_name']
                     ];
@@ -228,6 +233,7 @@ class AdvancedLdapSync extends CommonGLPI
             
             return $generic_assets;
         } catch (\Exception) {
+            // Return empty array on any database or processing error
             return [];
         }
     }

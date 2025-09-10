@@ -60,31 +60,45 @@ class AssetFieldManager
     {
         // Handle generic assets (format: GenericAsset_ID)
         if (str_starts_with($itemtype, 'GenericAsset_')) {
+            // Extract the asset definition ID from the itemtype string
             $asset_definition_id = (int)str_replace('GenericAsset_', '', $itemtype);
             return self::getGenericAssetFields($asset_definition_id);
         }
         
-        // Handle standard GLPI itemtypes
+        // Validate standard GLPI itemtype classes
+        // Check if the class exists in the system
         if (!class_exists($itemtype)) {
             return [];
         }
         
+        // Ensure the class inherits from CommonDBTM (GLPI base class for database objects)
         if (!is_subclass_of($itemtype, 'CommonDBTM')) {
             return [];
         }
         
+        // Extract fields from GLPI search options
         try {
+            // Instantiate the itemtype class
             $item = new $itemtype();
+            // Get all search options which contain field definitions
             $search_options = $item->searchOptions();
             
+            // Format search options into a usable field array
             return self::formatSearchOptionsAsFields($search_options);
         } catch (Exception) {
+            // Return empty array if instantiation or method call fails
             return [];
         }
     }
     
     /**
      * Format search options into field dropdown format
+     * 
+     * Note: searchOptions() returns ALL available fields for an itemtype, including:
+     * - Fields from main table and related tables (manufacturer, model, location, etc.)
+     * - Fields only visible in specific tabs or with certain user rights
+     * - Calculated/virtual fields used for search and reporting
+     * This explains why more fields appear in dropdown than in the standard UI interface.
      * 
      * @param array $search_options Search options from searchOptions() method
      * @return array Formatted fields array
