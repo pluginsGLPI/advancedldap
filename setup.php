@@ -48,14 +48,15 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
  * Init hooks of the plugin.
  * REQUIRED
  */
-function plugin_init_advancedldap(): void {
+function plugin_init_advancedldap(): void
+{
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS['csrf_compliant']['advancedldap'] = true;
-    
+
     // Register tab for AuthLDAP
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [
-        'addtabon' => AuthLDAP::class
+        'addtabon' => AuthLDAP::class,
     ]);
 }
 

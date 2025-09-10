@@ -46,4 +46,3 @@ function plugin_advancedldap_uninstall(): bool
 {
     return true;
 }
-

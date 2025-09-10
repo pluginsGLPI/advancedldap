@@ -2,16 +2,16 @@
 
 /**
  * ---------------------------------------------------------------------
- * 
+ *
  * Advanced LDAP Plugin for GLPI
- * 
+ *
  * @copyright 2024
  * @license   https://www.gnu.org/licenses/gpl-3.0.html
- * 
+ *
  * ---------------------------------------------------------------------
  */
 
-include ('../../../inc/includes.php');
+include('../../../inc/includes.php');
 
 use GlpiPlugin\Advancedldap\AssetFieldManager;
 

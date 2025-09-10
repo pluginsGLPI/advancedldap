@@ -43,7 +43,7 @@ use Glpi\Application\View\TemplateRenderer;
  */
 class AdvancedLdapSync extends CommonGLPI
 {
-    static $rightname = 'config';
+    public static $rightname = 'config';
 
     /**
      * Get tab name for AuthLDAP item
@@ -87,7 +87,7 @@ class AdvancedLdapSync extends CommonGLPI
     public static function showAdvancedSyncForm(AuthLDAP $authldap)
     {
         $ID = $authldap->getField('id');
-        
+
         if (!$authldap->can($ID, READ)) {
             return;
         }
@@ -97,14 +97,38 @@ class AdvancedLdapSync extends CommonGLPI
         $current_config = [
             'show_inactive_generic_assets' => self::getConfigValue('show_inactive_generic_assets', 0),
             'ldap_connection_filter' => self::getConfigValue('ldap_connection_filter', ''),
-            'ldap_base_dn' => self::getConfigValue('ldap_base_dn', '')
+            'ldap_base_dn' => self::getConfigValue('ldap_base_dn', ''),
         ];
+
+        // Check if we need to run a test
+        $test_results = null;
+        if (isset($_GET['test_ldap']) && $_GET['test_ldap'] == '1') {
+            $test_base_dn = $_GET['test_base_dn'] ?? '';
+            $test_filter = $_GET['test_filter'] ?? '';
+            $test_asset_type = $_GET['test_asset_type'] ?? '';
+            $test_asset_field = $_GET['test_asset_field'] ?? '';
+            
+            if (!empty($test_base_dn) && !empty($test_filter)) {
+                $test_results = LdapTester::testLdapFilter(
+                    $ID,
+                    $test_base_dn,
+                    $test_filter,
+                    $test_asset_type,
+                    $test_asset_field
+                );
+                
+                // Repopulate form fields with test values
+                $current_config['ldap_base_dn'] = $test_base_dn;
+                $current_config['ldap_connection_filter'] = $test_filter;
+            }
+        }
 
         TemplateRenderer::getInstance()->display('@advancedldap/ldap_sync.html.twig', [
             'authldap' => $authldap,
             'available_assets' => $available_assets,
             'current_config' => $current_config,
-            'can_edit' => $authldap->can($ID, UPDATE)
+            'can_edit' => $authldap->can($ID, UPDATE),
+            'test_results' => $test_results,
         ]);
     }
 
@@ -117,24 +141,24 @@ class AdvancedLdapSync extends CommonGLPI
     {
         $asset_types = self::getAllAssetTypes();
         $available_assets = [];
-        
+
         $native_assets = array_filter($asset_types, fn($info) => $info['type'] === 'native');
         $generic_assets = array_filter($asset_types, fn($info) => $info['type'] === 'generic');
-        
+
         if (!empty($native_assets)) {
             $available_assets['native_separator'] = '--- ' . __('Native Assets') . ' ---';
             foreach ($native_assets as $itemtype => $info) {
                 $available_assets[$itemtype] = $info['name'];
             }
         }
-        
+
         if (!empty($generic_assets)) {
             $available_assets['generic_separator'] = '--- ' . __('Generic Assets') . ' ---';
             foreach ($generic_assets as $itemtype => $info) {
                 $available_assets[$itemtype] = $info['name'];
             }
         }
-        
+
         return $available_assets;
     }
 
@@ -152,29 +176,29 @@ class AdvancedLdapSync extends CommonGLPI
         $native_itemtypes = array_unique(array_merge(
             $CFG_GLPI['asset_types'] ?? [],
             $CFG_GLPI['inventory_types'] ?? [],
-            $CFG_GLPI['state_types'] ?? []
+            $CFG_GLPI['state_types'] ?? [],
         ));
-        
+
         // Get generic assets info to avoid duplicates
         $show_inactive = self::getConfigValue('show_inactive_generic_assets', 0);
         $generic_assets_info = self::getGenericAssets($show_inactive);
         $generic_names = array_column($generic_assets_info, 'name');
-        
+
         // Process native assets
         foreach ($native_itemtypes as $itemtype) {
             // Check if class exists and has getTypeName method
             if (class_exists($itemtype) && method_exists($itemtype, 'getTypeName')) {
                 try {
                     $display_name = $itemtype::getTypeName(1);
-                    
+
                     // Skip if this is actually a generic asset to avoid duplicates
                     if (in_array($display_name, $generic_names)) {
                         continue;
                     }
-                    
+
                     $asset_types[$itemtype] = [
                         'name' => $display_name,
-                        'type' => 'native'
+                        'type' => 'native',
                     ];
                 } catch (\Exception) {
                     // Skip faulty classes
@@ -187,7 +211,7 @@ class AdvancedLdapSync extends CommonGLPI
         foreach ($generic_assets_info as $itemtype => $info) {
             $asset_types[$itemtype] = [
                 'name' => $info['name'],
-                'type' => 'generic'
+                'type' => 'generic',
             ];
         }
 
@@ -210,12 +234,12 @@ class AdvancedLdapSync extends CommonGLPI
 
         try {
             global $DB;
-            
+
             // Query asset definitions table with optional filter for active assets only
             $iterator = $DB->request([
                 'FROM'  => 'glpi_assets_assetdefinitions',
                 'WHERE' => $show_inactive ? [] : ['is_active' => 1], // Filter by active status if requested
-                'ORDER' => 'system_name'
+                'ORDER' => 'system_name',
             ]);
 
             $generic_assets = [];
@@ -226,11 +250,11 @@ class AdvancedLdapSync extends CommonGLPI
                     $generic_assets['GenericAsset_' . $data['id']] = [
                         'name'                  => $data['label'] ?? $data['name'] ?? $data['system_name'], // Priority: label > name > system_name
                         'asset_definition_id'   => $data['id'],
-                        'system_name'           => $data['system_name']
+                        'system_name'           => $data['system_name'],
                     ];
                 }
             }
-            
+
             return $generic_assets;
         } catch (\Exception) {
             // Return empty array on any database or processing error
