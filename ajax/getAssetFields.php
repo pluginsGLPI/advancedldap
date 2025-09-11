@@ -19,7 +19,7 @@ use GlpiPlugin\Advancedldap\Bootstrap;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 
 // Check user rights - use entity right like other GLPI plugins
-Session::checkRight('entity', UPDATE);
+Session::checkRight('entity', \UPDATE);
 
 // Validate required parameters
 if (!isset($_POST['itemtype']) || empty($_POST['itemtype'])) {

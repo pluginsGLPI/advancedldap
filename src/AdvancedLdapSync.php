@@ -77,7 +77,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        if ($item instanceof AuthLDAP && $item->can($item->getID(), READ)) {
+        if ($item instanceof \AuthLDAP && $item->can($item->getID(), \READ)) {
             return [
                 1 => self::createTabEntry(
                     __('Items to synchronize', 'advancedldap'),
@@ -100,7 +100,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0): bool
     {
-        if ($item instanceof AuthLDAP && $tabnum === 1) {
+        if ($item instanceof \AuthLDAP && $tabnum === 1) {
             $instance = new self();
             $instance->showAdvancedSyncForm($item);
         }
@@ -110,14 +110,14 @@ class AdvancedLdapSync extends CommonGLPI
     /**
      * Show advanced sync configuration form
      *
-     * @param AuthLDAP $authldap AuthLDAP instance
+     * @param \AuthLDAP $authldap AuthLDAP instance
      * @return void
      */
-    public function showAdvancedSyncForm(AuthLDAP $authldap): void
+    public function showAdvancedSyncForm(\AuthLDAP $authldap): void
     {
         $id = $authldap->getField('id');
 
-        if (!$authldap->can($id, READ)) {
+        if (!$authldap->can($id, \READ)) {
             return;
         }
 
@@ -129,7 +129,7 @@ class AdvancedLdapSync extends CommonGLPI
             'authldap' => $authldap,
             'available_assets' => $available_assets,
             'current_config' => $current_config,
-            'can_edit' => $authldap->can($id, UPDATE),
+            'can_edit' => $authldap->can($id, \UPDATE),
             'test_results' => $test_results,
         ]);
     }
