@@ -39,7 +39,6 @@ use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
 use GlpiPlugin\Advancedldap\Container\ServiceContainer;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
-use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
 
@@ -52,7 +51,6 @@ class AdvancedLdapSync extends CommonGLPI
 
     private ServiceContainer $container;
     private AssetFieldProviderInterface $assetFieldProvider;
-    private ConfigurationInterface $configuration;
     private LdapTestService $ldapTestService;
 
     /**
@@ -64,7 +62,6 @@ class AdvancedLdapSync extends CommonGLPI
 
         $this->container = $container ?? ServiceContainer::getInstance();
         $this->assetFieldProvider = $this->container->get(AssetFieldProviderInterface::class);
-        $this->configuration = $this->container->get(ConfigurationInterface::class);
         $this->ldapTestService = $this->container->get(LdapTestService::class);
     }
 
@@ -78,14 +75,12 @@ class AdvancedLdapSync extends CommonGLPI
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof \AuthLDAP && $item->can($item->getID(), \READ)) {
-            return [
-                1 => self::createTabEntry(
-                    __('Items to synchronize', 'advancedldap'),
-                    0,
-                    $item::class,
-                    "ti ti-adjustments-alt",
-                ),
-            ];
+            return self::createTabEntry(
+                __('Items to synchronize', 'advancedldap'),
+                0,
+                $item::class,
+                "ti ti-adjustments-alt",
+            );
         }
         return '';
     }
@@ -100,7 +95,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0): bool
     {
-        if ($item instanceof \AuthLDAP && $tabnum === 1) {
+        if ($item instanceof \AuthLDAP) {
             $instance = new self();
             $instance->showAdvancedSyncForm($item);
         }
@@ -122,7 +117,7 @@ class AdvancedLdapSync extends CommonGLPI
         }
 
         $available_assets = $this->buildAssetDropdown();
-        $current_config = $this->getCurrentConfiguration();
+        $current_config = $this->getCurrentConfiguration($id);
         $test_results = $this->handleTestRequest($id, $current_config);
 
         TemplateRenderer::getInstance()->display('@advancedldap/ldap_sync.html.twig', [
@@ -166,15 +161,72 @@ class AdvancedLdapSync extends CommonGLPI
     }
 
     /**
+     * Get current configuration including sync filter data for this AuthLDAP
+     *
+     * @param int $authldap_id AuthLDAP ID
      * @return array<string, mixed>
      */
-    private function getCurrentConfiguration(): array
+    private function getCurrentConfiguration(int $authldap_id): array
     {
-        return [
-            'show_inactive_generic_assets' => $this->configuration->get('show_inactive_generic_assets', 0),
-            'ldap_connection_filter' => $this->configuration->get('ldap_connection_filter', ''),
-            'ldap_base_dn' => $this->configuration->get('ldap_base_dn', ''),
+        $config = [
+            'syncfilter_id' => '',
+            'filter_name' => '',
+            'ldap_connection_filter' => '',
+            'ldap_base_dn' => '',
+            'asset_type' => '',
+            'asset_field' => '',
+            'is_active' => 1,
         ];
+
+        // Try to get existing sync filter for this AuthLDAP
+        try {
+            $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+            $filters = $syncFilterService->getSyncFiltersForAuthLdap($authldap_id);
+            
+            if (!empty($filters)) {
+                // Use the first active filter found
+                $filter = reset($filters);
+                $field_mappings = $filter['field_mappings'] ?? [];
+                $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
+                
+                $config = array_merge($config, [
+                    'syncfilter_id' => $filter['id'] ?? '',
+                    'filter_name' => $filter['name'] ?? '',
+                    'ldap_connection_filter' => $filter['ldap_filter'] ?? '',
+                    'ldap_base_dn' => $filter['base_dn'] ?? '',
+                    'asset_type' => $filter['asset_type'] ?? '',
+                    'asset_field' => $asset_field,
+                    'is_active' => $filter['is_active'] ?? 1,
+                ]);
+            }
+        } catch (\Exception) {
+            // If no filter exists or error occurs, keep defaults
+        }
+
+        return $config;
+    }
+
+    /**
+     * Get sync filters for this AuthLDAP instance
+     *
+     * @param int $authldap_id AuthLDAP ID
+     * @return array
+     */
+    public function getSyncFiltersForAuthLdap(int $authldap_id): array
+    {
+        $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+        return $syncFilterService->getSyncFiltersForAuthLdap($authldap_id);
+    }
+
+    /**
+     * Get all available sync filters
+     *
+     * @return array
+     */
+    public function getAvailableSyncFilters(): array
+    {
+        $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+        return $syncFilterService->getAvailableSyncFilters();
     }
 
     /**
@@ -211,26 +263,5 @@ class AdvancedLdapSync extends CommonGLPI
         return $test_results;
     }
 
-    /**
-     * Update plugin configuration
-     *
-     * @param array<string, mixed> $config Configuration values to update
-     * @return bool Success status
-     */
-    public function updateConfig(array $config): bool
-    {
-        return $this->configuration->set($config);
-    }
 
-    /**
-     * Get plugin configuration value
-     *
-     * @param string $key Configuration key
-     * @param mixed $default Default value if key doesn't exist
-     * @return mixed Configuration value
-     */
-    public function getConfigValue(string $key, $default = null)
-    {
-        return $this->configuration->get($key, $default);
-    }
 }

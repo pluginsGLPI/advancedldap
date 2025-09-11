@@ -38,12 +38,18 @@ use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
+use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterInterfaceService;
+use GlpiPlugin\Advancedldap\Repositories\SyncFilterRepository;
+use GlpiPlugin\Advancedldap\Repositories\AuthLdapSyncFilterRepository;
 
 /**
  * Simple dependency injection container
@@ -159,6 +165,36 @@ class ServiceContainer
                 $container->get(LdapConnectionInterface::class),
                 $container->get(DatabaseInterface::class),
                 $container->get(AssetFieldProviderInterface::class),
+            );
+        });
+
+        // Repositories
+        $this->register(AuthLdapSyncFilterRepositoryInterface::class, function (ServiceContainer $container) {
+            return new AuthLdapSyncFilterRepository(
+                $container->get(DatabaseInterface::class),
+            );
+        });
+
+        $this->register(SyncFilterRepositoryInterface::class, function (ServiceContainer $container) {
+            return new SyncFilterRepository(
+                $container->get(DatabaseInterface::class),
+                $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+            );
+        });
+
+        // SyncFilter service
+        $this->register(SyncFilterService::class, function (ServiceContainer $container) {
+            return new SyncFilterService(
+                $container->get(SyncFilterRepositoryInterface::class),
+                $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+            );
+        });
+
+        // SyncFilter interface service
+        $this->register(SyncFilterInterfaceService::class, function (ServiceContainer $container) {
+            return new SyncFilterInterfaceService(
+                $container->get(SyncFilterService::class),
+                $container->get(AssetFieldProviderInterface::class)
             );
         });
     }

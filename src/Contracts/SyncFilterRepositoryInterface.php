@@ -25,82 +25,64 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
  */
 
-namespace GlpiPlugin\Advancedldap\Services;
-
-use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
+namespace GlpiPlugin\Advancedldap\Contracts;
 
 /**
- * GLPI database wrapper
+ * Interface for SyncFilter repository operations
  */
-class GlpiDatabaseService implements DatabaseInterface
+interface SyncFilterRepositoryInterface
 {
     /**
-     * Execute a database request
+     * Get all active sync filters
      *
-     * @param array $criteria Database query criteria
-     * @return \DBmysqlIterator Query result iterator
+     * @return array
      */
-    public function request(array $criteria)
-    {
-        global $DB;
-        return $DB->request($criteria);
-    }
+    public function getActiveSyncFilters(): array;
 
     /**
-     * Get table name for a specific itemtype
+     * Get sync filters for a specific AuthLDAP
      *
-     * @param string $itemtype The itemtype
-     * @return string|null Table name or null if not found
+     * @param int $authldap_id AuthLDAP ID
+     * @return array
      */
-    public function getTableForItemType(string $itemtype): ?string
-    {
-        return getTableForItemType($itemtype) ?: null;
-    }
+    public function getSyncFiltersForAuthLdap(int $authldap_id): array;
 
     /**
-     * Insert data into a table
+     * Find sync filter by ID
      *
-     * @param string $table Table name
-     * @param array $data Data to insert
-     * @return int|false Inserted ID or false on failure
+     * @param int $id Filter ID
+     * @return array|null
      */
-    public function insert(string $table, array $data)
-    {
-        global $DB;
-        return $DB->insert($table, $data);
-    }
+    public function findById(int $id): ?array;
 
     /**
-     * Update data in a table
+     * Create a new sync filter
      *
-     * @param string $table Table name
-     * @param array $data Data to update
-     * @param array $where Where conditions
+     * @param array $data Filter data
+     * @return int|false Created filter ID or false on failure
+     */
+    public function create(array $data);
+
+    /**
+     * Update a sync filter
+     *
+     * @param int $id Filter ID
+     * @param array $data Filter data
      * @return bool Success status
      */
-    public function update(string $table, array $data, array $where): bool
-    {
-        global $DB;
-        return $DB->update($table, $data, $where);
-    }
+    public function update(int $id, array $data): bool;
 
     /**
-     * Delete data from a table
+     * Delete a sync filter
      *
-     * @param string $table Table name
-     * @param array $where Where conditions
+     * @param int $id Filter ID
      * @return bool Success status
      */
-    public function delete(string $table, array $where): bool
-    {
-        global $DB;
-        return $DB->delete($table, $where);
-    }
+    public function delete(int $id): bool;
 }

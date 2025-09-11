@@ -6,7 +6,29 @@
         <h3>{{ __('Asset Type Selection') }}</h3>
     </div>
     <div class="card-body">
-        <!-- Première rangée : Base DN et LDAP Connection Filter -->
+        <!-- First row: Filter Name and Active Filter -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-tag me-1"></i>{{ __('Filter Name', 'advancedldap') }}</label>
+                    <input type="text" name="filter_name" class="form-control" 
+                           value="{{ current_config.filter_name|default('') }}"
+                           placeholder="{{ __('Enter a name for this sync filter', 'advancedldap') }}">
+                    <div class="form-text">{{ __('Give a descriptive name to this synchronization filter', 'advancedldap') }}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-field mb-3">
+                    <label class="form-label"><i class="ti ti-toggle-left me-1"></i>{{ __('Active Filter', 'advancedldap') }}</label>
+                    {{ fields.sliderField('is_active', current_config.is_active|default(1), '', {
+                        'no_label': true,
+                        'helper': __('Enable or disable this synchronization filter', 'advancedldap')
+                    }) }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Second row: Base DN and LDAP Connection Filter -->
         <div class="row">
             <div class="col-md-6">
                 <div class="form-field mb-3">
@@ -22,13 +44,13 @@
                     <label class="form-label"><i class="ti ti-filter me-1"></i>{{ __('LDAP Connection Filter', 'advancedldap') }}</label>
                     <input type="text" name="ldap_connection_filter" class="form-control" 
                            value="{{ current_config.ldap_connection_filter|default('') }}" 
-                           placeholder="objectClass=user">
-                    <div class="form-text">{{ __('LDAP filter for synchronization (e.g., objectClass=user, objectClass=group)', 'advancedldap') }}</div>
+                           placeholder="(&(objectClass=device)(serialNumber=*))">
+                    <div class="form-text">{{ __('LDAP filter for synchronization (e.g., (&(objectClass=device)(serialNumber=*)))', 'advancedldap') }}</div>
                 </div>
             </div>
         </div>
         
-        <!-- Seconde rangée : Asset Type et Asset Field -->
+        <!-- Third row: Asset Type and Asset Field -->
         <div class="row mt-3">
             <div class="col-md-6">
                 <div class="form-field mb-3">
@@ -40,7 +62,7 @@
                             {% if key in ['native_separator', 'generic_separator'] %}
                                 <option disabled>{{ value }}</option>
                             {% else %}
-                                <option value="{{ key }}">{{ value }}</option>
+                                <option value="{{ key }}" {% if key == current_config.asset_type %}selected{% endif %}>{{ value }}</option>
                             {% endif %}
                         {% endfor %}
                     </select>
@@ -60,23 +82,18 @@
             </div>
         </div>
         
-        <hr>
-        
-        {{ fields.sliderField('show_inactive_generic_assets', current_config.show_inactive_generic_assets|default(0), __('Show inactive generic assets', 'advancedldap'), {
-            'helper': __('Include generic assets with is_active = 0 in the selection', 'advancedldap')
-        }) }}
-        
         {% if can_edit %}
             <div class="text-center mt-3">
                 <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="authldap_id" value="{{ authldap.getID() }}">
+                <input type="hidden" name="syncfilter_id" value="{{ current_config.syncfilter_id|default('') }}">
                 <button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
                     <i class="fas fa-flask"></i>
                     {{ __('Test LDAP Filter', 'advancedldap') }}
                 </button>
-                <button type="submit" name="update_config" class="btn btn-primary">
+                <button type="submit" name="save_filter" class="btn btn-primary">
                     <i class="fas fa-save"></i>
-                    {{ __('Update', 'advancedldap') }}
+                    {{ __('Save Sync Options', 'advancedldap') }}
                 </button>
             </div>
         {% endif %}
@@ -160,11 +177,10 @@
 
 <script type="text/javascript">
 $(document).ready(function() {
-    $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
-        var itemtype = $(this).val();
+    var selectedAssetField = '{{ current_config.asset_field|default('') }}';
+    
+    function loadAssetFields(itemtype, selectedField) {
         var container = $('#asset_field_dropdown_{{ asset_field_rand }}');
-        
-        console.log('Asset type changed to:', itemtype);
         
         if (!itemtype || itemtype === '0' || itemtype === '') {
             container.html('<select name="asset_field" class="form-select" disabled><option value="">Select an asset type first</option></select>');
@@ -176,7 +192,8 @@ $(document).ready(function() {
         $.post('{{ config('root_doc') }}/plugins/advancedldap/ajax/getAssetFields.php', {
             itemtype: itemtype,
             name: 'asset_field',
-            rand: {{ asset_field_rand }}
+            rand: {{ asset_field_rand }},
+            selected: selectedField
         })
         .done(function(data) {
             console.log('AJAX success, data length:', data.length);
@@ -186,6 +203,19 @@ $(document).ready(function() {
             console.log('AJAX failed:', status, error);
             container.html('<select name="asset_field" class="form-select" disabled><option>Error loading fields</option></select>');
         });
+    }
+    
+    // Load fields on page load if asset type is already selected
+    var initialAssetType = $('#dropdown_asset_type{{ asset_type_rand }}').val();
+    if (initialAssetType && initialAssetType !== '') {
+        loadAssetFields(initialAssetType, selectedAssetField);
+    }
+    
+    // Handle asset type change
+    $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
+        var itemtype = $(this).val();
+        console.log('Asset type changed to:', itemtype);
+        loadAssetFields(itemtype, '');
     });
 });
 </script>

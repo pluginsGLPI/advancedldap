@@ -32,6 +32,8 @@
  */
 
 use GlpiPlugin\Advancedldap\AdvancedLdapSync;
+use GlpiPlugin\Advancedldap\SyncFilter;
+use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 
 /** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
@@ -58,6 +60,10 @@ function plugin_init_advancedldap(): void
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [
         'addtabon' => AuthLDAP::class,
     ]);
+
+    // Register classes
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\SyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\AuthLdapSyncFilter');
 }
 
 /**

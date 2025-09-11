@@ -54,4 +54,32 @@ interface DatabaseInterface
      * @return string|null Table name or null if not found
      */
     public function getTableForItemType(string $itemtype): ?string;
+
+    /**
+     * Insert data into a table
+     *
+     * @param string $table Table name
+     * @param array $data Data to insert
+     * @return int|false Inserted ID or false on failure
+     */
+    public function insert(string $table, array $data);
+
+    /**
+     * Update data in a table
+     *
+     * @param string $table Table name
+     * @param array $data Data to update
+     * @param array $where Where conditions
+     * @return bool Success status
+     */
+    public function update(string $table, array $data, array $where): bool;
+
+    /**
+     * Delete data from a table
+     *
+     * @param string $table Table name
+     * @param array $where Where conditions
+     * @return bool Success status
+     */
+    public function delete(string $table, array $where): bool;
 }
