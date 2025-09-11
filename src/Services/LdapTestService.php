@@ -109,7 +109,7 @@ class LdapTestService
                 $results['config']['asset_field'] = $fields[$asset_field] ?? $asset_field;
             }
 
-                $validation_error = $this->validateParameters($base_dn, $filter, $asset_type);
+            $validation_error = $this->validateParameters($base_dn, $filter, $asset_type);
             if ($validation_error) {
                 $results['error'] = $validation_error;
                 return $results;

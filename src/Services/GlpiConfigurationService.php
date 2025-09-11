@@ -64,7 +64,13 @@ class GlpiConfigurationService implements ConfigurationInterface
      */
     public function set(array $values): bool
     {
-        return Config::setConfigurationValues(self::PLUGIN_NAMESPACE, $values);
+        try {
+            Config::setConfigurationValues(self::PLUGIN_NAMESPACE, $values);
+            return true;
+        } catch (\Exception $e) {
+            error_log("Advanced LDAP configuration error: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
