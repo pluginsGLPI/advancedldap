@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -47,7 +46,6 @@ use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterService;
-use GlpiPlugin\Advancedldap\Services\SyncFilterInterfaceService;
 use GlpiPlugin\Advancedldap\Repositories\SyncFilterRepository;
 use GlpiPlugin\Advancedldap\Repositories\AuthLdapSyncFilterRepository;
 
@@ -190,13 +188,6 @@ class ServiceContainer
             );
         });
 
-        // SyncFilter interface service
-        $this->register(SyncFilterInterfaceService::class, function (ServiceContainer $container) {
-            return new SyncFilterInterfaceService(
-                $container->get(SyncFilterService::class),
-                $container->get(AssetFieldProviderInterface::class)
-            );
-        });
     }
 
     /**

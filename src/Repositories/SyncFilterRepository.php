@@ -45,18 +45,18 @@ use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 class SyncFilterRepository implements SyncFilterRepositoryInterface
 {
     private DatabaseInterface $database;
-    private AuthLdapSyncFilterRepositoryInterface $relationRepository;
+    private AuthLdapSyncFilterRepositoryInterface $relation_repository;
 
     /**
      * @param DatabaseInterface $database
-     * @param AuthLdapSyncFilterRepositoryInterface $relationRepository
+     * @param AuthLdapSyncFilterRepositoryInterface $relation_repository
      */
     public function __construct(
         DatabaseInterface $database,
-        AuthLdapSyncFilterRepositoryInterface $relationRepository,
+        AuthLdapSyncFilterRepositoryInterface $relation_repository,
     ) {
         $this->database = $database;
-        $this->relationRepository = $relationRepository;
+        $this->relation_repository = $relation_repository;
     }
 
     /**
@@ -83,28 +83,28 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        $syncTable = SyncFilter::$table;
-        $relationTable = AuthLdapSyncFilter::$table;
+        $sync_table = SyncFilter::$table;
+        $relation_table = AuthLdapSyncFilter::$table;
 
         $results = $this->database->request([
             'SELECT' => [
-                $syncTable . '.*',
+                $sync_table . '.*',
             ],
-            'FROM'   => $syncTable,
+            'FROM'   => $sync_table,
             'INNER JOIN' => [
-                $relationTable => [
+                $relation_table => [
                     'ON' => [
-                        $relationTable => 'syncfilter_id',
-                        $syncTable => 'id',
+                        $relation_table => 'syncfilter_id',
+                        $sync_table => 'id',
                     ],
                 ],
             ],
             'WHERE'  => [
-                $relationTable . '.authldap_id' => $authldap_id,
-                $relationTable . '.is_active' => 1,
-                $syncTable . '.is_active' => 1,
+                $relation_table . '.authldap_id' => $authldap_id,
+                $relation_table . '.is_active' => 1,
+                $sync_table . '.is_active' => 1,
             ],
-            'ORDER'  => $syncTable . '.name',
+            'ORDER'  => $sync_table . '.name',
         ]);
 
         return is_array($results) ? $results : [];

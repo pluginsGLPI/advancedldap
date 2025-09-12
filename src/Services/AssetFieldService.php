@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -40,6 +39,7 @@ use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
+use Toolbox;
 
 /**
  * Asset field management service
@@ -127,7 +127,8 @@ class AssetFieldService implements AssetFieldProviderInterface
                     'name' => $display_name,
                     'type' => 'native',
                 ];
-            } catch (Exception) {
+            } catch (Exception $e) {
+                Toolbox::logDebug("Advanced LDAP - Error getting fields for itemtype $itemtype: " . $e->getMessage());
                 continue;
             }
         }
@@ -189,7 +190,8 @@ class AssetFieldService implements AssetFieldProviderInterface
             }
 
             return $generic_assets;
-        } catch (Exception) {
+        } catch (Exception $e) {
+            Toolbox::logDebug("Advanced LDAP - Error getting itemtype fields: " . $e->getMessage());
             return [];
         }
     }

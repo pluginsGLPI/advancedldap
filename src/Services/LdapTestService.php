@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -45,23 +44,23 @@ use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
  */
 class LdapTestService
 {
-    private LdapConnectionInterface $ldapConnection;
+    private LdapConnectionInterface $ldap_connection;
     private DatabaseInterface $database;
-    private AssetFieldProviderInterface $assetFieldProvider;
+    private AssetFieldProviderInterface $asset_field_provider;
 
     /**
-     * @param LdapConnectionInterface $ldapConnection
+     * @param LdapConnectionInterface $ldap_connection
      * @param DatabaseInterface $database
-     * @param AssetFieldProviderInterface $assetFieldProvider
+     * @param AssetFieldProviderInterface $asset_field_provider
      */
     public function __construct(
-        LdapConnectionInterface $ldapConnection,
+        LdapConnectionInterface $ldap_connection,
         DatabaseInterface $database,
-        AssetFieldProviderInterface $assetFieldProvider,
+        AssetFieldProviderInterface $asset_field_provider,
     ) {
-        $this->ldapConnection = $ldapConnection;
+        $this->ldap_connection = $ldap_connection;
         $this->database = $database;
-        $this->assetFieldProvider = $assetFieldProvider;
+        $this->asset_field_provider = $asset_field_provider;
     }
 
     /**
@@ -105,7 +104,7 @@ class LdapTestService
 
             // Get human-readable field name if asset_type and asset_field are provided
             if (!empty($asset_type) && !empty($asset_field)) {
-                $fields = $this->assetFieldProvider->getItemTypeFields($asset_type);
+                $fields = $this->asset_field_provider->getItemTypeFields($asset_type);
                 $results['config']['asset_field'] = $fields[$asset_field] ?? $asset_field;
             }
 
@@ -170,23 +169,23 @@ class LdapTestService
      */
     private function performLdapSearch(int $authldap_id, string $base_dn, string $filter): array
     {
-        $connection = $this->ldapConnection->connect($authldap_id);
+        $connection = $this->ldap_connection->connect($authldap_id);
         if (!$connection) {
             return ['error' => __('Cannot connect to LDAP server', 'advancedldap')];
         }
 
-        $search = $this->ldapConnection->search($connection, $base_dn, $filter);
+        $search = $this->ldap_connection->search($connection, $base_dn, $filter);
         if (!$search) {
             $error = sprintf(
                 __('LDAP search failed: %s', 'advancedldap'),
-                $this->ldapConnection->getError($connection),
+                $this->ldap_connection->getError($connection),
             );
-            $this->ldapConnection->close($connection);
+            $this->ldap_connection->close($connection);
             return ['error' => $error];
         }
 
-        $entries = $this->ldapConnection->getEntries($connection, $search);
-        $this->ldapConnection->close($connection);
+        $entries = $this->ldap_connection->getEntries($connection, $search);
+        $this->ldap_connection->close($connection);
 
         return ['entries' => $entries];
     }

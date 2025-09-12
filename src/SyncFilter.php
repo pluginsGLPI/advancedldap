@@ -205,7 +205,7 @@ class SyncFilter extends CommonDBTM
 
         if ($isadmin) {
             $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'enable'] = __('Enable');
-            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'disable'] = __('Disable'); 
+            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'disable'] = __('Disable');
             $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate'] = _x('button', 'Duplicate');
         }
 
@@ -257,7 +257,7 @@ class SyncFilter extends CommonDBTM
                         $input = $item->fields;
                         unset($input['id']);
                         $input['name'] = sprintf(__('Copy of %s'), $input['name']);
-                        
+
                         if ($item->add($input)) {
                             $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                         } else {

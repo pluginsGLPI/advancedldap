@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -37,6 +36,7 @@ namespace GlpiPlugin\Advancedldap\Providers;
 use Exception;
 use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
+use Toolbox;
 
 /**
  * Field provider for generic assets
@@ -129,7 +129,7 @@ class GenericAssetFieldProvider implements AssetFieldProviderInterface
             return $fields;
 
         } catch (Exception $e) {
-            error_log("Error getting generic asset fields for definition ID $asset_definition_id: " . $e->getMessage());
+            Toolbox::logDebug("Advanced LDAP - Error getting generic asset fields for definition ID $asset_definition_id: " . $e->getMessage());
             return [];
         }
     }

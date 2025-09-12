@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -50,8 +49,8 @@ class AdvancedLdapSync extends CommonGLPI
     public static $rightname = 'config';
 
     private ServiceContainer $container;
-    private AssetFieldProviderInterface $assetFieldProvider;
-    private LdapTestService $ldapTestService;
+    private AssetFieldProviderInterface $asset_field_provider;
+    private LdapTestService $ldap_test_service;
 
     /**
      * @param ServiceContainer|null $container Optional service container
@@ -61,8 +60,8 @@ class AdvancedLdapSync extends CommonGLPI
         parent::__construct();
 
         $this->container = $container ?? ServiceContainer::getInstance();
-        $this->assetFieldProvider = $this->container->get(AssetFieldProviderInterface::class);
-        $this->ldapTestService = $this->container->get(LdapTestService::class);
+        $this->asset_field_provider = $this->container->get(AssetFieldProviderInterface::class);
+        $this->ldap_test_service = $this->container->get(LdapTestService::class);
     }
 
     /**
@@ -137,8 +136,8 @@ class AdvancedLdapSync extends CommonGLPI
         $available_assets = [];
 
         // Separate assets by type
-        $assetFieldService = $this->assetFieldProvider;
-        $all_asset_types = $assetFieldService instanceof AssetFieldService ? $assetFieldService->getAllAssetTypes() : [];
+        $asset_field_service = $this->asset_field_provider;
+        $all_asset_types = $asset_field_service instanceof AssetFieldService ? $asset_field_service->getAllAssetTypes() : [];
 
         $native_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'native');
         $generic_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'generic');
@@ -180,15 +179,15 @@ class AdvancedLdapSync extends CommonGLPI
 
         // Try to get existing sync filter for this AuthLDAP
         try {
-            $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
-            $filters = $syncFilterService->getSyncFiltersForAuthLdap($authldap_id);
-            
+            $sync_filter_service = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+            $filters = $sync_filter_service->getSyncFiltersForAuthLdap($authldap_id);
+
             if (!empty($filters)) {
                 // Use the first active filter found
                 $filter = reset($filters);
                 $field_mappings = $filter['field_mappings'] ?? [];
                 $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
-                
+
                 $config = array_merge($config, [
                     'syncfilter_id' => $filter['id'] ?? '',
                     'filter_name' => $filter['name'] ?? '',
@@ -214,8 +213,8 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
-        return $syncFilterService->getSyncFiltersForAuthLdap($authldap_id);
+        $sync_filter_service = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+        return $sync_filter_service->getSyncFiltersForAuthLdap($authldap_id);
     }
 
     /**
@@ -225,8 +224,8 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getAvailableSyncFilters(): array
     {
-        $syncFilterService = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
-        return $syncFilterService->getAvailableSyncFilters();
+        $sync_filter_service = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+        return $sync_filter_service->getAvailableSyncFilters();
     }
 
     /**
@@ -249,7 +248,7 @@ class AdvancedLdapSync extends CommonGLPI
             return null;
         }
 
-        $test_results = $this->ldapTestService->testLdapFilter(
+        $test_results = $this->ldap_test_service->testLdapFilter(
             $authldap_id,
             $test_base_dn,
             $test_filter,

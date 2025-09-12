@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -36,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Providers;
 
 use Exception;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
+use Toolbox;
 
 /**
  * Field provider for native GLPI assets
@@ -76,7 +76,8 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
             $item = new $itemtype();
             $search_options = $item->searchOptions();
             return $this->formatSearchOptionsAsFields($search_options);
-        } catch (Exception) {
+        } catch (Exception $e) {
+            Toolbox::logDebug("Advanced LDAP - Error getting native fields for $itemtype: " . $e->getMessage());
             return [];
         }
     }

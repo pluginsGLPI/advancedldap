@@ -31,7 +31,7 @@
  * -------------------------------------------------------------------------
  */
 
-include ('../../../inc/includes.php');
+include('../../../inc/includes.php');
 
 Session::checkRight('config', UPDATE);
 
@@ -39,31 +39,31 @@ if (isset($_POST['update_config'])) {
     // Handle configuration update
     $authldap_id = $_POST['authldaps_id'] ?? 0;
     $is_active = $_POST['is_active'] ?? 0;
-    
+
     // For now, just redirect back
     // This will be implemented when we have the database structure
     Session::addMessageAfterRedirect(__('Configuration saved', 'advancedldap'), false, INFO);
     Html::back();
-} else if (isset($_POST['add_element'])) {
+} elseif (isset($_POST['add_element'])) {
     // Handle adding new sync element
     $authldap_id = $_POST['authldaps_id'] ?? 0;
-    
+
     // For now, just redirect back
     // This will be implemented when we have the database structure
     Session::addMessageAfterRedirect(__('Element added', 'advancedldap'), false, INFO);
     Html::back();
-} else if (isset($_POST['update_element'])) {
+} elseif (isset($_POST['update_element'])) {
     // Handle updating sync element
     $element_id = $_POST['id'] ?? 0;
-    
+
     // For now, just redirect back
     // This will be implemented when we have the database structure
     Session::addMessageAfterRedirect(__('Element updated', 'advancedldap'), false, INFO);
     Html::back();
-} else if (isset($_POST['delete_element'])) {
+} elseif (isset($_POST['delete_element'])) {
     // Handle deleting sync element
     $element_id = $_POST['id'] ?? 0;
-    
+
     // For now, just redirect back
     // This will be implemented when we have the database structure
     Session::addMessageAfterRedirect(__('Element deleted', 'advancedldap'), false, INFO);

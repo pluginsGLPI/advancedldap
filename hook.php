@@ -31,6 +31,7 @@
  * -------------------------------------------------------------------------
  */
 
+
 /**
  * Plugin install process
  */
@@ -58,7 +59,10 @@ function plugin_advancedldap_install(): bool
             KEY `date_mod` (`date_mod`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC";
 
-        $DB->doQuery($query) or die("Error creating table glpi_plugin_advancedldap_syncfilters: " . $DB->error());
+        if (!$DB->doQuery($query)) {
+            Toolbox::logDebug("Advanced LDAP - Error creating table glpi_plugin_advancedldap_syncfilters: " . $DB->error());
+            return false;
+        }
     }
 
     // Create authldap_syncfilters relation table
@@ -77,7 +81,10 @@ function plugin_advancedldap_install(): bool
             KEY `date_creation` (`date_creation`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC";
 
-        $DB->doQuery($query) or die("Error creating table glpi_plugin_advancedldap_authldap_syncfilters: " . $DB->error());
+        if (!$DB->doQuery($query)) {
+            Toolbox::logDebug("Advanced LDAP - Error creating table glpi_plugin_advancedldap_authldap_syncfilters: " . $DB->error());
+            return false;
+        }
     }
 
     return true;

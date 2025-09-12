@@ -26,7 +26,6 @@
  * SOFTWARE.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.fr.html
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -36,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use Config;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
+use Toolbox;
 
 /**
  * GLPI configuration wrapper
@@ -68,7 +68,7 @@ class GlpiConfigurationService implements ConfigurationInterface
             Config::setConfigurationValues(self::PLUGIN_NAMESPACE, $values);
             return true;
         } catch (\Exception $e) {
-            error_log("Advanced LDAP configuration error: " . $e->getMessage());
+            Toolbox::logDebug("Advanced LDAP - Configuration error: " . $e->getMessage());
             return false;
         }
     }

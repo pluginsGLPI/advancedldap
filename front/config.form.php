@@ -50,31 +50,31 @@ if (isset($_POST['save_filter'])) {
     $asset_type = trim($_POST['asset_type'] ?? '');
     $asset_field = trim($_POST['asset_field'] ?? '');
     $is_active = isset($_POST['is_active']) ? intval($_POST['is_active']) : 1;
-    
+
     // Save sync filter if all required fields are provided
     if ($authldap_id && $filter_name && $ldap_base_dn && $ldap_connection_filter && $asset_type && $asset_field) {
         try {
             $container = Bootstrap::getContainer();
-            $syncFilterService = $container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
-            
+            $sync_filter_service = $container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+
             // Prepare field mappings - simple 1:1 mapping for now
             $field_mappings = [$asset_field => $asset_field];
-            
+
             // Always create a new filter for now (we can add edit functionality later)
-            $final_syncfilter_id = $syncFilterService->createSyncFilter(
+            $final_syncfilter_id = $sync_filter_service->createSyncFilter(
                 $filter_name,
                 $ldap_connection_filter,
                 $ldap_base_dn,
                 $asset_type,
                 $field_mappings,
-                $is_active
+                $is_active,
             );
-            
+
             if ($final_syncfilter_id) {
                 // Create relation between AuthLDAP and the new SyncFilter
-                $relationRepository = $container->get(\GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface::class);
-                $relationRepository->addSyncFilterToAuthLdap($authldap_id, $final_syncfilter_id, $is_active);
-                
+                $relation_repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface::class);
+                $relation_repository->addSyncFilterToAuthLdap($authldap_id, $final_syncfilter_id, $is_active);
+
                 Session::addMessageAfterRedirect(__('Sync options saved successfully', 'advancedldap'), false, INFO);
             } else {
                 Session::addMessageAfterRedirect(__('Error saving sync filter', 'advancedldap'), false, ERROR);
@@ -86,7 +86,7 @@ if (isset($_POST['save_filter'])) {
         // Sync filter fields are incomplete
         Session::addMessageAfterRedirect(__('Please fill all required fields to save sync filter', 'advancedldap'), false, ERROR);
     }
-    
+
     // Redirect back to the AuthLDAP form
     Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . $authldap_id);
 } elseif (isset($_POST['test_ldap_filter'])) {

@@ -41,19 +41,19 @@ use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
  */
 class SyncFilterService
 {
-    private SyncFilterRepositoryInterface $syncFilterRepository;
-    private AuthLdapSyncFilterRepositoryInterface $relationRepository;
+    private SyncFilterRepositoryInterface $sync_filter_repository;
+    private AuthLdapSyncFilterRepositoryInterface $relation_repository;
 
     /**
-     * @param SyncFilterRepositoryInterface $syncFilterRepository
-     * @param AuthLdapSyncFilterRepositoryInterface $relationRepository
+     * @param SyncFilterRepositoryInterface $sync_filter_repository
+     * @param AuthLdapSyncFilterRepositoryInterface $relation_repository
      */
     public function __construct(
-        SyncFilterRepositoryInterface $syncFilterRepository,
-        AuthLdapSyncFilterRepositoryInterface $relationRepository,
+        SyncFilterRepositoryInterface $sync_filter_repository,
+        AuthLdapSyncFilterRepositoryInterface $relation_repository,
     ) {
-        $this->syncFilterRepository = $syncFilterRepository;
-        $this->relationRepository = $relationRepository;
+        $this->sync_filter_repository = $sync_filter_repository;
+        $this->relation_repository = $relation_repository;
     }
 
     /**
@@ -63,7 +63,7 @@ class SyncFilterService
      */
     public function getAvailableSyncFilters(): array
     {
-        return $this->syncFilterRepository->getActiveSyncFilters();
+        return $this->sync_filter_repository->getActiveSyncFilters();
     }
 
     /**
@@ -74,7 +74,7 @@ class SyncFilterService
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        return $this->syncFilterRepository->getSyncFiltersForAuthLdap($authldap_id);
+        return $this->sync_filter_repository->getSyncFiltersForAuthLdap($authldap_id);
     }
 
     /**
@@ -105,7 +105,7 @@ class SyncFilterService
             'is_active' => $is_active ? 1 : 0,
         ];
 
-        return $this->syncFilterRepository->create($data);
+        return $this->sync_filter_repository->create($data);
     }
 
     /**
@@ -117,7 +117,7 @@ class SyncFilterService
      */
     public function updateSyncFilter(int $id, array $data): bool
     {
-        return $this->syncFilterRepository->update($id, $data);
+        return $this->sync_filter_repository->update($id, $data);
     }
 
     /**
@@ -129,15 +129,15 @@ class SyncFilterService
     public function deleteSyncFilter(int $id): bool
     {
         // First, get all AuthLDAPs using this filter
-        $authldap_ids = $this->relationRepository->getAuthLdapsForSyncFilter($id, false);
+        $authldap_ids = $this->relation_repository->getAuthLdapsForSyncFilter($id, false);
 
         // Remove all relations
         foreach ($authldap_ids as $authldap_id) {
-            $this->relationRepository->removeSyncFilterFromAuthLdap($authldap_id, $id);
+            $this->relation_repository->removeSyncFilterFromAuthLdap($authldap_id, $id);
         }
 
         // Then delete the filter itself
-        return $this->syncFilterRepository->delete($id);
+        return $this->sync_filter_repository->delete($id);
     }
 
     /**
@@ -151,14 +151,14 @@ class SyncFilterService
     public function assignSyncFilterToAuthLdap(int $authldap_id, int $syncfilter_id, bool $is_active = true)
     {
         // Check if relation already exists
-        if ($this->relationRepository->isSyncFilterAssignedToAuthLdap($authldap_id, $syncfilter_id, false)) {
+        if ($this->relation_repository->isSyncFilterAssignedToAuthLdap($authldap_id, $syncfilter_id, false)) {
             // Update existing relation
-            $success = $this->relationRepository->toggleSyncFilterForAuthLdap($authldap_id, $syncfilter_id, $is_active);
+            $success = $this->relation_repository->toggleSyncFilterForAuthLdap($authldap_id, $syncfilter_id, $is_active);
             return $success ? 1 : false; // Return 1 as pseudo-ID for existing relation
         }
 
         // Create new relation
-        return $this->relationRepository->addSyncFilterToAuthLdap($authldap_id, $syncfilter_id, $is_active);
+        return $this->relation_repository->addSyncFilterToAuthLdap($authldap_id, $syncfilter_id, $is_active);
     }
 
     /**
@@ -170,7 +170,7 @@ class SyncFilterService
      */
     public function unassignSyncFilterFromAuthLdap(int $authldap_id, int $syncfilter_id): bool
     {
-        return $this->relationRepository->removeSyncFilterFromAuthLdap($authldap_id, $syncfilter_id);
+        return $this->relation_repository->removeSyncFilterFromAuthLdap($authldap_id, $syncfilter_id);
     }
 
     /**
@@ -181,7 +181,7 @@ class SyncFilterService
      */
     public function getFieldMappings(int $syncfilter_id): array
     {
-        $filter = $this->syncFilterRepository->findById($syncfilter_id);
+        $filter = $this->sync_filter_repository->findById($syncfilter_id);
 
         if (!$filter || empty($filter['field_mappings'])) {
             return [];
@@ -200,7 +200,7 @@ class SyncFilterService
      */
     public function updateFieldMappings(int $syncfilter_id, array $mappings): bool
     {
-        return $this->syncFilterRepository->update($syncfilter_id, [
+        return $this->sync_filter_repository->update($syncfilter_id, [
             'field_mappings' => $mappings,
         ]);
     }
