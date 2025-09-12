@@ -91,25 +91,40 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST['test_ldap_filter'])) {
     // Handle LDAP filter test
     $syncfilter_id = $_POST['id'] ?? 0;
-    $authldap_id = $_POST['authldap_id'] ?? 0;
+    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0;
     $ldap_base_dn = trim($_POST['base_dn'] ?? '');
     $ldap_connection_filter = trim($_POST['ldap_filter'] ?? '');
     $asset_type = $_POST['asset_type'] ?? '';
-    $asset_field_mappings = $_POST['field_mappings'] ?? [];
+    $asset_field = $_POST['asset_field'] ?? '';
     
-    // Get field mappings and first field for testing
-    $field_mappings_json = $_POST['field_mappings'] ?? '{}';
-    if (is_array($field_mappings_json)) {
-        // Convert array to JSON if needed
-        $field_mappings = $field_mappings_json;
-    } else {
-        // Parse JSON string
-        $field_mappings = json_decode($field_mappings_json, true) ?: [];
-    }
+    // DEBUG: Log what we received
+    Toolbox::logDebug("LDAP Test Debug - POST data:", [
+        'syncfilter_id' => $syncfilter_id,
+        'authldap_id' => $authldap_id,
+        'ldap_base_dn' => $ldap_base_dn,
+        'ldap_connection_filter' => $ldap_connection_filter,
+        'asset_type' => $asset_type,
+        'asset_field' => $asset_field,
+        'all_post' => $_POST
+    ]);
     
-    $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
-    
-    if ($authldap_id && $ldap_base_dn && $ldap_connection_filter) {
+    // For testing, we need at least base DN and filter
+    // AuthLDAP ID can be optional (we'll use the first available one if not specified)
+    if ($ldap_base_dn && $ldap_connection_filter) {
+        // If no authldap_id provided, try to get one from the system
+        if (!$authldap_id) {
+            global $DB;
+            $iterator = $DB->request([
+                'SELECT' => ['id'],
+                'FROM' => 'glpi_authldaps',
+                'WHERE' => ['is_active' => 1],
+                'LIMIT' => 1
+            ]);
+            foreach ($iterator as $data) {
+                $authldap_id = $data['id'];
+                break;
+            }
+        }
         // Redirect back to the form with test parameters
         global $CFG_GLPI;
         $redirect_url = $CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $syncfilter_id;

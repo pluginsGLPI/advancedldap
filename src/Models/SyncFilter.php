@@ -440,7 +440,7 @@ class SyncFilter extends CommonDBTM
     private function getCurrentConfiguration(int $ID): array
     {
         $config = [
-            'authldap_id' => '',
+            'authldap_id' => $_GET['authldap_id'] ?? '',
             'filter_name' => '',
             'ldap_connection_filter' => '',
             'ldap_base_dn' => '',
@@ -485,8 +485,27 @@ class SyncFilter extends CommonDBTM
         $test_asset_type = $_GET['test_asset_type'] ?? '';
         $test_asset_field = $_GET['test_asset_field'] ?? '';
 
-        if (empty($test_base_dn) || empty($test_filter) || !$test_authldap_id) {
+        if (empty($test_base_dn) || empty($test_filter)) {
             return null;
+        }
+
+        // If no authldap_id provided, use the first available one
+        if (!$test_authldap_id) {
+            global $DB;
+            $iterator = $DB->request([
+                'SELECT' => ['id'],
+                'FROM' => 'glpi_authldaps',
+                'WHERE' => ['is_active' => 1],
+                'LIMIT' => 1
+            ]);
+            foreach ($iterator as $data) {
+                $test_authldap_id = $data['id'];
+                break;
+            }
+            
+            if (!$test_authldap_id) {
+                return null;
+            }
         }
 
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();

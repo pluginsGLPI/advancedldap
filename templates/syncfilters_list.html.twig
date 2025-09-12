@@ -65,7 +65,7 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}" 
+                                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&authldap_id={{ authldap.getID() }}" 
                                            class="btn btn-sm btn-outline-primary" title="{{ __('Edit') }}">
                                             <i class="ti ti-edit"></i>
                                         </a>
