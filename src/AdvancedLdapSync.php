@@ -96,13 +96,37 @@ class AdvancedLdapSync extends CommonGLPI
     {
         if ($item instanceof \AuthLDAP) {
             $instance = new self();
-            $instance->showAdvancedSyncForm($item);
+            $instance->showSyncFiltersList($item);
         }
         return true;
     }
 
     /**
-     * Show advanced sync configuration form
+     * Show sync filters list for AuthLDAP
+     *
+     * @param \AuthLDAP $authldap AuthLDAP instance
+     * @return void
+     */
+    public function showSyncFiltersList(\AuthLDAP $authldap): void
+    {
+        $id = $authldap->getField('id');
+
+        if (!$authldap->can($id, \READ)) {
+            return;
+        }
+
+        // Get sync filters for this AuthLDAP
+        $sync_filters = $this->getSyncFiltersForAuthLdap($id);
+
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
+            'authldap' => $authldap,
+            'sync_filters' => $sync_filters,
+            'can_edit' => $authldap->can($id, \UPDATE),
+        ]);
+    }
+
+    /**
+     * Show advanced sync configuration form (keep for backward compatibility)
      *
      * @param \AuthLDAP $authldap AuthLDAP instance
      * @return void
@@ -213,8 +237,30 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        $sync_filter_service = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
-        return $sync_filter_service->getSyncFiltersForAuthLdap($authldap_id);
+        // Simple approach: show all filters for now
+        global $DB;
+        
+        $iterator = $DB->request([
+            'SELECT' => [
+                'id',
+                'name',
+                'ldap_filter', 
+                'base_dn',
+                'asset_type',
+                'field_mappings',
+                'is_active',
+                'date_creation'
+            ],
+            'FROM' => 'glpi_plugin_advancedldap_syncfilters',
+            'ORDER' => 'name'
+        ]);
+        
+        $filters = [];
+        foreach ($iterator as $data) {
+            $filters[] = $data;
+        }
+        
+        return $filters;
     }
 
     /**

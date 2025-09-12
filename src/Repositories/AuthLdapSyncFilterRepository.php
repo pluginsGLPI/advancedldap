@@ -35,7 +35,7 @@ namespace GlpiPlugin\Advancedldap\Repositories;
 
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
-use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
+use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
 
 /**
  * Repository for AuthLdap-SyncFilter relation operations

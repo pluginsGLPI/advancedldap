@@ -32,8 +32,8 @@
  */
 
 use GlpiPlugin\Advancedldap\AdvancedLdapSync;
-use GlpiPlugin\Advancedldap\SyncFilter;
-use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
+use GlpiPlugin\Advancedldap\Models\SyncFilter;
+use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
 
 /** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
@@ -62,8 +62,8 @@ function plugin_init_advancedldap(): void
     ]);
 
     // Register classes
-    Plugin::registerClass('GlpiPlugin\\Advancedldap\\SyncFilter');
-    Plugin::registerClass('GlpiPlugin\\Advancedldap\\AuthLdapSyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter');
 }
 
 /**
@@ -127,3 +127,4 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
     // }
     // return false;
 }
+

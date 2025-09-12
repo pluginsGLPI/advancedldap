@@ -1,0 +1,266 @@
+{% import "components/form/fields_macros.html.twig" as fields %}
+
+<div class="asset">
+    <div class="asset-body d-flex flex-wrap">
+        <div class="col-12 col-xxl-12 flex-column">
+            <div class="d-flex flex-row flex-wrap flex-xl-nowrap">
+                <div class="row flex-row align-items-start flex-grow-1">
+                    <div class="row flex-row">
+
+                        {{ fields.largeTitle(
+                            __('Sync Filter Information', 'advancedldap'),
+                            'ti ti-filter',
+                            true
+                        ) }}
+
+                        <form method="post" action="{{ path('front/syncfilter.form.php') }}" data-submit-once="true">
+                            <div class="card-body d-flex flex-wrap">
+
+                                {# Basic Information #}
+                                <div class="col-12 col-sm-6">
+                                    {{ fields.textField(
+                                        'name',
+                                        current_config.filter_name|default(item.fields['name']|default('')),
+                                        __('Name'),
+                                        {
+                                            'is_horizontal': false,
+                                        }
+                                    ) }}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    {{ fields.dropdownYesNo(
+                                        'is_active',
+                                        current_config.is_active|default(item.fields['is_active']|default(1)),
+                                        __('Active'),
+                                        {
+                                            'is_horizontal': false,
+                                        }
+                                    ) }}
+                                </div>
+
+                                {# AuthLDAP Server Selection #}
+                                <div class="col-12 col-sm-6">
+                                    {{ fields.dropdownField(
+                                        'AuthLDAP',
+                                        'authldap_id',
+                                        current_config.authldap_id|default(''),
+                                        __('LDAP Server', 'advancedldap'),
+                                        {
+                                            'values': authldap_servers,
+                                            'is_horizontal': false,
+                                            'helper': __('Select which LDAP server to use for this filter', 'advancedldap')
+                                        }
+                                    ) }}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    {{ fields.textField(
+                                        'base_dn',
+                                        current_config.ldap_base_dn|default(item.fields['base_dn']|default('')),
+                                        __('Base DN', 'advancedldap'),
+                                        {
+                                            'is_horizontal': false,
+                                            'helper': __('Base Distinguished Name for LDAP search (e.g., ou=computers,dc=example,dc=com)', 'advancedldap')
+                                        }
+                                    ) }}
+                                </div>
+
+                                {# LDAP Configuration #}
+                                <div class="col-12">
+                                    {{ fields.textareaField(
+                                        'ldap_filter',
+                                        current_config.ldap_connection_filter|default(item.fields['ldap_filter']|default('')),
+                                        __('LDAP Filter', 'advancedldap'),
+                                        {
+                                            'is_horizontal': false,
+                                            'helper': __('LDAP filter expression (e.g., (&(objectClass=device)(serialNumber=*)))', 'advancedldap'),
+                                            'rows': 3
+                                        }
+                                    ) }}
+                                </div>
+
+                                {# Asset Configuration #}
+                                <div class="col-12 col-sm-6">
+                                    {% set asset_type_rand = random() %}
+                                    {{ fields.dropdownField(
+                                        'asset_type',
+                                        'asset_type',
+                                        current_config.asset_type|default(item.fields['asset_type']|default('')),
+                                        __('Asset Type'),
+                                        {
+                                            'values': available_assets,
+                                            'is_horizontal': false,
+                                            'rand': asset_type_rand,
+                                            'helper': __('Select the type of asset to synchronize', 'advancedldap')
+                                        }
+                                    ) }}
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">{{ __('Asset Field', 'advancedldap') }}</label>
+                                    <div id="asset_field_dropdown_{{ asset_type_rand }}">
+                                        <select name="field_mappings[primary]" class="form-select" disabled>
+                                            <option value="">{{ __('Select an asset type first', 'advancedldap') }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-text">{{ __('Select which field of the asset to map with LDAP', 'advancedldap') }}</div>
+                                </div>
+
+                                {# Action Buttons #}
+                                <div class="col-12 d-flex flex-row-reverse align-items-start flex-wrap">
+                                    <div class="ms-2 mt-2 d-flex">
+                                        {% if item.fields['id'] > 0 and item.canPurge() %}
+                                            <button class="btn btn-outline-danger me-2" type="submit" name="purge" 
+                                                    onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
+                                                <i class="ti ti-trash"></i>
+                                                <span>{{ __('Delete permanently') }}</span>
+                                            </button>
+                                        {% endif %}
+
+                                        {% if item.fields['id'] > 0 %}
+                                            <button class="btn btn-info me-2" type="submit" name="test_ldap_filter">
+                                                <i class="ti ti-flask"></i>
+                                                <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+                                            </button>
+                                        {% endif %}
+
+                                        <button class="btn btn-primary me-2" type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}">
+                                            <i class="fas fa-save"></i>
+                                            <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="id" value="{{ item.fields['id'] }}">
+                        </form>
+
+                        {# Test Results Section #}
+                        {% if test_results %}
+                            {{ fields.largeTitle(
+                                __('LDAP Filter Test Results', 'advancedldap'),
+                                'ti ti-flask',
+                                true
+                            ) }}
+
+                            <div class="card-body">
+                                {% if test_results.error %}
+                                    <div class="alert alert-danger">
+                                        <i class="ti ti-exclamation-triangle me-2"></i>
+                                        <strong>{{ __('Error:', 'advancedldap') }}</strong> {{ test_results.error }}
+                                    </div>
+                                {% else %}
+                                    {# Configuration tested #}
+                                    <div class="alert alert-info">
+                                        <h5><i class="ti ti-info-circle me-2"></i>{{ __('Configuration tested:', 'advancedldap') }}</h5>
+                                        <ul class="mb-0">
+                                            <li><strong>{{ __('AuthLDAP:', 'advancedldap') }}</strong> {{ test_results.config.authldap_name }}</li>
+                                            <li><strong>{{ __('Base DN:', 'advancedldap') }}</strong> {{ test_results.config.base_dn }}</li>
+                                            <li><strong>{{ __('Filter:', 'advancedldap') }}</strong> {{ test_results.config.filter }}</li>
+                                            <li><strong>{{ __('Asset Type:', 'advancedldap') }}</strong> {{ test_results.config.asset_type }}</li>
+                                            <li><strong>{{ __('Asset Field:', 'advancedldap') }}</strong> {{ test_results.config.asset_field }}</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    {# LDAP Results #}
+                                    <div class="alert alert-success">
+                                        <h5><i class="ti ti-check-circle me-2"></i>{{ test_results.entries|length }} {{ __('entries found in LDAP', 'advancedldap') }}</h5>
+                                    </div>
+                                    
+                                    {% if test_results.entries|length > 0 %}
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>{{ __('LDAP DN', 'advancedldap') }}</th>
+                                                        <th>{{ __('LDAP Attributes', 'advancedldap') }}</th>
+                                                        <th>{{ __('GLPI Impact', 'advancedldap') }}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for entry in test_results.entries %}
+                                                        <tr>
+                                                            <td><code>{{ entry.dn }}</code></td>
+                                                            <td>
+                                                                {% for attr, values in entry.attributes %}
+                                                                    <div><strong>{{ attr }}:</strong> 
+                                                                        {% if values is iterable %}
+                                                                            {{ values|join(', ') }}
+                                                                        {% else %}
+                                                                            {{ values }}
+                                                                        {% endif %}
+                                                                    </div>
+                                                                {% endfor %}
+                                                            </td>
+                                                            <td>
+                                                                {% if entry.glpi_impact.exists %}
+                                                                    <span class="badge bg-warning">{{ __('Update existing', 'advancedldap') }}</span>
+                                                                    <br>{{ entry.glpi_impact.message }}
+                                                                {% else %}
+                                                                    <span class="badge bg-info">{{ __('Create new', 'advancedldap') }}</span>
+                                                                    <br>{{ entry.glpi_impact.message }}
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    var selectedAssetField = '{{ current_config.asset_field|default('') }}';
+    
+    function loadAssetFields(itemtype, selectedField) {
+        var container = $('#asset_field_dropdown_{{ asset_type_rand }}');
+        
+        if (!itemtype || itemtype === '0' || itemtype === '') {
+            container.html('<select name="field_mappings[primary]" class="form-select" disabled><option value="">Select an asset type first</option></select>');
+            return;
+        }
+        
+        container.html('<select name="field_mappings[primary]" class="form-select" disabled><option>Loading fields...</option></select>');
+        
+        $.post('{{ config('root_doc') }}/plugins/advancedldap/ajax/getAssetFields.php', {
+            itemtype: itemtype,
+            name: 'field_mappings[primary]',
+            rand: {{ asset_type_rand }},
+            selected: selectedField
+        })
+        .done(function(data) {
+            console.log('AJAX success, data length:', data.length);
+            container.html(data);
+        })
+        .fail(function(xhr, status, error) {
+            console.log('AJAX failed:', status, error);
+            container.html('<select name="field_mappings[primary]" class="form-select" disabled><option>Error loading fields</option></select>');
+        });
+    }
+    
+    // Load fields on page load if asset type is already selected
+    var initialAssetType = $('#dropdown_asset_type{{ asset_type_rand }}').val();
+    if (initialAssetType && initialAssetType !== '') {
+        loadAssetFields(initialAssetType, selectedAssetField);
+    }
+    
+    // Handle asset type change
+    $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
+        var itemtype = $(this).val();
+        console.log('Asset type changed to:', itemtype);
+        loadAssetFields(itemtype, '');
+    });
+});
+</script>
