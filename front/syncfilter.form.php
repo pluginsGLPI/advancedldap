@@ -61,7 +61,17 @@ if (isset($_POST["add"])) {
             sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]),
         );
         if ($_SESSION['glpibackcreated']) {
-            Html::redirect($syncfilter->getLinkURL());
+            // Build correct redirect URL (not using getLinkURL which points to wrong path)
+            global $CFG_GLPI;
+            $redirect_url = $CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
+            
+            // Preserve authldap_id if it was provided
+            $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? '';
+            if (!empty($authldap_id)) {
+                $redirect_url .= "&authldap_id=" . urlencode($authldap_id);
+            }
+            
+            Html::redirect($redirect_url);
         }
     }
     Html::back();
@@ -100,17 +110,6 @@ if (isset($_POST["add"])) {
     $ldap_connection_filter = trim($_POST['ldap_filter'] ?? '');
     $asset_type = $_POST['asset_type'] ?? '';
     $asset_field = $_POST['asset_field'] ?? '';
-
-    // DEBUG: Log what we received
-    Toolbox::logDebug("LDAP Test Debug - POST data:", [
-        'syncfilter_id' => $syncfilter_id,
-        'authldap_id' => $authldap_id,
-        'ldap_base_dn' => $ldap_base_dn,
-        'ldap_connection_filter' => $ldap_connection_filter,
-        'asset_type' => $asset_type,
-        'asset_field' => $asset_field,
-        'all_post' => $_POST,
-    ]);
 
     // For testing, we need at least base DN and filter
     // AuthLDAP ID can be optional (we'll use the first available one if not specified)

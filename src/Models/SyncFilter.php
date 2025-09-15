@@ -439,8 +439,24 @@ class SyncFilter extends CommonDBTM
      */
     private function getCurrentConfiguration(int $ID): array
     {
+        // Get a default AuthLDAP ID if none is provided
+        $default_authldap_id = $_GET['authldap_id'] ?? '';
+        if (empty($default_authldap_id)) {
+            global $DB;
+            $iterator = $DB->request([
+                'SELECT' => ['id'],
+                'FROM' => 'glpi_authldaps',
+                'WHERE' => ['is_active' => 1],
+                'LIMIT' => 1,
+            ]);
+            foreach ($iterator as $data) {
+                $default_authldap_id = $data['id'];
+                break;
+            }
+        }
+        
         $config = [
-            'authldap_id' => $_GET['authldap_id'] ?? '',
+            'authldap_id' => $default_authldap_id,
             'filter_name' => '',
             'ldap_connection_filter' => '',
             'ldap_base_dn' => '',
@@ -452,14 +468,20 @@ class SyncFilter extends CommonDBTM
         if ($ID > 0 && $this->getFromDB($ID)) {
             $field_mappings = $this->getFieldMappings();
             $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
-
+            
+            // Check GET parameters for test scenarios (overrides stored data when testing)
+            $test_base_dn = $_GET['test_base_dn'] ?? '';
+            $test_filter = $_GET['test_filter'] ?? '';
+            $test_asset_type = $_GET['test_asset_type'] ?? '';
+            $test_asset_field = $_GET['test_asset_field'] ?? '';
+            
             $config = [
-                'authldap_id' => '', // Will be set by relation if exists
+                'authldap_id' => $default_authldap_id, // Use the default AuthLDAP ID
                 'filter_name' => $this->fields['name'],
-                'ldap_connection_filter' => $this->fields['ldap_filter'],
-                'ldap_base_dn' => $this->fields['base_dn'],
-                'asset_type' => $this->fields['asset_type'],
-                'asset_field' => $asset_field,
+                'ldap_connection_filter' => !empty($test_filter) ? $test_filter : $this->fields['ldap_filter'],
+                'ldap_base_dn' => !empty($test_base_dn) ? $test_base_dn : $this->fields['base_dn'],
+                'asset_type' => !empty($test_asset_type) ? $test_asset_type : $this->fields['asset_type'],
+                'asset_field' => !empty($test_asset_field) ? $test_asset_field : $asset_field,
                 'is_active' => $this->fields['is_active'],
             ];
         }
