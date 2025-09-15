@@ -73,7 +73,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        if ($item instanceof \AuthLDAP && $item->can($item->getID(), \READ)) {
+        if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             return self::createTabEntry(
                 __('Items to synchronize', 'advancedldap'),
                 0,
@@ -94,7 +94,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0): bool
     {
-        if ($item instanceof \AuthLDAP) {
+        if ($item instanceof AuthLDAP) {
             $instance = new self();
             $instance->showSyncFiltersList($item);
         }
@@ -104,10 +104,10 @@ class AdvancedLdapSync extends CommonGLPI
     /**
      * Show sync filters list for AuthLDAP
      *
-     * @param \AuthLDAP $authldap AuthLDAP instance
+     * @param AuthLDAP $authldap AuthLDAP instance
      * @return void
      */
-    public function showSyncFiltersList(\AuthLDAP $authldap): void
+    public function showSyncFiltersList(AuthLDAP $authldap): void
     {
         $id = $authldap->getField('id');
 
@@ -128,10 +128,10 @@ class AdvancedLdapSync extends CommonGLPI
     /**
      * Show advanced sync configuration form (keep for backward compatibility)
      *
-     * @param \AuthLDAP $authldap AuthLDAP instance
+     * @param AuthLDAP $authldap AuthLDAP instance
      * @return void
      */
-    public function showAdvancedSyncForm(\AuthLDAP $authldap): void
+    public function showAdvancedSyncForm(AuthLDAP $authldap): void
     {
         $id = $authldap->getField('id');
 
@@ -239,27 +239,27 @@ class AdvancedLdapSync extends CommonGLPI
     {
         // Simple approach: show all filters for now
         global $DB;
-        
+
         $iterator = $DB->request([
             'SELECT' => [
                 'id',
                 'name',
-                'ldap_filter', 
+                'ldap_filter',
                 'base_dn',
                 'asset_type',
                 'field_mappings',
                 'is_active',
-                'date_creation'
+                'date_creation',
             ],
             'FROM' => 'glpi_plugin_advancedldap_syncfilters',
-            'ORDER' => 'name'
+            'ORDER' => 'name',
         ]);
-        
+
         $filters = [];
         foreach ($iterator as $data) {
             $filters[] = $data;
         }
-        
+
         return $filters;
     }
 

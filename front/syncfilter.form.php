@@ -33,9 +33,8 @@
 
 include('../../../inc/includes.php');
 
-use GlpiPlugin\Advancedldap\Models\SyncFilter;
-use GlpiPlugin\Advancedldap\Bootstrap;
 use Glpi\Event;
+use GlpiPlugin\Advancedldap\Models\SyncFilter;
 
 Session::checkRight(SyncFilter::$rightname, READ);
 
@@ -47,19 +46,19 @@ $syncfilter = new SyncFilter();
 
 if (isset($_POST["add"])) {
     $syncfilter->check(-1, CREATE, $_POST);
-    
+
     // Remove empty id field to prevent MySQL error
     if (isset($_POST['id']) && $_POST['id'] === '') {
         unset($_POST['id']);
     }
-    
+
     if ($newID = $syncfilter->add($_POST)) {
         Event::log(
             $newID,
             "syncfilter",
             4,
             "setup",
-            sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"])
+            sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]),
         );
         if ($_SESSION['glpibackcreated']) {
             Html::redirect($syncfilter->getLinkURL());
@@ -68,14 +67,14 @@ if (isset($_POST["add"])) {
     Html::back();
 } elseif (isset($_POST["purge"])) {
     $syncfilter->check($_POST['id'], PURGE);
-    
+
     if ($syncfilter->delete($_POST, true)) {
         Event::log(
             $_POST['id'],
-            "syncfilter", 
+            "syncfilter",
             4,
             "setup",
-            sprintf(__('%s purges an item'), $_SESSION["glpiname"])
+            sprintf(__('%s purges an item'), $_SESSION["glpiname"]),
         );
         $syncfilter->redirectToList();
     } else {
@@ -83,14 +82,14 @@ if (isset($_POST["add"])) {
     }
 } elseif (isset($_POST["update"])) {
     $syncfilter->check($_POST['id'], UPDATE);
-    
+
     $syncfilter->update($_POST);
     Event::log(
         $_POST['id'],
         "syncfilter",
         4,
-        "setup", 
-        sprintf(__('%s updates an item'), $_SESSION["glpiname"])
+        "setup",
+        sprintf(__('%s updates an item'), $_SESSION["glpiname"]),
     );
     Html::back();
 } elseif (isset($_POST['test_ldap_filter'])) {
@@ -101,7 +100,7 @@ if (isset($_POST["add"])) {
     $ldap_connection_filter = trim($_POST['ldap_filter'] ?? '');
     $asset_type = $_POST['asset_type'] ?? '';
     $asset_field = $_POST['asset_field'] ?? '';
-    
+
     // DEBUG: Log what we received
     Toolbox::logDebug("LDAP Test Debug - POST data:", [
         'syncfilter_id' => $syncfilter_id,
@@ -110,9 +109,9 @@ if (isset($_POST["add"])) {
         'ldap_connection_filter' => $ldap_connection_filter,
         'asset_type' => $asset_type,
         'asset_field' => $asset_field,
-        'all_post' => $_POST
+        'all_post' => $_POST,
     ]);
-    
+
     // For testing, we need at least base DN and filter
     // AuthLDAP ID can be optional (we'll use the first available one if not specified)
     if ($ldap_base_dn && $ldap_connection_filter) {
@@ -123,7 +122,7 @@ if (isset($_POST["add"])) {
                 'SELECT' => ['id'],
                 'FROM' => 'glpi_authldaps',
                 'WHERE' => ['is_active' => 1],
-                'LIMIT' => 1
+                'LIMIT' => 1,
             ]);
             foreach ($iterator as $data) {
                 $authldap_id = $data['id'];
@@ -139,7 +138,7 @@ if (isset($_POST["add"])) {
         $redirect_url .= "&test_filter=" . urlencode($ldap_connection_filter);
         $redirect_url .= "&test_asset_type=" . urlencode($asset_type);
         $redirect_url .= "&test_asset_field=" . urlencode($asset_field);
-        
+
         Html::redirect($redirect_url);
     } else {
         Session::addMessageAfterRedirect(__('Please select an AuthLDAP server and provide Base DN and Filter', 'advancedldap'), false, ERROR);

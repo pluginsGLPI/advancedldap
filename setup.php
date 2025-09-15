@@ -127,4 +127,3 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
     // }
     // return false;
 }
-

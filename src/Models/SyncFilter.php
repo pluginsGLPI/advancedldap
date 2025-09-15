@@ -369,7 +369,7 @@ class SyncFilter extends CommonDBTM
             'SELECT' => ['id', 'name'],
             'FROM' => 'glpi_authldaps',
             'WHERE' => ['is_active' => 1],
-            'ORDER' => 'name'
+            'ORDER' => 'name',
         ]);
         foreach ($iterator as $data) {
             $authldap_servers[$data['id']] = $data['name'];
@@ -378,7 +378,7 @@ class SyncFilter extends CommonDBTM
         // Get available assets and current configuration
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
         $asset_field_provider = $container->get(\GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface::class);
-        
+
         $available_assets = $this->buildAssetDropdown($asset_field_provider);
         $current_config = $this->getCurrentConfiguration($ID);
         $test_results = $this->handleTestRequest($current_config);
@@ -407,8 +407,8 @@ class SyncFilter extends CommonDBTM
         $available_assets = [];
 
         // Separate assets by type
-        $all_asset_types = $asset_field_provider instanceof \GlpiPlugin\Advancedldap\Services\AssetFieldService 
-            ? $asset_field_provider->getAllAssetTypes() 
+        $all_asset_types = $asset_field_provider instanceof \GlpiPlugin\Advancedldap\Services\AssetFieldService
+            ? $asset_field_provider->getAllAssetTypes()
             : [];
 
         $native_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'native');
@@ -496,13 +496,13 @@ class SyncFilter extends CommonDBTM
                 'SELECT' => ['id'],
                 'FROM' => 'glpi_authldaps',
                 'WHERE' => ['is_active' => 1],
-                'LIMIT' => 1
+                'LIMIT' => 1,
             ]);
             foreach ($iterator as $data) {
                 $test_authldap_id = $data['id'];
                 break;
             }
-            
+
             if (!$test_authldap_id) {
                 return null;
             }
