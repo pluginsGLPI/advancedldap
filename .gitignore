@@ -8,3 +8,4 @@ CLAUDE.md
 ldap-notes.md
 dummy_data.ldif
 .claude/
+composer.lock
