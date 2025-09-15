@@ -48,6 +48,11 @@ $syncfilter = new SyncFilter();
 if (isset($_POST["add"])) {
     $syncfilter->check(-1, CREATE, $_POST);
     
+    // Remove empty id field to prevent MySQL error
+    if (isset($_POST['id']) && $_POST['id'] === '') {
+        unset($_POST['id']);
+    }
+    
     if ($newID = $syncfilter->add($_POST)) {
         Event::log(
             $newID,
