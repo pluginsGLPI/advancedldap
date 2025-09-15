@@ -64,13 +64,13 @@ if (isset($_POST["add"])) {
             // Build correct redirect URL (not using getLinkURL which points to wrong path)
             global $CFG_GLPI;
             $redirect_url = $CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
-            
+
             // Preserve authldap_id if it was provided
             $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? '';
             if (!empty($authldap_id)) {
                 $redirect_url .= "&authldap_id=" . urlencode($authldap_id);
             }
-            
+
             Html::redirect($redirect_url);
         }
     }

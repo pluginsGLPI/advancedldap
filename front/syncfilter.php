@@ -39,6 +39,9 @@ Session::checkRight(SyncFilter::$rightname, READ);
 
 Html::header(SyncFilter::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "auth", "SyncFilter");
 
-Search::show('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
+// Workaround for GLPI 11 namespace inconsistencies in Search engine
+// See: https://github.com/glpi-project/glpi/issues/8449
+// TODO: Revert to SyncFilter::class when GLPI fixes namespace handling
+Search::show('PluginAdvancedldapSyncFilter');
 
 Html::footer();

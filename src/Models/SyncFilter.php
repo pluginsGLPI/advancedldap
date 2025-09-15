@@ -47,6 +47,7 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Get the table name for this class
+     * Override needed because GLPI auto-generates incorrectly from namespace
      *
      * @param string|null $classname Class name
      * @return string
@@ -454,7 +455,7 @@ class SyncFilter extends CommonDBTM
                 break;
             }
         }
-        
+
         $config = [
             'authldap_id' => $default_authldap_id,
             'filter_name' => '',
@@ -468,13 +469,13 @@ class SyncFilter extends CommonDBTM
         if ($ID > 0 && $this->getFromDB($ID)) {
             $field_mappings = $this->getFieldMappings();
             $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
-            
+
             // Check GET parameters for test scenarios (overrides stored data when testing)
             $test_base_dn = $_GET['test_base_dn'] ?? '';
             $test_filter = $_GET['test_filter'] ?? '';
             $test_asset_type = $_GET['test_asset_type'] ?? '';
             $test_asset_field = $_GET['test_asset_field'] ?? '';
-            
+
             $config = [
                 'authldap_id' => $default_authldap_id, // Use the default AuthLDAP ID
                 'filter_name' => $this->fields['name'],

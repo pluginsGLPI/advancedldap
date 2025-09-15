@@ -61,9 +61,13 @@ function plugin_init_advancedldap(): void
         'addtabon' => AuthLDAP::class,
     ]);
 
-    // Register classes
+    // Register modern namespace classes
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter');
+
+    // Register legacy names for Search compatibility (GLPI 11 bug)
+    Plugin::registerClass('PluginAdvancedldapSyncFilter');
+    Plugin::registerClass('PluginAdvancedldapAuthLdapSyncFilter');
 }
 
 /**
