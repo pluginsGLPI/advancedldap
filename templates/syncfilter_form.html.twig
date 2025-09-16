@@ -6,6 +6,15 @@
         <h3>{{ item.isNewID(item.getID()) ? __('New Sync Filter', 'advancedldap') : __('Edit Sync Filter', 'advancedldap') }}</h3>
     </div>
     <div class="card-body">
+        <!-- AuthLDAP Server Information -->
+        {% if current_config.authldap_id %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    {{ fields.htmlField('', get_item_link('AuthLDAP', current_config.authldap_id), 'AuthLDAP'|itemtype_name()) }}
+                </div>
+            </div>
+            <hr>
+        {% endif %}
         <!-- First row: Filter Name and Active Filter -->
         <div class="row">
             <div class="col-md-6">
@@ -19,7 +28,7 @@
             </div>
             <div class="col-md-6">
                 <div class="form-field mb-3">
-                    <label class="form-label"><i class="ti ti-toggle-left me-1"></i>{{ __('Active Filter', 'advancedldap') }}</label>
+                    <label class="form-label">{{ __('Active Filter', 'advancedldap') }}</label>
                     {{ fields.sliderField('is_active', current_config.is_active|default(item.fields['is_active']|default(0)), '', {
                         'no_label': true,
                         'helper': __('Enable or disable this synchronization filter', 'advancedldap')
@@ -33,7 +42,7 @@
         <div class="row">
             <div class="col-md-6">
                 <div class="form-field mb-3">
-                    <label class="form-label"><i class="ti ti-database me-1"></i>{{ __('Base DN', 'advancedldap') }}</label>
+                    <label class="form-label"><i class="ti ti-binary-tree me-1"></i>{{ __('Base DN', 'advancedldap') }}</label>
                     <input type="text" name="base_dn" class="form-control" 
                            value="{{ current_config.ldap_base_dn|default(item.fields['base_dn']|default('')) }}" 
                            placeholder="ou=computers,dc=example,dc=com">
@@ -84,7 +93,7 @@
         </div>
         
         <!-- Action Buttons -->
-        <div class="text-center mt-3">
+        <div class="ms-auto">
             <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="id" value="{{ item.fields['id'] }}">
             {% if current_config.authldap_id is defined and current_config.authldap_id %}
@@ -95,20 +104,20 @@
                 <button type="submit" name="purge" class="btn btn-outline-danger me-2"
                         onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
                     <i class="ti ti-trash"></i>
-                    {{ __('Delete permanently') }}
+                    <span>{{ __('Delete permanently') }}</span>
                 </button>
             {% endif %}
 
             {% if item.fields['id'] > 0 %}
                 <button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
                     <i class="fas fa-flask"></i>
-                    {{ __('Test LDAP Filter', 'advancedldap') }}
+                    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
                 </button>
             {% endif %}
             
             <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary">
                 <i class="fas fa-save"></i>
-                {{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}
+                <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
             </button>
         </div>
     </div>
@@ -127,17 +136,6 @@
                 <strong>{{ __('Error:', 'advancedldap') }}</strong> {{ test_results.error }}
             </div>
         {% else %}
-            <!-- Récapitulatif de la configuration testée -->
-            <div class="alert alert-info">
-                <h5><i class="fas fa-info-circle me-2"></i>{{ __('Configuration tested:', 'advancedldap') }}</h5>
-                <ul class="mb-0">
-                    <li><strong>{{ __('AuthLDAP:', 'advancedldap') }}</strong> {{ test_results.config.authldap_name }}</li>
-                    <li><strong>{{ __('Base DN:', 'advancedldap') }}</strong> {{ test_results.config.base_dn }}</li>
-                    <li><strong>{{ __('Filter:', 'advancedldap') }}</strong> {{ test_results.config.filter }}</li>
-                    <li><strong>{{ __('Asset Type:', 'advancedldap') }}</strong> {{ test_results.config.asset_type }}</li>
-                    <li><strong>{{ __('Asset Field:', 'advancedldap') }}</strong> {{ test_results.config.asset_field }}</li>
-                </ul>
-            </div>
             
             <!-- Résultats LDAP -->
             <div class="alert alert-success">

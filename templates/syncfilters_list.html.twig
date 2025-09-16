@@ -1,31 +1,31 @@
-<div class="card">
-    <div class="card-header d-flex align-items-center">
-        <h3 class="me-auto">
-            <i class="ti ti-filter me-2"></i>
-            {{ __('Sync Filters for', 'advancedldap') }} {{ authldap.fields['name'] }}
-        </h3>
-        {% if can_edit %}
-            <div class="ms-auto">
-                <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?authldap_id={{ authldap.getID() }}" 
-                   class="btn btn-primary">
-                    <i class="ti ti-plus me-1"></i>
-                    {{ __('Add Sync Filter', 'advancedldap') }}
-                </a>
-                <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.php" 
-                   class="btn btn-outline-secondary">
-                    <i class="ti ti-list me-1"></i>
-                    {{ __('Manage All Filters', 'advancedldap') }}
-                </a>
+<div class="search-container">
+    <div class="ajax-container search-display-data">
+        <div class="card search-card">
+            <div class="card-header search-header">
+                <h3 class="me-auto">
+                    <i class="ti ti-filter me-2"></i>
+                    {{ __('Sync Filters for', 'advancedldap') }} {{ authldap.fields['name'] }}
+                </h3>
+                {% if can_edit %}
+                    <div class="ms-auto">
+                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?authldap_id={{ authldap.getID() }}" 
+                           class="btn btn-primary">
+                            <i class="ti ti-plus me-1"></i>
+                            {{ __('Add Sync Filter', 'advancedldap') }}
+                        </a>
+                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.php" 
+                           class="btn btn-outline-secondary">
+                            <i class="ti ti-list me-1"></i>
+                            {{ __('Manage All Filters', 'advancedldap') }}
+                        </a>
+                    </div>
+                {% endif %}
             </div>
-        {% endif %}
-    </div>
-    <div class="card-body">
         {% if sync_filters|length > 0 %}
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive-lg">
+                <table class="search-results table card-table table-hover table-striped">
                     <thead>
                         <tr>
-                            <th width="20"></th>
                             <th>{{ __('Name') }}</th>
                             <th>{{ __('Base DN', 'advancedldap') }}</th>
                             <th>{{ __('LDAP Filter', 'advancedldap') }}</th>
@@ -38,14 +38,9 @@
                         {% for filter in sync_filters %}
                             <tr>
                                 <td>
-                                    {% if filter.is_active %}
-                                        <i class="ti ti-circle-check text-success" title="{{ __('Active') }}"></i>
-                                    {% else %}
-                                        <i class="ti ti-circle-x text-danger" title="{{ __('Inactive') }}"></i>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <strong>{{ filter.name }}</strong>
+                                    <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&authldap_id={{ authldap.getID() }}" 
+                                    title="{{ __('Edit') }}">{{ filter.name }}
+                                    </a>
                                 </td>
                                 <td>
                                     <code class="small">{{ filter.base_dn }}</code>
@@ -54,27 +49,21 @@
                                     <code class="small">{{ filter.ldap_filter|length > 50 ? filter.ldap_filter|slice(0, 50) ~ '...' : filter.ldap_filter }}</code>
                                 </td>
                                 <td>
-                                    <span class="badge bg-info">{{ filter.asset_type }}</span>
+                                    <span class="badge bg-azure-lt">{{ filter.asset_type }}</span>
                                 </td>
                                 <td>
                                     {% if filter.is_active %}
-                                        <span class="badge bg-success">{{ __('Active') }}</span>
+                                        <span class="badge bg-success-lt">{{ __('Active') }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">{{ __('Inactive') }}</span>
+                                        <span class="badge bg-orange-lt">{{ __('Inactive') }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&authldap_id={{ authldap.getID() }}" 
-                                           class="btn btn-sm btn-outline-primary" title="{{ __('Edit') }}">
-                                            <i class="ti ti-edit"></i>
+                                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&test_ldap=1&test_authldap_id={{ authldap.getID() }}&test_base_dn={{ filter.base_dn|url_encode }}&test_filter={{ filter.ldap_filter|url_encode }}&test_asset_type={{ filter.asset_type|url_encode }}" 
+                                            class="btn btn-sm btn-outline-info" title="{{ __('Test Filter', 'advancedldap') }}">
+                                            <i class="ti ti-test-pipe"></i>
                                         </a>
-                                        {% if can_edit %}
-                                            <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&test_ldap=1&test_authldap_id={{ authldap.getID() }}&test_base_dn={{ filter.base_dn|url_encode }}&test_filter={{ filter.ldap_filter|url_encode }}&test_asset_type={{ filter.asset_type|url_encode }}" 
-                                               class="btn btn-sm btn-outline-info" title="{{ __('Test Filter', 'advancedldap') }}">
-                                                <i class="ti ti-flask"></i>
-                                            </a>
-                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -100,6 +89,7 @@
                 </div>
             </div>
         {% endif %}
+        </div>
     </div>
 </div>
 
@@ -113,17 +103,9 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <h5>{{ __('What are sync filters?', 'advancedldap') }}</h5>
                     <p>{{ __('Sync filters allow you to define which LDAP entries should be synchronized with specific GLPI asset types. Each filter can target different organizational units and object classes in your LDAP directory.', 'advancedldap') }}</p>
-                </div>
-                <div class="col-md-6">
-                    <h5>{{ __('Filter Status', 'advancedldap') }}</h5>
-                    <ul class="list-unstyled">
-                        <li><i class="ti ti-circle-check text-success me-1"></i> {{ __('Active filters will be used during synchronization', 'advancedldap') }}</li>
-                        <li><i class="ti ti-circle-x text-danger me-1"></i> {{ __('Inactive filters are ignored during synchronization', 'advancedldap') }}</li>
-                        <li><i class="ti ti-flask text-info me-1"></i> {{ __('Use the test function to validate filters before activation', 'advancedldap') }}</li>
-                    </ul>
                 </div>
             </div>
         </div>

@@ -113,17 +113,6 @@
                 <strong>{{ __('Error:', 'advancedldap') }}</strong> {{ test_results.error }}
             </div>
         {% else %}
-            <!-- Récapitulatif de la configuration testée -->
-            <div class="alert alert-info">
-                <h5><i class="fas fa-info-circle me-2"></i>{{ __('Configuration tested:', 'advancedldap') }}</h5>
-                <ul class="mb-0">
-                    <li><strong>{{ __('AuthLDAP:', 'advancedldap') }}</strong> {{ test_results.config.authldap_name }}</li>
-                    <li><strong>{{ __('Base DN:', 'advancedldap') }}</strong> {{ test_results.config.base_dn }}</li>
-                    <li><strong>{{ __('Filter:', 'advancedldap') }}</strong> {{ test_results.config.filter }}</li>
-                    <li><strong>{{ __('Asset Type:', 'advancedldap') }}</strong> {{ test_results.config.asset_type }}</li>
-                    <li><strong>{{ __('Asset Field:', 'advancedldap') }}</strong> {{ test_results.config.asset_field }}</li>
-                </ul>
-            </div>
             
             <!-- Résultats LDAP -->
             <div class="alert alert-success">

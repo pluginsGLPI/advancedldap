@@ -44,6 +44,7 @@ class SyncFilter extends CommonDBTM
 {
     public static $rightname = 'config';
     public static $table = 'glpi_plugin_advancedldap_syncfilters';
+    public $dohistory = true;
 
     /**
      * Get the table name for this class
@@ -66,6 +67,16 @@ class SyncFilter extends CommonDBTM
     public static function getTypeName($nb = 0): string
     {
         return _n('Sync Filter', 'Sync Filters', $nb, 'advancedldap');
+    }
+
+    /**
+     * Get the icon for this itemtype
+     *
+     * @return string
+     */
+    public static function getIcon(): string
+    {
+        return 'ti ti-filter';
     }
 
     /**
@@ -161,6 +172,36 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
+     * Get associated AuthLDAP servers
+     * 
+     * @return array Array of AuthLDAP IDs
+     */
+    public function getAssociatedAuthLDAPs(): array
+    {
+        global $DB;
+        
+        if (!$this->getID()) {
+            return [];
+        }
+
+        $iterator = $DB->request([
+            'SELECT' => ['authldap_id'],
+            'FROM' => AuthLdapSyncFilter::getTable(),
+            'WHERE' => [
+                'syncfilter_id' => $this->getID(),
+                'is_active' => 1
+            ]
+        ]);
+
+        $authldaps = [];
+        foreach ($iterator as $data) {
+            $authldaps[] = $data['authldap_id'];
+        }
+
+        return $authldaps;
+    }
+
+    /**
      * Set field mappings from array
      *
      * @param array $mappings Field mappings
@@ -187,6 +228,26 @@ class SyncFilter extends CommonDBTM
         }
 
         return $input;
+    }
+
+    /**
+     * Actions after item was added to database
+     * 
+     * @return void
+     */
+    public function post_addItem(): void
+    {
+        parent::post_addItem();
+
+        // Create relation with AuthLDAP if authldap_id is provided
+        if (isset($this->input['authldap_id']) && $this->input['authldap_id'] > 0) {
+            $relation = new AuthLdapSyncFilter();
+            $relation->add([
+                'authldap_id' => $this->input['authldap_id'],
+                'syncfilter_id' => $this->getID(),
+                'is_active' => 1,
+            ]);
+        }
     }
 
     /**

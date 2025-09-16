@@ -74,11 +74,16 @@ class AdvancedLdapSync extends CommonGLPI
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
+            $nb = 0;
+            if ($_SESSION['glpishow_count_on_tabs']) {
+                $nb = countElementsInTable('glpi_plugin_advancedldap_syncfilters');
+            }
+            
             return self::createTabEntry(
-                __('Items to synchronize', 'advancedldap'),
-                0,
+                __('Advanced sync', 'advancedldap'),
+                $nb,
                 $item::class,
-                "ti ti-adjustments-alt",
+                "ti ti-filter",
             );
         }
         return '';
