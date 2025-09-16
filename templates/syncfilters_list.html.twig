@@ -71,23 +71,6 @@
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <div class="alert alert-info d-flex align-items-center">
-                <i class="ti ti-info-circle me-3 fa-2x"></i>
-                <div>
-                    <h4>{{ __('No sync filters configured', 'advancedldap') }}</h4>
-                    <p class="mb-0">
-                        {{ __('Create your first sync filter to start synchronizing LDAP data with GLPI assets.', 'advancedldap') }}
-                    </p>
-                    {% if can_edit %}
-                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?authldap_id={{ authldap.getID() }}" 
-                           class="btn btn-primary mt-2">
-                            <i class="ti ti-plus me-1"></i>
-                            {{ __('Create First Filter', 'advancedldap') }}
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
         {% endif %}
         </div>
     </div>

@@ -239,14 +239,21 @@ class SyncFilter extends CommonDBTM
     {
         parent::post_addItem();
 
+        // Debug: Log what we receive in input
+        \Toolbox::logDebug("SyncFilter post_addItem - input: " . print_r($this->input, true));
+
         // Create relation with AuthLDAP if authldap_id is provided
         if (isset($this->input['authldap_id']) && $this->input['authldap_id'] > 0) {
+            \Toolbox::logDebug("Creating relation with authldap_id: " . $this->input['authldap_id']);
             $relation = new AuthLdapSyncFilter();
-            $relation->add([
+            $result = $relation->add([
                 'authldap_id' => $this->input['authldap_id'],
                 'syncfilter_id' => $this->getID(),
                 'is_active' => 1,
             ]);
+            \Toolbox::logDebug("Relation creation result: " . ($result ? 'SUCCESS' : 'FAILED'));
+        } else {
+            \Toolbox::logDebug("No authldap_id in input or invalid value");
         }
     }
 
@@ -424,6 +431,33 @@ class SyncFilter extends CommonDBTM
     {
         $this->initForm($ID, $options);
 
+        // Handle parent AuthLDAP if provided (following GLPI conventions)
+        $parent_authldap = null;
+        if (isset($options['parent']) && $options['parent'] instanceof \AuthLDAP) {
+            $parent_authldap = $options['parent'];
+        } elseif (!empty($options['authldap_id'])) {
+            $authldap = new \AuthLDAP();
+            if ($authldap->getFromDB($options['authldap_id'])) {
+                $parent_authldap = $authldap;
+            }
+        }
+
+        // Get current authldap_id from existing relation if editing
+        $current_authldap_id = null;
+        $current_authldap = null;
+        if ($ID > 0) {
+            $current_authldap_id = $this->getParentAuthLdapId();
+            if ($current_authldap_id) {
+                $current_authldap = $this->getParentAuthLdap();
+            }
+        }
+
+        // If we have a parent from options but no current relation, use the parent
+        if ($parent_authldap && !$current_authldap) {
+            $current_authldap = $parent_authldap;
+            $current_authldap_id = $parent_authldap->getID();
+        }
+
         // Get AuthLDAP servers for dropdown
         $authldap_servers = [];
         global $DB;
@@ -442,13 +476,15 @@ class SyncFilter extends CommonDBTM
         $asset_field_provider = $container->get(\GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface::class);
 
         $available_assets = $this->buildAssetDropdown($asset_field_provider);
-        $current_config = $this->getCurrentConfiguration($ID);
+        $current_config = $this->getCurrentConfiguration($ID, $current_authldap_id);
         $test_results = $this->handleTestRequest($current_config);
 
         // Render template
         \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
             'item' => $this,
             'params' => $options,
+            'parent_authldap' => $current_authldap,
+            'current_authldap_id' => $current_authldap_id,
             'authldap_servers' => $authldap_servers,
             'available_assets' => $available_assets,
             'current_config' => $current_config,
@@ -497,12 +533,13 @@ class SyncFilter extends CommonDBTM
      * Get current configuration for the filter
      *
      * @param int $ID Filter ID
+     * @param int|null $authldap_id Specific AuthLDAP ID to use
      * @return array
      */
-    private function getCurrentConfiguration(int $ID): array
+    private function getCurrentConfiguration(int $ID, ?int $authldap_id = null): array
     {
-        // Get a default AuthLDAP ID if none is provided
-        $default_authldap_id = $_GET['authldap_id'] ?? '';
+        // Use provided authldap_id, or fall back to GET parameter, or find the first active one
+        $default_authldap_id = $authldap_id ?? $_GET['authldap_id'] ?? '';
         if (empty($default_authldap_id)) {
             global $DB;
             $iterator = $DB->request([
@@ -608,6 +645,46 @@ class SyncFilter extends CommonDBTM
         $current_config['authldap_id'] = $test_authldap_id;
 
         return $test_results;
+    }
+
+    /**
+     * Get the parent AuthLDAP ID for this filter
+     * Uses the repository pattern to respect SOLID principles
+     *
+     * @return int|null
+     */
+    public function getParentAuthLdapId(): ?int
+    {
+        if (!$this->getID()) {
+            return null;
+        }
+        
+        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface::class);
+        
+        $authldap_ids = $repository->getAuthLdapsForSyncFilter($this->getID(), true);
+        
+        return !empty($authldap_ids) ? (int)$authldap_ids[0] : null;
+    }
+
+    /**
+     * Get the parent AuthLDAP object for this filter
+     *
+     * @return \AuthLDAP|null
+     */
+    public function getParentAuthLdap(): ?\AuthLDAP
+    {
+        $authldap_id = $this->getParentAuthLdapId();
+        if (!$authldap_id) {
+            return null;
+        }
+        
+        $authldap = new \AuthLDAP();
+        if ($authldap->getFromDB($authldap_id)) {
+            return $authldap;
+        }
+        
+        return null;
     }
 }
 
