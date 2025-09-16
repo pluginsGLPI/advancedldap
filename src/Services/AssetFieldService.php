@@ -34,7 +34,6 @@
 namespace GlpiPlugin\Advancedldap\Services;
 
 use Exception;
-use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;

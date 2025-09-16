@@ -106,13 +106,102 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
 
             $field_name = $option['name'];
             $field_key = $option['field'];
+            $table = $option['table'] ?? 'unknown';
+
+            // Create unique key to avoid field collisions between tables
+            $unique_key = $field_key;
+            if (isset($fields[$field_key])) {
+                // For collisions, prefer main table fields or create qualified keys
+                if ($this->isMainTableField($table)) {
+                    // Keep the main table field with original key
+                    $unique_key = $field_key;
+                } else {
+                    // Create qualified key for non-main table fields
+                    $table_display = $this->getTableDisplayName($table);
+                    $table_key = strtolower(str_replace([' ', '-'], '_', $table_display));
+                    $unique_key = $field_key . '_' . $table_key;
+                    $field_name = $field_name . ' (' . $table_display . ')';
+                }
+            }
 
             // Use clean field name as label
-            $fields[$field_key] = $field_name;
+            $fields[$unique_key] = $field_name;
         }
 
         // Sort alphabetically
         asort($fields);
         return $fields;
+    }
+
+    /**
+     * Check if field belongs to the main asset table
+     *
+     * @param string $table Table name
+     * @return bool
+     */
+    private function isMainTableField(string $table): bool
+    {
+        global $CFG_GLPI;
+        
+        try {
+            // Get all asset types from GLPI configuration
+            $asset_types = $CFG_GLPI['asset_types'] ?? [];
+            $inventory_types = $CFG_GLPI['inventory_types'] ?? [];
+            $state_types = $CFG_GLPI['state_types'] ?? [];
+            
+            // Convert itemtypes to table names
+            $main_tables = [];
+            foreach (array_merge($asset_types, $inventory_types, $state_types) as $itemtype) {
+                if (class_exists($itemtype)) {
+                    $main_tables[] = getTableForItemType($itemtype);
+                }
+            }
+            
+            // Add generic assets if they exist
+            if (class_exists('Glpi\\Asset\\AssetDefinition')) {
+                // Generic assets follow pattern glpi_assets_assets_{id}
+                // For now, we'll consider any glpi_assets_* as main tables
+                if (str_starts_with($table, 'glpi_assets_')) {
+                    return true;
+                }
+            }
+            
+            return in_array($table, $main_tables);
+            
+        } catch (Exception $e) {
+            Toolbox::logDebug("Advanced LDAP - Error checking main table field for $table: " . $e->getMessage());
+            
+            // Fallback to original hardcoded list
+            $fallback_tables = [
+                'glpi_computers', 'glpi_monitors', 'glpi_printers', 'glpi_peripherals',
+                'glpi_phones', 'glpi_networkequipments', 'glpi_softwares'
+            ];
+            
+            return in_array($table, $fallback_tables);
+        }
+    }
+
+    /**
+     * Get display name for table using GLPI metadata
+     *
+     * @param string $table Full table name
+     * @return string
+     */
+    private function getTableDisplayName(string $table): string
+    {
+        try {
+            // Use GLPI's native function to get itemtype from table
+            $itemtype = getItemTypeForTable($table);
+            if ($itemtype && class_exists($itemtype)) {
+                return $itemtype::getTypeName(1);
+            }
+        } catch (Exception $e) {
+            Toolbox::logDebug("Advanced LDAP - Error getting display name for table $table: " . $e->getMessage());
+        }
+        
+        // Fallback: clean table name
+        $name = str_replace('glpi_', '', $table);
+        $name = str_replace('_', ' ', $name);
+        return ucwords($name);
     }
 }
