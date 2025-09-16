@@ -8,11 +8,16 @@ Ce document présente l'architecture technique du plugin Advanced LDAP et les bo
 plugins/advancedldap/
 ├── 📁 ajax/                           # Requêtes AJAX
 │   └── getAssetFields.php             # Récupération dynamique des champs d'assets
-├── 📁 front/                          # Pages d'interface utilisateur
-│   └── config.form.php                # Configuration du plugin
+├── 📁 front/                          # Pages d'interface utilisateur (CRUD)
+│   ├── config.form.php                # Configuration du plugin
+│   ├── plugin_advancedldap.form.php   # Page principale du plugin
+│   ├── syncfilter.php                 # Liste des filtres de synchronisation
+│   └── syncfilter.form.php            # Formulaire CRUD pour les filtres
+├── 📁 inc/                            # Compatibilité legacy GLPI 11
+│   └── syncfilter.class.php           # Alias legacy pour Search engine
 ├── 📁 src/                            # Code source principal (architecture SOLID)
 │   ├── 📁 Container/                  # Conteneur d'injection de dépendances
-│   │   └── ServiceContainer.php       # Gestionnaire des services
+│   │   └── ServiceContainer.php       # Gestionnaire des services (7.3KB)
 │   ├── 📁 Contracts/                  # Interfaces (abstractions)
 │   │   ├── AssetFieldProviderInterface.php         # Contrat pour les fournisseurs de champs
 │   │   ├── AuthLdapSyncFilterRepositoryInterface.php # Contrat pour les relations
@@ -22,6 +27,9 @@ plugins/advancedldap/
 │   │   └── SyncFilterRepositoryInterface.php       # Contrat pour les filtres
 │   ├── 📁 Factories/                  # Pattern Factory
 │   │   └── AssetFieldProviderFactory.php     # Création des providers d'assets
+│   ├── 📁 Models/                     # Modèles métier (CommonDBTM)
+│   │   ├── SyncFilter.php             # Modèle principal des filtres (18KB)
+│   │   └── AuthLdapSyncFilter.php     # Relations many-to-many AuthLDAP ↔ SyncFilter
 │   ├── 📁 Providers/                  # Fournisseurs spécialisés
 │   │   ├── GenericAssetFieldProvider.php     # Champs des assets génériques
 │   │   └── NativeAssetFieldProvider.php      # Champs des assets natifs GLPI
@@ -29,32 +37,35 @@ plugins/advancedldap/
 │   │   ├── AuthLdapSyncFilterRepository.php  # Relations AuthLDAP/SyncFilter
 │   │   └── SyncFilterRepository.php          # Données des filtres de synchronisation
 │   ├── 📁 Services/                   # Services métier
-│   │   ├── AssetFieldService.php             # Service principal des champs d'assets
+│   │   ├── AssetFieldService.php             # Service principal des champs d'assets (6.8KB)
 │   │   ├── GlpiConfigurationService.php      # Wrapper configuration GLPI
 │   │   ├── GlpiDatabaseService.php           # Wrapper base de données GLPI
 │   │   ├── GlpiLdapConnectionService.php     # Wrapper connexions LDAP GLPI
-│   │   ├── LdapTestService.php               # Service de test des filtres LDAP
-│   │   └── SyncFilterService.php             # Service métier des filtres de synchronisation
-│   ├── AdvancedLdapSync.php           # Classe principale du plugin
-│   └── Bootstrap.php                  # Point d'entrée et initialisation
+│   │   ├── LdapTestService.php               # Service de test des filtres LDAP (12.3KB)
+│   │   └── SyncFilterService.php             # Service métier des filtres de synchronisation (7.2KB)
+│   ├── AdvancedLdapSync.php           # Classe principale du plugin (10.7KB)
+│   └── Bootstrap.php                  # Point d'entrée et initialisation (2.9KB)
 ├── 📁 templates/                      # Templates Twig (interface)
+│   ├── ldap_sync.html.twig            # Template principal de synchronisation (legacy)
+│   ├── syncfilter_form.html.twig      # Formulaire de création/édition de filtres
+│   └── syncfilters_list.html.twig     # Liste des filtres dans l'onglet AuthLDAP
 ├── 📁 tests/                          # Tests (structure de base)
 │   └── bootstrap.php                  # Configuration des tests
 ├── 📁 tools/                          # Outils de développement
 ├── 📁 var/                            # Cache et fichiers temporaires
+│   └── php-cs-fixer/                  # Cache du formateur de code
 ├── 📄 setup.php                       # Configuration et hooks du plugin
 ├── 📄 hook.php                        # Fonctions d'installation/désinstallation
-├── 📄 composer.json                   # Dépendances et autoloading
+├── 📄 composer.json                   # Dépendances et autoloading (PHP 8.2+)
 ├── 📄 advancedldap.xml               # Métadonnées du plugin
-├── 📄 CLAUDE.md                       # Notes de développement
+├── 📄 CLAUDE.md                       # Instructions de collaboration IA
+├── 📄 advancedldap_developer_notes.md # Documentation technique (ce fichier)
 ├── 📄 ldap-notes.md                   # Documentation technique LDAP
-├── 📄 dummy_data.ldif                # Données de test LDAP
-├── 📄 README.md                       # Documentation utilisateur
-├── 📄 LICENSE                         # Licence MIT
-├── 📄 .php-cs-fixer.php              # Configuration style de code
-├── 📄 phpstan.neon                    # Configuration analyse statique
+├── 📄 .php-cs-fixer.php              # Configuration style de code (PSR-12)
+├── 📄 psalm.xml                       # Configuration analyse statique
 ├── 📄 phpunit.xml                     # Configuration tests unitaires
-└── 📄 Makefile                        # Commandes de développement
+├── 📄 .gitignore                      # Exclusions Git
+└── 📄 README.md                       # Documentation utilisateur
 ```
 
 
@@ -229,30 +240,42 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 4. **Performance** : Pattern Repository optimise les requêtes DB
 5. **Sécurité** : Validation centralisée dans les services métier
 
-## État Actuel du Plugin
+## État Actuel du Plugin (Septembre 2025)
 
-### **Interface Utilisateur**
-- **Un seul onglet** dans AuthLDAP : "Items to synchronize" 
-- **Formulaire de configuration** existant dans `/templates/ldap_sync.html.twig`
-- **Test LDAP** fonctionnel avec affichage des résultats
-- **Gestion dynamique** des champs d'assets via AJAX
+### **Interface Utilisateur Fonctionnelle**
+- ✅ **Onglet AuthLDAP** : "Items to synchronize" intégré dans `setup.php:60-62`
+- ✅ **Liste des filtres** : Template `syncfilters_list.html.twig` (7.3KB)
+- ✅ **Formulaire CRUD** : `front/syncfilter.form.php` + template associé (12.5KB)
+- ✅ **Pages de liste** : `front/syncfilter.php` avec Search::show()
+- ✅ **AJAX dynamique** : `ajax/getAssetFields.php` pour les champs d'assets
+- ✅ **Test LDAP** : Fonctionnel via `LdapTestService` (12.3KB)
 
-### **Architecture Backend Complète**
-- ✅ **Modèles SOLID** : SyncFilter et AuthLdapSyncFilter avec actions de masse
-- ✅ **Repositories** : Accès aux données avec gestion d'erreurs
-- ✅ **Services métier** : Logique applicative séparée
-- ✅ **Injection de dépendances** : ServiceContainer complet
-- ✅ **Base de données** : Tables créées avec hooks d'installation
+### **Architecture Backend Complète & Opérationnelle**
+- ✅ **Modèles SOLID** : `SyncFilter.php` (18KB) et `AuthLdapSyncFilter.php` (4.6KB)
+- ✅ **CRUD complet** : extends CommonDBTM, actions de masse, droits utilisateurs
+- ✅ **Repositories** : Accès aux données avec gestion d'erreurs et validation
+- ✅ **Services métier** : 6 services spécialisés, logique applicative séparée
+- ✅ **Injection de dépendances** : ServiceContainer complet (7.3KB)
+- ✅ **Base de données** : Tables créées, relations many-to-many
+- ✅ **Legacy compatibility** : `inc/syncfilter.class.php` pour GLPI 11 Search
 
-### **Prêt pour Extension**
-L'architecture permet facilement :
-- Ajout de nouveaux types de synchronisation
-- Extension des fournisseurs d'assets
-- Nouveaux services métier
-- Tests unitaires complets
+### **Code Mort & Refactoring Récent**
+- ✅ **Nettoyage effectué** : Suppression des classes obsolètes (AssetFieldManager, LdapTester)
+- ✅ **Migration Models/** : SyncFilter et AuthLdapSyncFilter déplacés dans Models/
+- ✅ **Architecture cohérente** : Aucune référence orpheline détectée
+- ✅ **Standards respectés** : PHP 8.2+, PSR-12, typage strict, commentaires anglais
 
-### **Prochaines Étapes Possibles**
-- Interface d'administration des filtres de synchronisation
-- Intégration avec le système de cron GLPI
-- Logs détaillés des synchronisations
-- Import/export des configurations
+### **Prêt pour Production**
+L'architecture actuelle permet :
+- ✅ **Synchronisation LDAP** : Filtres configurables par AuthLDAP
+- ✅ **Gestion des assets** : Native + Generic via providers
+- ✅ **Tests et validation** : LdapTestService opérationnel
+- ✅ **Interface complète** : CRUD, liste, test, relations
+- ✅ **Maintenabilité** : SOLID, services découplés, injection de dépendances
+
+### **Extensions Possibles**
+- **Automatisation** : Intégration avec le système de cron GLPI
+- **Monitoring** : Logs détaillés des synchronisations
+- **Administration** : Import/export des configurations
+- **Performance** : Cache des résultats LDAP
+- **Sécurité** : Audit trail des modifications
