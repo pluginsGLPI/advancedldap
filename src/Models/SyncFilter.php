@@ -549,3 +549,9 @@ class SyncFilter extends CommonDBTM
         return $test_results;
     }
 }
+
+// Legacy compatibility for GLPI 11 Search engine
+// This alias ensures that the old PluginAdvancedldapSyncFilter naming still works
+if (!class_exists('PluginAdvancedldapSyncFilter', false)) {
+    class_alias('GlpiPlugin\Advancedldap\Models\SyncFilter', 'PluginAdvancedldapSyncFilter');
+}

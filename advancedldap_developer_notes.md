@@ -13,8 +13,6 @@ plugins/advancedldap/
 │   ├── plugin_advancedldap.form.php   # Page principale du plugin
 │   ├── syncfilter.php                 # Liste des filtres de synchronisation
 │   └── syncfilter.form.php            # Formulaire CRUD pour les filtres
-├── 📁 inc/                            # Compatibilité legacy GLPI 11
-│   └── syncfilter.class.php           # Alias legacy pour Search engine
 ├── 📁 src/                            # Code source principal (architecture SOLID)
 │   ├── 📁 Container/                  # Conteneur d'injection de dépendances
 │   │   └── ServiceContainer.php       # Gestionnaire des services (7.3KB)
@@ -28,7 +26,7 @@ plugins/advancedldap/
 │   ├── 📁 Factories/                  # Pattern Factory
 │   │   └── AssetFieldProviderFactory.php     # Création des providers d'assets
 │   ├── 📁 Models/                     # Modèles métier (CommonDBTM)
-│   │   ├── SyncFilter.php             # Modèle principal des filtres (18KB)
+│   │   ├── SyncFilter.php             # Modèle principal des filtres (18KB) + legacy alias
 │   │   └── AuthLdapSyncFilter.php     # Relations many-to-many AuthLDAP ↔ SyncFilter
 │   ├── 📁 Providers/                  # Fournisseurs spécialisés
 │   │   ├── GenericAssetFieldProvider.php     # Champs des assets génériques
@@ -257,7 +255,7 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 - ✅ **Services métier** : 6 services spécialisés, logique applicative séparée
 - ✅ **Injection de dépendances** : ServiceContainer complet (7.3KB)
 - ✅ **Base de données** : Tables créées, relations many-to-many
-- ✅ **Legacy compatibility** : `inc/syncfilter.class.php` pour GLPI 11 Search
+- ✅ **Legacy compatibility** : Alias de classe intégré dans `src/Models/SyncFilter.php` pour GLPI 11 Search
 
 ### **Code Mort & Refactoring Récent**
 - ✅ **Nettoyage effectué** : Suppression des classes obsolètes (AssetFieldManager, LdapTester)
