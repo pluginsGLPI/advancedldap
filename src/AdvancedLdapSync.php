@@ -76,7 +76,7 @@ class AdvancedLdapSync extends CommonGLPI
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             $nb = 0;
             if ($_SESSION['glpishow_count_on_tabs']) {
-                $nb = countElementsInTable('glpi_plugin_advancedldap_syncfilters');
+                $nb = $this->countSyncFiltersForAuthLdap($item->getID());
             }
             
             return self::createTabEntry(
@@ -235,6 +235,23 @@ class AdvancedLdapSync extends CommonGLPI
     }
 
     /**
+     * Count sync filters for this AuthLDAP instance
+     *
+     * @param int $authldap_id AuthLDAP ID
+     * @return int Number of filters
+     */
+    public function countSyncFiltersForAuthLdap(int $authldap_id): int
+    {
+        return countElementsInTable(
+            'glpi_plugin_advancedldap_authldap_syncfilters',
+            [
+                'authldap_id' => $authldap_id,
+                'is_active' => 1
+            ]
+        );
+    }
+
+    /**
      * Get sync filters for this AuthLDAP instance
      *
      * @param int $authldap_id AuthLDAP ID
@@ -242,22 +259,33 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        // Simple approach: show all filters for now
         global $DB;
 
         $iterator = $DB->request([
             'SELECT' => [
-                'id',
-                'name',
-                'ldap_filter',
-                'base_dn',
-                'asset_type',
-                'field_mappings',
-                'is_active',
-                'date_creation',
+                'sf.id',
+                'sf.name',
+                'sf.ldap_filter',
+                'sf.base_dn',
+                'sf.asset_type',
+                'sf.field_mappings',
+                'sf.is_active',
+                'sf.date_creation',
             ],
-            'FROM' => 'glpi_plugin_advancedldap_syncfilters',
-            'ORDER' => 'name',
+            'FROM' => 'glpi_plugin_advancedldap_syncfilters AS sf',
+            'INNER JOIN' => [
+                'glpi_plugin_advancedldap_authldap_syncfilters AS rel' => [
+                    'ON' => [
+                        'sf' => 'id',
+                        'rel' => 'syncfilter_id'
+                    ]
+                ]
+            ],
+            'WHERE' => [
+                'rel.authldap_id' => $authldap_id,
+                'rel.is_active' => 1
+            ],
+            'ORDER' => 'sf.name',
         ]);
 
         $filters = [];
