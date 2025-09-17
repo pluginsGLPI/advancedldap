@@ -326,6 +326,10 @@ class SyncFilter extends CommonDBTM
     public static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids): void
     {
         \Toolbox::logDebug("DEBUG MASSIVE ACTION - processMassiveActionsForOneItemtype called with action: " . $ma->getAction() . " on " . count($ids) . " items");
+        
+        // Use the legacy class name that GLPI expects for massive actions
+        $itemtype = 'PluginAdvancedldapSyncFilter';
+        
         switch ($ma->getAction()) {
             case 'duplicate':
                 foreach ($ids as $id) {
@@ -335,15 +339,15 @@ class SyncFilter extends CommonDBTM
                         $input['name'] = sprintf(__('Copy of %s'), $input['name']);
 
                         if ($item->add($input)) {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
+                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_OK);
                         } else {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
                         }
                     } else {
-                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
                     }
                 }
-                break;
+                return;
 
             default:
                 parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
