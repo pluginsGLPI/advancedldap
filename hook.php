@@ -111,3 +111,57 @@ function plugin_advancedldap_uninstall(): bool
 
     return true;
 }
+
+/**
+ * Hook to add default WHERE clause for contextual filtering
+ * Filters SyncFilters by AuthLDAP when authldap_id parameter is present
+ *
+ * @param string $itemtype Item type being searched
+ * @return string Additional WHERE clause
+ */
+function plugin_advancedldap_addDefaultWhere($itemtype): string
+{
+    if ($itemtype === 'PluginAdvancedldapSyncFilter') {
+        // Check if we have an authldap_id parameter in GET
+        if (isset($_GET['authldap_id']) && intval($_GET['authldap_id']) > 0) {
+            $authldap_id = intval($_GET['authldap_id']);
+            
+            // Return WHERE clause to filter sync filters by AuthLDAP
+            return " `glpi_plugin_advancedldap_syncfilters`.`id` IN (
+                SELECT `syncfilter_id` 
+                FROM `glpi_plugin_advancedldap_authldap_syncfilters` 
+                WHERE `authldap_id` = $authldap_id
+            ) ";
+        }
+    }
+    
+    return '';
+}
+
+/**
+ * Hook to add massive actions for plugin items
+ * 
+ * @param string $type The itemtype for which to return massive actions
+ * @return array Array of massive actions
+ */
+function plugin_advancedldap_MassiveActions($type): array
+{
+    \Toolbox::logDebug("DEBUG HOOK - plugin_advancedldap_MassiveActions called with type: " . $type);
+    $actions = [];
+    
+    switch ($type) {
+        case 'PluginAdvancedldapSyncFilter':
+            \Toolbox::logDebug("DEBUG HOOK - Adding duplicate action for PluginAdvancedldapSyncFilter");
+            $actions['PluginAdvancedldapSyncFilter' . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate'] = 
+                _x('button', 'Duplicate');
+            break;
+        case 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter':
+            \Toolbox::logDebug("DEBUG HOOK - Adding duplicate action for namespaced class");
+            $actions['PluginAdvancedldapSyncFilter' . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate'] = 
+                _x('button', 'Duplicate');
+            break;
+    }
+    
+    \Toolbox::logDebug("DEBUG HOOK - Returning actions: " . print_r($actions, true));
+    return $actions;
+}

@@ -34,6 +34,7 @@
 namespace GlpiPlugin\Advancedldap\Models;
 
 use CommonDBTM;
+use Html;
 use MassiveAction;
 use Session;
 
@@ -280,16 +281,38 @@ class SyncFilter extends CommonDBTM
      */
     public function getSpecificMassiveActions($checkitem = null): array
     {
-        $isadmin = static::canUpdate();
         $actions = parent::getSpecificMassiveActions($checkitem);
-
-        if ($isadmin) {
-            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'enable'] = __('Enable');
-            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'disable'] = __('Disable');
-            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate'] = _x('button', 'Duplicate');
+        
+        // Ensure $actions is always an array
+        if (!is_array($actions)) {
+            $actions = [];
         }
 
+        // Custom massive actions are now handled via hook in hook.php
+
         return $actions;
+    }
+
+    /**
+     * Show massive actions sub form for specific actions
+     *
+     * @param MassiveAction $ma MassiveAction instance
+     * @return bool
+     */
+    public static function showMassiveActionsSubForm(MassiveAction $ma): bool
+    {
+        \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm called with action: " . $ma->getAction());
+        switch ($ma->getAction()) {
+            case 'duplicate':
+                echo "&nbsp;" . Html::submit(_x('button', 'Duplicate'), ['name' => 'massiveaction']) . 
+                     "&nbsp;" . __('Create duplicates of selected filters', 'advancedldap');
+                \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm displaying button for action: " . $ma->getAction());
+                return true;
+                
+            default:
+                \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm calling parent for action: " . $ma->getAction());
+                return parent::showMassiveActionsSubForm($ma);
+        }
     }
 
     /**
@@ -302,35 +325,8 @@ class SyncFilter extends CommonDBTM
      */
     public static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids): void
     {
+        \Toolbox::logDebug("DEBUG MASSIVE ACTION - processMassiveActionsForOneItemtype called with action: " . $ma->getAction() . " on " . count($ids) . " items");
         switch ($ma->getAction()) {
-            case 'enable':
-                foreach ($ids as $id) {
-                    if ($item->getFromDB($id)) {
-                        if ($item->update(['id' => $id, 'is_active' => 1])) {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
-                        } else {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
-                        }
-                    } else {
-                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
-                    }
-                }
-                break;
-
-            case 'disable':
-                foreach ($ids as $id) {
-                    if ($item->getFromDB($id)) {
-                        if ($item->update(['id' => $id, 'is_active' => 0])) {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
-                        } else {
-                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
-                        }
-                    } else {
-                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
-                    }
-                }
-                break;
-
             case 'duplicate':
                 foreach ($ids as $id) {
                     if ($item->getFromDB($id)) {
