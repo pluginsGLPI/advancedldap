@@ -115,21 +115,21 @@ function plugin_advancedldap_uninstall(): bool
 
 /**
  * Hook to add massive actions for plugin items
- * 
+ *
  * @param string $type The itemtype for which to return massive actions
  * @return array Array of massive actions
  */
 function plugin_advancedldap_MassiveActions($type): array
 {
     $actions = [];
-    
+
     switch ($type) {
         case 'PluginAdvancedldapSyncFilter':
         case 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter':
-            $actions['PluginAdvancedldapSyncFilter' . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate'] = 
-                _x('button', 'Duplicate');
+            $actions['PluginAdvancedldapSyncFilter' . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate']
+                = _x('button', 'Duplicate');
             break;
     }
-    
+
     return $actions;
 }

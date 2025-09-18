@@ -102,17 +102,19 @@ class SyncFilter extends CommonDBTM
      */
     public function redirectToList(): void
     {
-        // Try to get parent AuthLDAP ID for contextual redirect
-        $authldap_id = $this->getParentAuthLdapId();
+        global $CFG_GLPI;
         
-        // If we have a parent AuthLDAP, redirect there
+        // Try to get authldap_id from current URL parameters (after deletion context)
+        $authldap_id = $_GET['authldap_id'] ?? null;
+
+        // If we have a parent AuthLDAP from URL, redirect there
         if ($authldap_id) {
-            Html::redirect(GLPI_ROOT . "/front/authldap.form.php?id=$authldap_id");
+            Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id));
             return;
         }
 
-        // Fallback to default behavior
-        parent::redirectToList();
+        // Fallback to default behavior (redirect to plugin search page)
+        Html::redirect($CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.php");
     }
 
     /**
@@ -219,13 +221,13 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Get associated AuthLDAP servers
-     * 
+     *
      * @return array Array of AuthLDAP IDs
      */
     public function getAssociatedAuthLDAPs(): array
     {
         global $DB;
-        
+
         if (!$this->getID()) {
             return [];
         }
@@ -235,8 +237,8 @@ class SyncFilter extends CommonDBTM
             'FROM' => AuthLdapSyncFilter::getTable(),
             'WHERE' => [
                 'syncfilter_id' => $this->getID(),
-                'is_active' => 1
-            ]
+                'is_active' => 1,
+            ],
         ]);
 
         $authldaps = [];
@@ -278,7 +280,7 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Actions after item was added to database
-     * 
+     *
      * @return void
      */
     public function post_addItem(): void
@@ -299,7 +301,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Actions before item deletion
      * Clean up related AuthLDAP relations
-     * 
+     *
      * @return bool
      */
     public function pre_deleteItem(): bool
@@ -308,40 +310,14 @@ class SyncFilter extends CommonDBTM
             return false;
         }
 
-        // Store the parent AuthLDAP ID for redirection after deletion
-        $authldap_id = $this->getParentAuthLdapId();
-        if ($authldap_id) {
-            $_SESSION['plugin_advancedldap_redirect_authldap'] = $authldap_id;
-        }
-
         // Delete all related AuthLDAP relations before deleting the sync filter
         global $DB;
         $DB->delete(
             'glpi_plugin_advancedldap_authldap_syncfilters',
-            ['syncfilter_id' => $this->getID()]
+            ['syncfilter_id' => $this->getID()],
         );
 
         return true;
-    }
-
-    /**
-     * Actions after item deletion
-     * Redirect to parent AuthLDAP form
-     * 
-     * @return void
-     */
-    public function post_deleteItem(): void
-    {
-        parent::post_deleteItem();
-
-        // Redirect to parent AuthLDAP if we have one stored
-        if (isset($_SESSION['plugin_advancedldap_redirect_authldap'])) {
-            $authldap_id = $_SESSION['plugin_advancedldap_redirect_authldap'];
-            unset($_SESSION['plugin_advancedldap_redirect_authldap']);
-            
-            // Redirect to AuthLDAP form with Advanced sync tab
-            Html::redirect(GLPI_ROOT . "/front/authldap.form.php?id=$authldap_id");
-        }
     }
 
     /**
@@ -368,7 +344,7 @@ class SyncFilter extends CommonDBTM
     public function getSpecificMassiveActions($checkitem = null): array
     {
         $actions = parent::getSpecificMassiveActions($checkitem);
-        
+
         // Ensure $actions is always an array
         if (!is_array($actions)) {
             $actions = [];
@@ -389,10 +365,10 @@ class SyncFilter extends CommonDBTM
     {
         switch ($ma->getAction()) {
             case 'duplicate':
-                echo "&nbsp;" . Html::submit(_x('button', 'Duplicate'), ['name' => 'massiveaction']) . 
-                     "&nbsp;" . __('Create duplicates of selected filters', 'advancedldap');
+                echo "&nbsp;" . Html::submit(_x('button', 'Duplicate'), ['name' => 'massiveaction'])
+                     . "&nbsp;" . __('Create duplicates of selected filters', 'advancedldap');
                 return true;
-                
+
             default:
                 return parent::showMassiveActionsSubForm($ma);
         }
@@ -736,13 +712,13 @@ class SyncFilter extends CommonDBTM
         if (!$this->getID()) {
             return null;
         }
-        
+
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
         $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface::class);
-        
+
         $authldap_ids = $repository->getAuthLdapsForSyncFilter($this->getID(), true);
-        
-        return !empty($authldap_ids) ? (int)$authldap_ids[0] : null;
+
+        return !empty($authldap_ids) ? (int) $authldap_ids[0] : null;
     }
 
     /**
@@ -756,12 +732,12 @@ class SyncFilter extends CommonDBTM
         if (!$authldap_id) {
             return null;
         }
-        
+
         $authldap = new \AuthLDAP();
         if ($authldap->getFromDB($authldap_id)) {
             return $authldap;
         }
-        
+
         return null;
     }
 }

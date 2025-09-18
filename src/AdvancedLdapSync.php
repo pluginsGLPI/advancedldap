@@ -78,7 +78,7 @@ class AdvancedLdapSync extends CommonGLPI
             if ($_SESSION['glpishow_count_on_tabs']) {
                 $nb = $this->countSyncFiltersForAuthLdap($item->getID());
             }
-            
+
             return self::createTabEntry(
                 __('Advanced sync', 'advancedldap'),
                 $nb,
@@ -245,9 +245,9 @@ class AdvancedLdapSync extends CommonGLPI
         return countElementsInTable(
             'glpi_plugin_advancedldap_authldap_syncfilters',
             [
-                'authldap_id' => $authldap_id
+                'authldap_id' => $authldap_id,
                 // Removed is_active filter to count ALL relations (active and inactive)
-            ]
+            ],
         );
     }
 
@@ -277,12 +277,12 @@ class AdvancedLdapSync extends CommonGLPI
                 'glpi_plugin_advancedldap_authldap_syncfilters AS rel' => [
                     'ON' => [
                         'sf' => 'id',
-                        'rel' => 'syncfilter_id'
-                    ]
-                ]
+                        'rel' => 'syncfilter_id',
+                    ],
+                ],
             ],
             'WHERE' => [
-                'rel.authldap_id' => $authldap_id
+                'rel.authldap_id' => $authldap_id,
                 // Removed rel.is_active filter to show ALL relations (active and inactive)
             ],
             'ORDER' => 'sf.name',

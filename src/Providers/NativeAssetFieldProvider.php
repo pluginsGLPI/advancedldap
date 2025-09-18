@@ -142,13 +142,13 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
     private function isMainTableField(string $table): bool
     {
         global $CFG_GLPI;
-        
+
         try {
             // Get all asset types from GLPI configuration
             $asset_types = $CFG_GLPI['asset_types'] ?? [];
             $inventory_types = $CFG_GLPI['inventory_types'] ?? [];
             $state_types = $CFG_GLPI['state_types'] ?? [];
-            
+
             // Convert itemtypes to table names
             $main_tables = [];
             foreach (array_merge($asset_types, $inventory_types, $state_types) as $itemtype) {
@@ -156,7 +156,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
                     $main_tables[] = getTableForItemType($itemtype);
                 }
             }
-            
+
             // Add generic assets if they exist
             if (class_exists('Glpi\\Asset\\AssetDefinition')) {
                 // Generic assets follow pattern glpi_assets_assets_{id}
@@ -165,18 +165,18 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
                     return true;
                 }
             }
-            
+
             return in_array($table, $main_tables);
-            
+
         } catch (Exception $e) {
             Toolbox::logDebug("Advanced LDAP - Error checking main table field for $table: " . $e->getMessage());
-            
+
             // Fallback to original hardcoded list
             $fallback_tables = [
                 'glpi_computers', 'glpi_monitors', 'glpi_printers', 'glpi_peripherals',
-                'glpi_phones', 'glpi_networkequipments', 'glpi_softwares'
+                'glpi_phones', 'glpi_networkequipments', 'glpi_softwares',
             ];
-            
+
             return in_array($table, $fallback_tables);
         }
     }
@@ -198,7 +198,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
         } catch (Exception $e) {
             Toolbox::logDebug("Advanced LDAP - Error getting display name for table $table: " . $e->getMessage());
         }
-        
+
         // Fallback: clean table name
         $name = str_replace('glpi_', '', $table);
         $name = str_replace('_', ' ', $name);

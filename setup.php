@@ -58,7 +58,7 @@ function plugin_init_advancedldap(): void
 
     // Enable massive actions for this plugin
     $PLUGIN_HOOKS['use_massive_action']['advancedldap'] = true;
-    
+
 
     // Register tab for AuthLDAP
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [
@@ -72,14 +72,14 @@ function plugin_init_advancedldap(): void
     // Register legacy names for Search compatibility (GLPI 11 bug)
     Plugin::registerClass('PluginAdvancedldapSyncFilter');
     Plugin::registerClass('PluginAdvancedldapAuthLdapSyncFilter');
-    
+
     // Force loading of classes to create aliases for getItemForItemtype() compatibility
     // Workaround for GLPI namespace bug #8449
     if (class_exists('GlpiPlugin\\Advancedldap\\Models\\SyncFilter')) {
         // This will trigger the class_alias() in SyncFilter.php
     }
     if (class_exists('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter')) {
-        // This will trigger the class_alias() in AuthLdapSyncFilter.php  
+        // This will trigger the class_alias() in AuthLdapSyncFilter.php
     }
 }
 
