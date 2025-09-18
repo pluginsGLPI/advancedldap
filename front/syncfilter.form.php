@@ -78,6 +78,10 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST["purge"])) {
     $syncfilter->check($_POST['id'], PURGE);
 
+    // Get the parent AuthLDAP ID before deletion
+    $syncfilter->getFromDB($_POST['id']);
+    $authldap_id = $syncfilter->getParentAuthLdapId();
+
     if ($syncfilter->delete($_POST, true)) {
         Event::log(
             $_POST['id'],
@@ -86,7 +90,14 @@ if (isset($_POST["add"])) {
             "setup",
             sprintf(__('%s purges an item'), $_SESSION["glpiname"]),
         );
-        $syncfilter->redirectToList();
+        
+        // Redirect to parent AuthLDAP if we have one
+        if ($authldap_id) {
+            Html::redirect(GLPI_ROOT . "/front/authldap.form.php?id=$authldap_id");
+        } else {
+            // Fallback to standard list redirect
+            $syncfilter->redirectToList();
+        }
     } else {
         Html::back();
     }

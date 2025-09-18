@@ -58,6 +58,7 @@ function plugin_init_advancedldap(): void
 
     // Enable massive actions for this plugin
     $PLUGIN_HOOKS['use_massive_action']['advancedldap'] = true;
+    
 
     // Register tab for AuthLDAP
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [

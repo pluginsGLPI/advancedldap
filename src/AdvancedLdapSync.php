@@ -245,8 +245,8 @@ class AdvancedLdapSync extends CommonGLPI
         return countElementsInTable(
             'glpi_plugin_advancedldap_authldap_syncfilters',
             [
-                'authldap_id' => $authldap_id,
-                'is_active' => 1
+                'authldap_id' => $authldap_id
+                // Removed is_active filter to count ALL relations (active and inactive)
             ]
         );
     }
@@ -282,8 +282,8 @@ class AdvancedLdapSync extends CommonGLPI
                 ]
             ],
             'WHERE' => [
-                'rel.authldap_id' => $authldap_id,
-                'rel.is_active' => 1
+                'rel.authldap_id' => $authldap_id
+                // Removed rel.is_active filter to show ALL relations (active and inactive)
             ],
             'ORDER' => 'sf.name',
         ]);

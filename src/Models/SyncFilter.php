@@ -71,6 +71,51 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
+     * Get the type identifier for this class (for massive actions compatibility)
+     *
+     * @return string
+     */
+    public static function getType(): string
+    {
+        // Return legacy name for GLPI compatibility
+        return 'PluginAdvancedldapSyncFilter';
+    }
+
+    /**
+     * Get search URL for this class
+     * Override to use the correct front file instead of namespace-generated path
+     *
+     * @param bool $full Include GLPI_ROOT or not
+     * @return string
+     */
+    public static function getSearchURL($full = true): string
+    {
+        $base = $full ? GLPI_ROOT : '';
+        return $base . '/plugins/advancedldap/front/syncfilter.php';
+    }
+
+    /**
+     * Redirect to list after an action
+     * Override to redirect to parent AuthLDAP instead of generic list
+     *
+     * @return void
+     */
+    public function redirectToList(): void
+    {
+        // Try to get parent AuthLDAP ID for contextual redirect
+        $authldap_id = $this->getParentAuthLdapId();
+        
+        // If we have a parent AuthLDAP, redirect there
+        if ($authldap_id) {
+            Html::redirect(GLPI_ROOT . "/front/authldap.form.php?id=$authldap_id");
+            return;
+        }
+
+        // Fallback to default behavior
+        parent::redirectToList();
+    }
+
+    /**
      * Get the icon for this itemtype
      *
      * @return string
@@ -240,21 +285,62 @@ class SyncFilter extends CommonDBTM
     {
         parent::post_addItem();
 
-        // Debug: Log what we receive in input
-        \Toolbox::logDebug("SyncFilter post_addItem - input: " . print_r($this->input, true));
-
         // Create relation with AuthLDAP if authldap_id is provided
         if (isset($this->input['authldap_id']) && $this->input['authldap_id'] > 0) {
-            \Toolbox::logDebug("Creating relation with authldap_id: " . $this->input['authldap_id']);
             $relation = new AuthLdapSyncFilter();
-            $result = $relation->add([
+            $relation->add([
                 'authldap_id' => $this->input['authldap_id'],
                 'syncfilter_id' => $this->getID(),
                 'is_active' => 1,
             ]);
-            \Toolbox::logDebug("Relation creation result: " . ($result ? 'SUCCESS' : 'FAILED'));
-        } else {
-            \Toolbox::logDebug("No authldap_id in input or invalid value");
+        }
+    }
+
+    /**
+     * Actions before item deletion
+     * Clean up related AuthLDAP relations
+     * 
+     * @return bool
+     */
+    public function pre_deleteItem(): bool
+    {
+        if (!parent::pre_deleteItem()) {
+            return false;
+        }
+
+        // Store the parent AuthLDAP ID for redirection after deletion
+        $authldap_id = $this->getParentAuthLdapId();
+        if ($authldap_id) {
+            $_SESSION['plugin_advancedldap_redirect_authldap'] = $authldap_id;
+        }
+
+        // Delete all related AuthLDAP relations before deleting the sync filter
+        global $DB;
+        $DB->delete(
+            'glpi_plugin_advancedldap_authldap_syncfilters',
+            ['syncfilter_id' => $this->getID()]
+        );
+
+        return true;
+    }
+
+    /**
+     * Actions after item deletion
+     * Redirect to parent AuthLDAP form
+     * 
+     * @return void
+     */
+    public function post_deleteItem(): void
+    {
+        parent::post_deleteItem();
+
+        // Redirect to parent AuthLDAP if we have one stored
+        if (isset($_SESSION['plugin_advancedldap_redirect_authldap'])) {
+            $authldap_id = $_SESSION['plugin_advancedldap_redirect_authldap'];
+            unset($_SESSION['plugin_advancedldap_redirect_authldap']);
+            
+            // Redirect to AuthLDAP form with Advanced sync tab
+            Html::redirect(GLPI_ROOT . "/front/authldap.form.php?id=$authldap_id");
         }
     }
 
@@ -301,16 +387,13 @@ class SyncFilter extends CommonDBTM
      */
     public static function showMassiveActionsSubForm(MassiveAction $ma): bool
     {
-        \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm called with action: " . $ma->getAction());
         switch ($ma->getAction()) {
             case 'duplicate':
                 echo "&nbsp;" . Html::submit(_x('button', 'Duplicate'), ['name' => 'massiveaction']) . 
                      "&nbsp;" . __('Create duplicates of selected filters', 'advancedldap');
-                \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm displaying button for action: " . $ma->getAction());
                 return true;
                 
             default:
-                \Toolbox::logDebug("DEBUG MASSIVE ACTION - showMassiveActionsSubForm calling parent for action: " . $ma->getAction());
                 return parent::showMassiveActionsSubForm($ma);
         }
     }
@@ -325,11 +408,6 @@ class SyncFilter extends CommonDBTM
      */
     public static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids): void
     {
-        \Toolbox::logDebug("DEBUG MASSIVE ACTION - processMassiveActionsForOneItemtype called with action: " . $ma->getAction() . " on " . count($ids) . " items");
-        
-        // Use the legacy class name that GLPI expects for massive actions
-        $itemtype = 'PluginAdvancedldapSyncFilter';
-        
         switch ($ma->getAction()) {
             case 'duplicate':
                 foreach ($ids as $id) {
@@ -339,12 +417,12 @@ class SyncFilter extends CommonDBTM
                         $input['name'] = sprintf(__('Copy of %s'), $input['name']);
 
                         if ($item->add($input)) {
-                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_OK);
+                            $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_OK);
                         } else {
-                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
+                            $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_KO);
                         }
                     } else {
-                        $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
+                        $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_KO);
                     }
                 }
                 return;
