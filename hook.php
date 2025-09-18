@@ -114,6 +114,32 @@ function plugin_advancedldap_uninstall(): bool
 
 
 /**
+ * Hook to add default WHERE clause for contextual filtering
+ * Filters SyncFilters by AuthLDAP when authldap_id parameter is present
+ *
+ * @param string $itemtype Item type being searched
+ * @return string Additional WHERE clause
+ */
+function plugin_advancedldap_addDefaultWhere($itemtype): string
+{
+    if ($itemtype === 'PluginAdvancedldapSyncFilter') {
+        // Check if we have an authldap_id parameter in GET
+        if (isset($_GET['authldap_id']) && intval($_GET['authldap_id']) > 0) {
+            $authldap_id = intval($_GET['authldap_id']);
+            
+            // Return WHERE clause to filter sync filters by AuthLDAP
+            return " `glpi_plugin_advancedldap_syncfilters`.`id` IN (
+                SELECT `syncfilter_id` 
+                FROM `glpi_plugin_advancedldap_authldap_syncfilters` 
+                WHERE `authldap_id` = $authldap_id
+            ) ";
+        }
+    }
+    
+    return '';
+}
+
+/**
  * Hook to add massive actions for plugin items
  *
  * @param string $type The itemtype for which to return massive actions
