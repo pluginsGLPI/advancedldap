@@ -78,6 +78,9 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST["purge"])) {
     $syncfilter->check($_POST['id'], PURGE);
 
+    // Get authldap_id from POST data or URL before deletion
+    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? null;
+
     if ($syncfilter->delete($_POST, true)) {
         Event::log(
             $_POST['id'],
@@ -86,8 +89,17 @@ if (isset($_POST["add"])) {
             "setup",
             sprintf(__('%s purges an item'), $_SESSION["glpiname"]),
         );
+
+        // Redirect to parent AuthLDAP if we have the ID
+        if ($authldap_id) {
+            global $CFG_GLPI;
+            Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id));
+        } else {
+            $syncfilter->redirectToList();
+        }
+    } else {
+        Html::back();
     }
-    $syncfilter->redirectToList();
 } elseif (isset($_POST["update"])) {
     $syncfilter->check($_POST['id'], UPDATE);
 

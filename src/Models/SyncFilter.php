@@ -103,7 +103,7 @@ class SyncFilter extends CommonDBTM
     public function redirectToList(): void
     {
         global $CFG_GLPI;
-        
+
         // Try to get authldap_id from current URL parameters (after deletion context)
         $authldap_id = $_GET['authldap_id'] ?? null;
 
