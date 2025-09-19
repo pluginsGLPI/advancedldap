@@ -58,7 +58,7 @@ function plugin_init_advancedldap(): void
 
     // Enable massive actions for this plugin
     $PLUGIN_HOOKS['use_massive_action']['advancedldap'] = true;
-    
+
     // Register addDefaultWhere hook for contextual filtering (temporarily disabled)
     // $PLUGIN_HOOKS['addDefaultWhere']['advancedldap'] = 'plugin_advancedldap_addDefaultWhere';
 

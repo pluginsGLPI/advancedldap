@@ -126,7 +126,7 @@ function plugin_advancedldap_addDefaultWhere($itemtype): string
         // Check if we have an authldap_id parameter in GET
         if (isset($_GET['authldap_id']) && intval($_GET['authldap_id']) > 0) {
             $authldap_id = intval($_GET['authldap_id']);
-            
+
             // Return WHERE clause to filter sync filters by AuthLDAP
             return " `glpi_plugin_advancedldap_syncfilters`.`id` IN (
                 SELECT `syncfilter_id` 
@@ -135,7 +135,7 @@ function plugin_advancedldap_addDefaultWhere($itemtype): string
             ) ";
         }
     }
-    
+
     return '';
 }
 
