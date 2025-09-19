@@ -25,6 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
  * @copyright Copyright (C) 2018-2025 by Teclib'.
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
