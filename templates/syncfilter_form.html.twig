@@ -158,8 +158,8 @@
 
             {% if item.fields['id'] > 0 %}
                 <button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
-                    <i class="fas fa-flask"></i>
-                    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+                    <i class="ti ti-test-pipe"></i>
+                    <span>{{ __('Test and Sync LDAP Filter', 'advancedldap') }}</span>
                 </button>
             {% endif %}
             
@@ -175,7 +175,7 @@
 {% if test_results %}
 <div class="card mt-3">
     <div class="card-header bg-info text-white">
-        <h4><i class="fas fa-flask me-2"></i>{{ __('LDAP Filter Test Results', 'advancedldap') }}</h4>
+        <h4><i class="ti ti-test-pipe me-2"></i>{{ __('LDAP Filter Test Results', 'advancedldap') }}</h4>
     </div>
     <div class="card-body">
         {% if test_results.error %}
@@ -186,8 +186,21 @@
         {% else %}
             
             <!-- Résultats LDAP -->
-            <div class="alert alert-success">
-                <h5><i class="fas fa-check-circle me-2"></i>{{ test_results.entries|length }} {{ __('entries found in LDAP', 'advancedldap') }}</h5>
+            <div class="alert alert-success d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>{{ test_results.entries|length }} {{ __('entries found in LDAP', 'advancedldap') }}</h5>
+                <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" class="d-inline">
+                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" value="{{ item.fields['id'] }}">
+                    <input type="hidden" name="sync_from_ldap" value="1">
+                    {% if current_authldap_id %}
+                        <input type="hidden" name="authldap_id" value="{{ current_authldap_id }}">
+                    {% elseif current_config.authldap_id is defined and current_config.authldap_id %}
+                        <input type="hidden" name="authldap_id" value="{{ current_config.authldap_id }}">
+                    {% endif %}
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fas fa-sync-alt me-1"></i>{{ __('Sync data from LDAP directory', 'advancedldap') }}
+                    </button>
+                </form>
             </div>
             
             {% if test_results.entries|length > 0 %}
