@@ -289,14 +289,78 @@ class SyncFilter extends CommonDBTM
             $input['field_mappings'] = json_encode($input['field_mappings']);
         }
 
-        // Create simple field mapping from asset_field if provided and no existing field_mappings
+        // Create intelligent field mapping from asset_field using LDAP filter analysis
         if (isset($input['asset_field']) && !empty($input['asset_field']) && empty($input['field_mappings'])) {
-            // Use same name for both GLPI field and LDAP attribute by default
-            $field_mappings = [$input['asset_field'] => $input['asset_field']];
+            $ldap_attribute = $input['asset_field']; // Fallback to same name
+
+            // If we have an LDAP filter, parse it to find the best matching attribute
+            if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
+                $available_attributes = $this->parseLdapFilterAttributes($input['ldap_filter']);
+                $ldap_attribute = $this->findMatchingLdapAttribute($input['asset_field'], $available_attributes);
+            }
+
+            $field_mappings = [$input['asset_field'] => $ldap_attribute];
             $input['field_mappings'] = json_encode($field_mappings);
         }
 
         return $input;
+    }
+
+    /**
+     * Parse LDAP filter to extract available attributes
+     *
+     * @param string $ldap_filter LDAP filter string
+     * @return array List of LDAP attributes found in the filter
+     */
+    private function parseLdapFilterAttributes(string $ldap_filter): array
+    {
+        $attributes = [];
+
+        // Pattern to match LDAP attribute patterns like (attribute=*) or (attribute=value)
+        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*=/', $ldap_filter, $matches)) {
+            $attributes = array_unique($matches[1]);
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Find matching LDAP attribute for a GLPI field based on RFC 4519 conventions
+     *
+     * @param string $glpi_field GLPI field name
+     * @param array $available_ldap_attributes Available LDAP attributes from filter
+     * @return string Best matching LDAP attribute or same name as fallback
+     */
+    private function findMatchingLdapAttribute(string $glpi_field, array $available_ldap_attributes): string
+    {
+        // RFC 4519 standard correspondences between GLPI fields and LDAP attributes
+        $standard_mappings = [
+            'serial' => 'serialNumber',
+            'name' => 'cn',
+            'comment' => 'description',
+            'location' => 'l',
+            'phone' => 'telephoneNumber',
+            'mail' => 'mail',
+            'email' => 'mail',
+            'emails' => 'mail',
+            'firstname' => 'givenName',
+            'realname' => 'sn',
+            'mobile' => 'mobile',
+        ];
+
+        // If we have a standard mapping and the LDAP attribute exists in the filter, use it
+        if (isset($standard_mappings[$glpi_field]) &&
+            in_array($standard_mappings[$glpi_field], $available_ldap_attributes)) {
+            return $standard_mappings[$glpi_field];
+        }
+
+        // Fallback: if the exact GLPI field name exists as LDAP attribute, use it
+        if (in_array($glpi_field, $available_ldap_attributes)) {
+            return $glpi_field;
+        }
+
+        // Final fallback: use the GLPI field name (will likely fail sync but preserves intent)
+        return $glpi_field;
     }
 
     /**
@@ -354,10 +418,17 @@ class SyncFilter extends CommonDBTM
             $input['field_mappings'] = json_encode($input['field_mappings']);
         }
 
-        // Create simple field mapping from asset_field if provided and no existing field_mappings
+        // Create intelligent field mapping from asset_field using LDAP filter analysis
         if (isset($input['asset_field']) && !empty($input['asset_field']) && empty($input['field_mappings'])) {
-            // Use same name for both GLPI field and LDAP attribute by default
-            $field_mappings = [$input['asset_field'] => $input['asset_field']];
+            $ldap_attribute = $input['asset_field']; // Fallback to same name
+
+            // If we have an LDAP filter, parse it to find the best matching attribute
+            if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
+                $available_attributes = $this->parseLdapFilterAttributes($input['ldap_filter']);
+                $ldap_attribute = $this->findMatchingLdapAttribute($input['asset_field'], $available_attributes);
+            }
+
+            $field_mappings = [$input['asset_field'] => $ldap_attribute];
             $input['field_mappings'] = json_encode($field_mappings);
         }
 
