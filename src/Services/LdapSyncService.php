@@ -122,29 +122,17 @@ class LdapSyncService
             $field_mappings = $sync_filter->getFieldMappings();
             $asset_type = $sync_filter->getField('asset_type');
 
-            // Debug: Log the structure of LDAP entries
-            Toolbox::logDebug("LdapSyncService: LDAP entries structure", $ldap_entries['entries']);
-
             // Handle LDAP entries array properly (skip count and numeric indices)
             $entries = $ldap_entries['entries'];
             $entry_count = $entries['count'] ?? 0;
 
-            Toolbox::logDebug("LdapSyncService: Entry count", $entry_count);
-
             for ($i = 0; $i < $entry_count; $i++) {
                 if (!isset($entries[$i]) || !is_array($entries[$i])) {
-                    Toolbox::logDebug("LdapSyncService: Skipping invalid entry at index", $i);
                     continue;
                 }
 
                 $ldap_entry = $entries[$i];
                 $results['stats']['processed']++;
-
-                Toolbox::logDebug("LdapSyncService: Processing entry", [
-                    'index' => $i,
-                    'dn' => $ldap_entry['dn'] ?? 'no DN',
-                    'asset_type' => $asset_type
-                ]);
 
                 $entry_result = $this->processSingleEntry(
                     $ldap_entry,
@@ -259,13 +247,6 @@ class LdapSyncService
         ];
 
         try {
-            Toolbox::logDebug("LdapSyncService: processSingleEntry called", [
-                'ldap_entry_type' => gettype($ldap_entry),
-                'asset_type' => $asset_type,
-                'field_mappings' => $field_mappings,
-                'dn' => $ldap_entry['dn'] ?? 'no DN'
-            ]);
-
             // Extract mapped data from LDAP entry
             $asset_data = $this->extractAssetData($ldap_entry, $field_mappings);
 
@@ -306,8 +287,11 @@ class LdapSyncService
         $asset_data = [];
 
         foreach ($field_mappings as $glpi_field => $ldap_attribute) {
-            if (isset($ldap_entry[$ldap_attribute])) {
-                $ldap_value = $ldap_entry[$ldap_attribute];
+            // Normalize LDAP attribute name to lowercase (PHP ldap_get_entries normalizes all keys)
+            $normalized_ldap_attribute = strtolower($ldap_attribute);
+
+            if (isset($ldap_entry[$normalized_ldap_attribute])) {
+                $ldap_value = $ldap_entry[$normalized_ldap_attribute];
 
                 // Handle LDAP array values
                 if (is_array($ldap_value)) {
