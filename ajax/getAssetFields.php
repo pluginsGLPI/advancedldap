@@ -46,7 +46,13 @@ if (!isset($_POST['itemtype']) || empty($_POST['itemtype'])) {
 }
 
 $itemtype = $_POST['itemtype'];
-$selected = $_POST['selected'] ?? '';
+$selected = $_POST['selected'] ?? [];
+$multiple = isset($_POST['multiple']) && $_POST['multiple'];
+
+// Handle selected as array or single value
+if (!is_array($selected)) {
+    $selected = !empty($selected) ? [$selected] : [];
+}
 
 try {
     // Initialize services using Bootstrap
@@ -61,15 +67,20 @@ try {
     exit;
 }
 
-// Generate dropdown HTML
-echo "<select name='asset_field' class='form-select'>";
-echo "<option value=''>" . __('Select a field', 'advancedldap') . "</option>";
-
-foreach ($fields as $field_key => $field_label) {
-    $field_key   = htmlspecialchars($field_key, ENT_QUOTES, 'UTF-8');
-    $field_label = htmlspecialchars($field_label, ENT_QUOTES, 'UTF-8');
-    $selected_attr = ($field_key === $selected) ? ' selected' : '';
-    echo "<option value='$field_key'$selected_attr>$field_label</option>";
+// Use official GLPI Dropdown::showFromArray method
+if ($multiple) {
+    Dropdown::showFromArray('asset_fields', $fields, [
+        'values' => $selected,
+        'multiple' => true,
+        'display_emptychoice' => true,
+        'emptylabel' => __('Select fields to map...', 'advancedldap'),
+        'width' => '100%'
+    ]);
+} else {
+    Dropdown::showFromArray('asset_field', $fields, [
+        'value' => !empty($selected) ? $selected[0] : '',
+        'display_emptychoice' => true,
+        'emptylabel' => __('Select a field', 'advancedldap'),
+        'width' => '100%'
+    ]);
 }
-
-echo "</select>";
