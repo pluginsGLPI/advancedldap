@@ -153,6 +153,74 @@ if (isset($_POST["add"])) {
         Session::addMessageAfterRedirect(__('Please select an AuthLDAP server and provide Base DN and Filter', 'advancedldap'), false, ERROR);
         Html::back();
     }
+} elseif (isset($_POST['sync_from_ldap'])) {
+    // Handle LDAP synchronization
+    $syncfilter_id = $_POST['id'] ?? 0;
+    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0;
+
+    // Validate required parameters
+    if (!$syncfilter_id || !$authldap_id) {
+        Session::addMessageAfterRedirect(__('Sync filter ID and AuthLDAP ID are required for synchronization', 'advancedldap'), false, ERROR);
+        Html::back();
+        exit;
+    }
+
+    // Load sync filter to validate it exists
+    $syncfilter = new SyncFilter();
+    if (!$syncfilter->getFromDB($syncfilter_id)) {
+        Session::addMessageAfterRedirect(__('Sync filter not found', 'advancedldap'), false, ERROR);
+        Html::back();
+        exit;
+    }
+
+    // Check permissions
+    if (!$syncfilter->can($syncfilter_id, UPDATE)) {
+        Session::addMessageAfterRedirect(__('Permission denied', 'advancedldap'), false, ERROR);
+        Html::back();
+        exit;
+    }
+
+    try {
+        // Get service container and sync service
+        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+        $sync_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapSyncService::class);
+
+        // Perform synchronization
+        $sync_results = $sync_service->synchronizeFromFilter($syncfilter_id, $authldap_id);
+
+        if ($sync_results['success']) {
+            // Success message with statistics
+            $stats = $sync_results['stats'];
+            $message = sprintf(
+                __('Synchronization completed successfully! Created: %d, Updated: %d, Errors: %d', 'advancedldap'),
+                $stats['created'],
+                $stats['updated'],
+                $stats['errors']
+            );
+            Session::addMessageAfterRedirect($message, false, INFO);
+
+            // Log the synchronization event
+            Event::log(
+                $syncfilter_id,
+                "syncfilter",
+                4,
+                "setup",
+                sprintf(__('%1$s synchronizes LDAP data from filter %2$s'), $_SESSION["glpiname"], $syncfilter->getField('name'))
+            );
+        } else {
+            // Error message
+            $error_message = $sync_results['error'] ?? __('Unknown synchronization error', 'advancedldap');
+            Session::addMessageAfterRedirect($error_message, false, ERROR);
+        }
+
+    } catch (Exception $e) {
+        // Catch any unexpected errors
+        $error_message = sprintf(__('Synchronization failed: %s', 'advancedldap'), $e->getMessage());
+        Session::addMessageAfterRedirect($error_message, false, ERROR);
+    }
+
+    // Redirect back to form
+    Html::back();
 }
 
 $menus = ["config", "auth", "SyncFilter"];

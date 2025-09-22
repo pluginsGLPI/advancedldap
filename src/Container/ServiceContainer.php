@@ -41,9 +41,11 @@ use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
+use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
+use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterService;
 use GlpiPlugin\Advancedldap\Repositories\SyncFilterRepository;
@@ -185,6 +187,21 @@ class ServiceContainer
             return new SyncFilterService(
                 $container->get(SyncFilterRepositoryInterface::class),
                 $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+            );
+        });
+
+        // Asset creation service
+        $this->register(AssetCreationService::class, function (ServiceContainer $container) {
+            return new AssetCreationService(
+                $container->get(DatabaseInterface::class),
+            );
+        });
+
+        // LDAP synchronization service
+        $this->register(LdapSyncService::class, function (ServiceContainer $container) {
+            return new LdapSyncService(
+                $container->get(LdapConnectionInterface::class),
+                $container->get(AssetCreationService::class),
             );
         });
 
