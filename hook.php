@@ -122,15 +122,17 @@ function plugin_advancedldap_uninstall(): bool
  */
 function plugin_advancedldap_addDefaultWhere($itemtype): string
 {
-    if ($itemtype === 'PluginAdvancedldapSyncFilter') {
+    // Handle both legacy and namespaced class names
+    if ($itemtype === 'PluginAdvancedldapSyncFilter' || $itemtype === 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter') {
+
         // Check if we have an authldap_id parameter in GET
         if (isset($_GET['authldap_id']) && intval($_GET['authldap_id']) > 0) {
             $authldap_id = intval($_GET['authldap_id']);
 
             // Return WHERE clause to filter sync filters by AuthLDAP
             return " `glpi_plugin_advancedldap_syncfilters`.`id` IN (
-                SELECT `syncfilter_id` 
-                FROM `glpi_plugin_advancedldap_authldap_syncfilters` 
+                SELECT `syncfilter_id`
+                FROM `glpi_plugin_advancedldap_authldap_syncfilters`
                 WHERE `authldap_id` = $authldap_id
             ) ";
         }
@@ -152,7 +154,8 @@ function plugin_advancedldap_MassiveActions($type): array
     switch ($type) {
         case 'PluginAdvancedldapSyncFilter':
         case 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter':
-            $actions['PluginAdvancedldapSyncFilter' . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate']
+            // Use the type as passed by GLPI, not hardcoded
+            $actions[$type . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate']
                 = _x('button', 'Duplicate');
             break;
     }

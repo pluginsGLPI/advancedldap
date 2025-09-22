@@ -95,6 +95,19 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
+     * Get form URL for this class
+     * Override to use the correct front file instead of namespace-generated path
+     *
+     * @param bool $full Include GLPI_ROOT or not
+     * @return string
+     */
+    public static function getFormURL($full = true): string
+    {
+        $base = $full ? GLPI_ROOT : '';
+        return $base . '/plugins/advancedldap/front/syncfilter.form.php';
+    }
+
+    /**
      * Redirect to list after an action
      * Override to redirect to parent AuthLDAP instead of generic list
      *
@@ -271,8 +284,16 @@ class SyncFilter extends CommonDBTM
      */
     public function prepareInputForAdd($input)
     {
+        // Handle field_mappings array conversion
         if (isset($input['field_mappings']) && is_array($input['field_mappings'])) {
             $input['field_mappings'] = json_encode($input['field_mappings']);
+        }
+
+        // Create simple field mapping from asset_field if provided and no existing field_mappings
+        if (isset($input['asset_field']) && !empty($input['asset_field']) && empty($input['field_mappings'])) {
+            // Use same name for both GLPI field and LDAP attribute by default
+            $field_mappings = [$input['asset_field'] => $input['asset_field']];
+            $input['field_mappings'] = json_encode($field_mappings);
         }
 
         return $input;
@@ -328,8 +349,16 @@ class SyncFilter extends CommonDBTM
      */
     public function prepareInputForUpdate($input)
     {
+        // Handle field_mappings array conversion
         if (isset($input['field_mappings']) && is_array($input['field_mappings'])) {
             $input['field_mappings'] = json_encode($input['field_mappings']);
+        }
+
+        // Create simple field mapping from asset_field if provided and no existing field_mappings
+        if (isset($input['asset_field']) && !empty($input['asset_field']) && empty($input['field_mappings'])) {
+            // Use same name for both GLPI field and LDAP attribute by default
+            $field_mappings = [$input['asset_field'] => $input['asset_field']];
+            $input['field_mappings'] = json_encode($field_mappings);
         }
 
         return $input;
@@ -386,19 +415,43 @@ class SyncFilter extends CommonDBTM
     {
         switch ($ma->getAction()) {
             case 'duplicate':
+                // Initialize results array to avoid the undefined key error
+                $itemtype = get_class($item);
+                if (!isset($ma->results[$itemtype])) {
+                    $ma->results[$itemtype] = [];
+                }
+
                 foreach ($ids as $id) {
                     if ($item->getFromDB($id)) {
                         $input = $item->fields;
                         unset($input['id']);
                         $input['name'] = sprintf(__('Copy of %s'), $input['name']);
 
-                        if ($item->add($input)) {
-                            $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_OK);
+                        // Create the new item
+                        $new_item = new static();
+                        if ($new_item->add($input)) {
+                            // Duplicate ALL AuthLDAP relations
+                            global $DB;
+                            $iterator = $DB->request([
+                                'SELECT' => ['authldap_id', 'is_active'],
+                                'FROM' => AuthLdapSyncFilter::getTable(),
+                                'WHERE' => ['syncfilter_id' => $id],
+                            ]);
+
+                            foreach ($iterator as $relation_data) {
+                                $relation = new AuthLdapSyncFilter();
+                                $relation->add([
+                                    'authldap_id' => $relation_data['authldap_id'],
+                                    'syncfilter_id' => $new_item->getID(),
+                                    'is_active' => $relation_data['is_active'],
+                                ]);
+                            }
+                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_OK);
                         } else {
-                            $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_KO);
+                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
                         }
                     } else {
-                        $ma->itemDone(static::getType(), $id, MassiveAction::ACTION_KO);
+                        $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
                     }
                 }
                 return;

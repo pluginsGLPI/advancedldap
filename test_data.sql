@@ -69,21 +69,21 @@ INSERT INTO `glpi_authldaps` (
     `timeout`, 
     `tls_version`
 ) VALUES 
--- University Main Directory
+-- Teclib LDAP Directory
 (
-    'University LDAP - Main Directory',
+    'Teclib LDAP - Main Directory',
     '172.17.0.1',
-    'dc=univ,dc=example,dc=edu',
-    'cn=admin,dc=univ,dc=example,dc=edu',
+    'dc=teclib,dc=labo',
+    'cn=admin,dc=teclib,dc=labo',
     389,
     '(objectClass=inetOrgPerson)',
     'uid',
     'entryuuid',
     0,
     'memberOf',
-    '(objectClass=groupOfNames)',
+    '(objectClass=posixGroup)',
     0,
-    'member',
+    'memberUid',
     'mail',
     'cn',
     'givenName',
@@ -98,10 +98,10 @@ INSERT INTO `glpi_authldaps` (
     'departmentNumber',
     'preferredLanguage',
     NOW(),
-    'Main university directory for user authentication and device inventory',
+    'Teclib LDAP directory for user authentication and asset management',
     0,
     1,
-    'admin',
+    'admin123',
     'employeeNumber',
     'mailAlternateAddress',
     '',
@@ -115,22 +115,22 @@ INSERT INTO `glpi_authldaps` (
     'shadowExpire',
     'shadowMax',
     NOW(),
-    'univ.example.edu',
+    'teclib.labo',
     NULL,
     NULL,
     1,
     15,
     NULL
 ),
--- IT Department Directory  
+-- Teclib Assets Directory
 (
-    'IT Department LDAP - Assets & Equipment',
+    'Teclib LDAP - Assets & Equipment',
     '172.17.0.1',
-    'dc=it,dc=univ,dc=example,dc=edu',
-    'cn=admin,dc=it,dc=univ,dc=example,dc=edu',
+    'dc=teclib,dc=labo',
+    'cn=admin,dc=teclib,dc=labo',
     389,
-    '(|(objectClass=device)(objectClass=inetOrgPerson))',
-    'uid',
+    '(|(objectClass=device)(objectClass=ipHost))',
+    'cn',
     'entryuuid',
     0,
     'memberOf',
@@ -151,16 +151,16 @@ INSERT INTO `glpi_authldaps` (
     'ou',
     'preferredLanguage',
     NOW(),
-    'IT department specialized directory for asset management and technical equipment',
+    'Teclib specialized directory for asset management and technical equipment',
     0,
     1,
-    'admin',
+    'admin123',
     'serialNumber',
     '',
     '',
     '',
     'l',
-    'owner',
+    'seeAlso',
     50,
     0,
     1,
@@ -168,7 +168,7 @@ INSERT INTO `glpi_authldaps` (
     '',
     '',
     NOW(),
-    'it.univ.example.edu',
+    'teclib.labo',
     NULL,
     NULL,
     1,
@@ -195,100 +195,100 @@ INSERT INTO `glpi_plugin_advancedldap_syncfilters` (
     `date_mod`
 ) VALUES 
 -- Computer filters
-(1, 'Computers - All Desktop & Laptops', 
- '(&(objectClass=device)(serialNumber=*)(cn=COMP*))', 
- 'ou=Computers,dc=univ,dc=example,dc=edu', 
- 'Computer', 
- '{"name": "cn", "serial": "serialNumber", "otherserial": "description", "locations_id": "l", "comment": "description"}',
- 1, NOW(), NOW()),
-
-(2, 'Computers - Desktop Workstations Only', 
- '(&(objectClass=device)(serialNumber=*)(cn=COMP*)(description=*Desktop*))', 
- 'ou=Computers,dc=univ,dc=example,dc=edu', 
- 'Computer', 
+(1, 'Computers - All Workstations & Laptops',
+ '(&(objectClass=device)(serialNumber=*)(|(cn=PC-*)(cn=LAPTOP-*)))',
+ 'ou=Computers,dc=teclib,dc=labo',
+ 'Computer',
  '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
-(3, 'Computers - Laptops Only', 
- '(&(objectClass=device)(serialNumber=*)(cn=COMP*)(description=*Laptop*))', 
- 'ou=Computers,dc=univ,dc=example,dc=edu', 
- 'Computer', 
+(2, 'Computers - Desktop Workstations Only',
+ '(&(objectClass=device)(serialNumber=*)(cn=PC-*)(description=*workstation))',
+ 'ou=Computers,dc=teclib,dc=labo',
+ 'Computer',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
+ 1, NOW(), NOW()),
+
+(3, 'Computers - CEO Laptop Only',
+ '(&(objectClass=device)(serialNumber=*)(cn=LAPTOP-*)(description=*laptop))',
+ 'ou=Computers,dc=teclib,dc=labo',
+ 'Computer',
  '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
 -- Printer filters
-(4, 'Printers - Network Printers', 
- '(&(objectClass=device)(cn=PRINTER*)(serialNumber=*))', 
- 'ou=Printers,dc=univ,dc=example,dc=edu', 
- 'Printer', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l", "contact": "owner"}',
- 1, NOW(), NOW()),
-
-(5, 'Printers - Color Laser Printers', 
- '(&(objectClass=device)(cn=PRINTER*)(serialNumber=*)(description=*Color*Laser*))', 
- 'ou=Printers,dc=univ,dc=example,dc=edu', 
- 'Printer', 
+(4, 'Printers - All Network Printers',
+ '(&(objectClass=device)(cn=PRINTER-*)(serialNumber=*))',
+ 'ou=Printers,dc=teclib,dc=labo',
+ 'Printer',
  '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
--- Monitor filters
-(6, 'Monitors - All Display Devices', 
- '(&(objectClass=device)(cn=MONITOR*)(serialNumber=*))', 
- 'ou=Monitors,dc=univ,dc=example,dc=edu', 
- 'Monitor', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l", "size": "displaySize"}',
+(5, 'Printers - HP LaserJet Printers',
+ '(&(objectClass=device)(cn=PRINTER-HP-*)(serialNumber=*)(description=*LaserJet*))',
+ 'ou=Printers,dc=teclib,dc=labo',
+ 'Printer',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
-(7, 'Monitors - Large Displays (27+ inches)', 
- '(&(objectClass=device)(cn=MONITOR*)(serialNumber=*)(displaySize>=27))', 
- 'ou=Monitors,dc=univ,dc=example,dc=edu', 
- 'Monitor', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l", "size": "displaySize"}',
+-- Equipment filters (Network & Storage)
+(6, 'Equipment - Network Switches',
+ '(&(objectClass=device)(cn=SWITCH-*)(serialNumber=*)(description=*Switch*))',
+ 'ou=Equipment,dc=teclib,dc=labo',
+ 'NetworkEquipment',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
--- Phone filters
-(8, 'Phones - IP & VoIP Systems', 
- '(&(objectClass=device)(cn=PHONE*)(serialNumber=*))', 
- 'ou=Phones,dc=univ,dc=example,dc=edu', 
- 'Phone', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l", "contact": "assignedTo"}',
+(7, 'Equipment - Storage Devices (NAS)',
+ '(&(objectClass=device)(cn=NAS-*)(serialNumber=*)(description=*Storage*))',
+ 'ou=Equipment,dc=teclib,dc=labo',
+ 'NetworkEquipment',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
+ 1, NOW(), NOW()),
+
+-- Server filters
+(8, 'Servers - All Production Servers',
+ '(&(objectClass=device)(cn=SERVER-*)(serialNumber=*)(description=*Server))',
+ 'ou=Servers,dc=teclib,dc=labo',
+ 'Computer',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
 -- Network equipment filters
-(9, 'Network Equipment - Switches', 
- '(&(objectClass=device)(cn=SWITCH*)(serialNumber=*))', 
- 'ou=Network,dc=univ,dc=example,dc=edu', 
- 'NetworkEquipment', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l", "contact": "responsible"}',
- 1, NOW(), NOW()),
-
-(10, 'Network Equipment - Routers', 
- '(&(objectClass=device)(cn=ROUTER*)(serialNumber=*))', 
- 'ou=Network,dc=univ,dc=example,dc=edu', 
- 'NetworkEquipment', 
+(9, 'Network Equipment - Routers',
+ '(&(objectClass=device)(cn=ROUTER-*)(serialNumber=*)(description=*Router*))',
+ 'ou=Equipment,dc=teclib,dc=labo',
+ 'NetworkEquipment',
  '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
--- Generic asset filters for testing
-(11, 'Test Filter - Database Instances', 
- '(&(objectClass=device)(cn=DB*)(serialNumber=*))', 
- 'ou=Databases,dc=univ,dc=example,dc=edu', 
- 'DatabaseInstance', 
- '{"name": "cn", "comment": "description", "locations_id": "l"}',
+(10, 'Network Equipment - UPS Systems',
+ '(&(objectClass=device)(cn=UPS-*)(serialNumber=*)(description=*UPS*))',
+ 'ou=Equipment,dc=teclib,dc=labo',
+ 'NetworkEquipment',
+ '{"name": "cn", "serial": "serialNumber", "comment": "description", "locations_id": "l"}',
  1, NOW(), NOW()),
 
-(12, 'Test Filter - Cables & Connections', 
- '(&(objectClass=device)(cn=CABLE*)(serialNumber=*))', 
- 'ou=Infrastructure,dc=univ,dc=example,dc=edu', 
- 'Cable', 
- '{"name": "cn", "serial": "serialNumber", "comment": "description"}',
+-- People filters for testing
+(11, 'People - All Users',
+ '(&(objectClass=inetOrgPerson)(uid=*)(mail=*))',
+ 'ou=People,dc=teclib,dc=labo',
+ 'User',
+ '{"name": "cn", "firstname": "givenName", "realname": "sn", "emails": "mail", "phone": "telephoneNumber", "mobile": "mobile", "locations_id": "l"}',
+ 1, NOW(), NOW()),
+
+(12, 'People - Managers Only',
+ '(&(objectClass=inetOrgPerson)(uid=*)(title=*Manager*))',
+ 'ou=People,dc=teclib,dc=labo',
+ 'User',
+ '{"name": "cn", "firstname": "givenName", "realname": "sn", "emails": "mail", "phone": "telephoneNumber", "mobile": "mobile", "locations_id": "l"}',
  1, NOW(), NOW()),
 
 -- Inactive filter for testing
-(13, 'INACTIVE - Old Equipment Filter', 
- '(&(objectClass=device)(cn=OLD*)(serialNumber=*))', 
- 'ou=Retired,dc=univ,dc=example,dc=edu', 
- 'Computer', 
+(13, 'INACTIVE - Old Equipment Filter',
+ '(&(objectClass=device)(cn=OLD*)(serialNumber=*))',
+ 'ou=Retired,dc=teclib,dc=labo',
+ 'Computer',
  '{"name": "cn", "serial": "serialNumber", "comment": "description"}',
  0, NOW(), NOW());
 
@@ -300,44 +300,45 @@ INSERT INTO `glpi_plugin_advancedldap_syncfilters` (
 DELETE FROM `glpi_plugin_advancedldap_authldap_syncfilters` WHERE id >= 1;
 
 -- Get the IDs of the newly created LDAP directories
--- Assuming the University directory will get the next available ID
--- and IT Department will get the following ID
-SET @univ_ldap_id = (SELECT MAX(id)-1 FROM `glpi_authldaps`);
-SET @it_ldap_id = (SELECT MAX(id) FROM `glpi_authldaps`);
+-- Assuming the Teclib Main directory will get the next available ID
+-- and Teclib Assets directory will get the following ID
+SET @teclib_main_ldap_id = (SELECT MAX(id)-1 FROM `glpi_authldaps`);
+SET @teclib_assets_ldap_id = (SELECT MAX(id) FROM `glpi_authldaps`);
 
 INSERT INTO `glpi_plugin_advancedldap_authldap_syncfilters` (
     `id`,
-    `authldap_id`, 
-    `syncfilter_id`, 
-    `is_active`, 
+    `authldap_id`,
+    `syncfilter_id`,
+    `is_active`,
     `date_creation`
-) VALUES 
--- University LDAP associations
-(1, @univ_ldap_id, 1, 1, NOW()),  -- Computers - All
-(2, @univ_ldap_id, 2, 1, NOW()),  -- Computers - Desktop
-(3, @univ_ldap_id, 3, 1, NOW()),  -- Computers - Laptops
-(4, @univ_ldap_id, 4, 1, NOW()),  -- Printers - Network
-(5, @univ_ldap_id, 6, 1, NOW()),  -- Monitors - All
-(6, @univ_ldap_id, 8, 1, NOW()),  -- Phones - IP/VoIP
+) VALUES
+-- Teclib Main LDAP associations (People & Users)
+(1, @teclib_main_ldap_id, 11, 1, NOW()),  -- People - All Users
+(2, @teclib_main_ldap_id, 12, 1, NOW()),  -- People - Administrators
 
--- IT Department LDAP associations
-(7, @it_ldap_id, 5, 1, NOW()),   -- Printers - Color Laser
-(8, @it_ldap_id, 7, 1, NOW()),   -- Monitors - Large
-(9, @it_ldap_id, 9, 1, NOW()),   -- Network - Switches
-(10, @it_ldap_id, 10, 1, NOW()),  -- Network - Routers
-(11, @it_ldap_id, 11, 1, NOW()),  -- Test - Database Instances
-(12, @it_ldap_id, 12, 1, NOW()),  -- Test - Cables
+-- Teclib Assets LDAP associations (Equipment & Devices)
+(3, @teclib_assets_ldap_id, 1, 1, NOW()),   -- Computers - All
+(4, @teclib_assets_ldap_id, 2, 1, NOW()),   -- Computers - Desktop
+(5, @teclib_assets_ldap_id, 3, 1, NOW()),   -- Computers - Laptops
+(6, @teclib_assets_ldap_id, 4, 1, NOW()),   -- Printers - All
+(7, @teclib_assets_ldap_id, 5, 1, NOW()),   -- Printers - HP LaserJet
+(8, @teclib_assets_ldap_id, 6, 1, NOW()),   -- Equipment - Switches
+(9, @teclib_assets_ldap_id, 7, 1, NOW()),   -- Equipment - NAS Storage
+(10, @teclib_assets_ldap_id, 8, 1, NOW()),  -- Servers - All Production
+(11, @teclib_assets_ldap_id, 9, 1, NOW()),  -- Network - Routers
+(12, @teclib_assets_ldap_id, 10, 1, NOW()), -- Network - UPS Systems
 
 -- Inactive relation for testing
-(13, @it_ldap_id, 13, 0, NOW());  -- INACTIVE filter
+(13, @teclib_assets_ldap_id, 13, 0, NOW()); -- INACTIVE filter
 
 -- =========================================================================
 -- SUMMARY
 -- =========================================================================
 -- This script creates:
--- • 2 LDAP directories (University Main + IT Department)
--- • 13 sync filters covering various asset types
+-- • 2 LDAP directories (Teclib Main + Teclib Assets)
+-- • 13 sync filters covering various asset types from Teclib LDAP
 -- • 13 relations between LDAP directories and sync filters
+-- • Filters aligned with actual data in /home/f2cambourg/Developer/ldaps-docker/init.ldif
 -- • Mix of active/inactive items for comprehensive testing
 -- =========================================================================
 
