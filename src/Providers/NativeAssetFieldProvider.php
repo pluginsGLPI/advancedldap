@@ -75,7 +75,8 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
         try {
             $item = new $itemtype();
             $search_options = $item->searchOptions();
-            return $this->formatSearchOptionsAsFields($search_options);
+
+            return $this->formatSearchOptionsAsFields($search_options, $itemtype);
         } catch (Exception $e) {
             Toolbox::logDebug("Advanced LDAP - Error getting native fields for $itemtype: " . $e->getMessage());
             return [];
@@ -86,12 +87,20 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
      * Format search options into field dropdown format
      *
      * @param array $search_options Search options from searchOptions() method
+     * @param string $itemtype The itemtype being processed
      * @return array<string, string> Formatted fields array
      */
-    private function formatSearchOptionsAsFields(array $search_options): array
+    private function formatSearchOptionsAsFields(array $search_options, string $itemtype): array
     {
         $fields = [];
         $skip_fields = ['id', 'date_mod', 'date_creation'];
+
+        // Get the main table for this specific itemtype
+        $main_table = getTableForItemType($itemtype);
+
+        // Separate main table fields from related table fields for proper priority
+        $main_table_fields = [];
+        $related_table_fields = [];
 
         foreach ($search_options as $option) {
             // Skip non-field options
@@ -108,24 +117,43 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
             $field_key = $option['field'];
             $table = $option['table'] ?? 'unknown';
 
-            // Create unique key to avoid field collisions between tables
-            $unique_key = $field_key;
-            if (isset($fields[$field_key])) {
-                // For collisions, prefer main table fields or create qualified keys
-                if ($this->isMainTableField($table)) {
-                    // Keep the main table field with original key
-                    $unique_key = $field_key;
-                } else {
-                    // Create qualified key for non-main table fields
-                    $table_display = $this->getTableDisplayName($table);
-                    $table_key = strtolower(str_replace([' ', '-'], '_', $table_display));
-                    $unique_key = $field_key . '_' . $table_key;
-                    $field_name = $field_name . ' (' . $table_display . ')';
-                }
+            if ($table === $main_table) {
+                $main_table_fields[] = [
+                    'key' => $field_key,
+                    'name' => $field_name,
+                    'table' => $table
+                ];
+            } else {
+                $related_table_fields[] = [
+                    'key' => $field_key,
+                    'name' => $field_name,
+                    'table' => $table
+                ];
             }
+        }
 
-            // Use clean field name as label
-            $fields[$unique_key] = $field_name;
+        // Process main table fields first (they get priority)
+        foreach ($main_table_fields as $field_info) {
+            $fields[$field_info['key']] = $field_info['name'];
+        }
+
+        // Process related table fields (with qualified keys to avoid collisions)
+        foreach ($related_table_fields as $field_info) {
+            $field_key = $field_info['key'];
+            $field_name = $field_info['name'];
+            $table = $field_info['table'];
+
+            if (isset($fields[$field_key])) {
+                // Collision with main table field - create qualified key for related field
+                $table_display = $this->getTableDisplayName($table);
+                $table_key = strtolower(str_replace([' ', '-'], '_', $table_display));
+                $unique_key = $field_key . '_' . $table_key;
+                $qualified_name = $field_name . ' (' . $table_display . ')';
+                $fields[$unique_key] = $qualified_name;
+            } else {
+                // No collision - use original key without qualification
+                $fields[$field_key] = $field_name;
+            }
         }
 
         // Sort alphabetically
@@ -133,53 +161,6 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
         return $fields;
     }
 
-    /**
-     * Check if field belongs to the main asset table
-     *
-     * @param string $table Table name
-     * @return bool
-     */
-    private function isMainTableField(string $table): bool
-    {
-        global $CFG_GLPI;
-
-        try {
-            // Get all asset types from GLPI configuration
-            $asset_types = $CFG_GLPI['asset_types'] ?? [];
-            $inventory_types = $CFG_GLPI['inventory_types'] ?? [];
-            $state_types = $CFG_GLPI['state_types'] ?? [];
-
-            // Convert itemtypes to table names
-            $main_tables = [];
-            foreach (array_merge($asset_types, $inventory_types, $state_types) as $itemtype) {
-                if (class_exists($itemtype)) {
-                    $main_tables[] = getTableForItemType($itemtype);
-                }
-            }
-
-            // Add generic assets if they exist
-            if (class_exists('Glpi\\Asset\\AssetDefinition')) {
-                // Generic assets follow pattern glpi_assets_assets_{id}
-                // For now, we'll consider any glpi_assets_* as main tables
-                if (str_starts_with($table, 'glpi_assets_')) {
-                    return true;
-                }
-            }
-
-            return in_array($table, $main_tables);
-
-        } catch (Exception $e) {
-            Toolbox::logDebug("Advanced LDAP - Error checking main table field for $table: " . $e->getMessage());
-
-            // Fallback to original hardcoded list
-            $fallback_tables = [
-                'glpi_computers', 'glpi_monitors', 'glpi_printers', 'glpi_peripherals',
-                'glpi_phones', 'glpi_networkequipments', 'glpi_softwares',
-            ];
-
-            return in_array($table, $fallback_tables);
-        }
-    }
 
     /**
      * Get display name for table using GLPI metadata

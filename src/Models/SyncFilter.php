@@ -304,6 +304,7 @@ class SyncFilter extends CommonDBTM
                 if (!empty($glpi_field)) {
                     $ldap_attribute = $this->findMatchingLdapAttribute($glpi_field, $available_attributes);
                     $field_mappings[$glpi_field] = $ldap_attribute;
+
                 }
             }
 
@@ -456,6 +457,7 @@ class SyncFilter extends CommonDBTM
                 if (!empty($glpi_field)) {
                     $ldap_attribute = $this->findMatchingLdapAttribute($glpi_field, $available_attributes);
                     $field_mappings[$glpi_field] = $ldap_attribute;
+
                 }
             }
 
