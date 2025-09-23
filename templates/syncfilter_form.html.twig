@@ -249,8 +249,26 @@
 <script type="text/javascript">
 $(document).ready(function() {
     // Extract selected fields from existing field_mappings JSON
-    var fieldMappings = {{ item.fields['field_mappings']|default('{}')|json_encode|raw }};
-    var selectedAssetFields = Object.keys(fieldMappings);
+    var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|raw }};
+    var fieldMappings = {};
+    var selectedAssetFields = [];
+
+    try {
+        if (typeof fieldMappingsRaw === 'string') {
+            fieldMappings = JSON.parse(fieldMappingsRaw);
+        } else {
+            fieldMappings = fieldMappingsRaw;
+        }
+
+        if (fieldMappings && typeof fieldMappings === 'object') {
+            selectedAssetFields = Object.keys(fieldMappings);
+        }
+    } catch (e) {
+        console.error('Error parsing field mappings:', e);
+        fieldMappings = {};
+        selectedAssetFields = [];
+    }
+
 
     function loadAssetFields(itemtype, selectedFields) {
         var container = $('#asset_field_dropdown_{{ asset_field_rand }}');
@@ -270,11 +288,9 @@ $(document).ready(function() {
             multiple: true
         })
         .done(function(data) {
-            console.log('AJAX success, data length:', data.length);
             container.html(data);
         })
         .fail(function(xhr, status, error) {
-            console.log('AJAX failed:', status, error);
             container.html('{{ __("Error loading fields", "advancedldap") }}');
         });
     }
@@ -288,7 +304,6 @@ $(document).ready(function() {
     // Handle asset type change
     $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
         var itemtype = $(this).val();
-        console.log('Asset type changed to:', itemtype);
         loadAssetFields(itemtype, []);
     });
 });
