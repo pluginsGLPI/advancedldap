@@ -858,12 +858,19 @@ class SyncFilter extends CommonDBTM
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
         $ldap_test_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapTestService::class);
 
+        // Get field mappings from the current filter if available
+        $field_mappings = [];
+        if ($this->getID() > 0) {
+            $field_mappings = $this->getFieldMappings();
+        }
+
         $test_results = $ldap_test_service->testLdapFilter(
             $test_authldap_id,
             $test_base_dn,
             $test_filter,
             $test_asset_type,
             $test_asset_field,
+            $field_mappings,
         );
 
         $current_config['ldap_base_dn'] = $test_base_dn;

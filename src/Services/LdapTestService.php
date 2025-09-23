@@ -70,7 +70,8 @@ class LdapTestService
      * @param string $base_dn          Base DN for search
      * @param string $filter           LDAP filter
      * @param string $asset_type       Asset type (Computer, Printer, etc.)
-     * @param string $asset_field      Asset field to synchronize
+     * @param string $asset_field      Asset field to synchronize (legacy)
+     * @param array  $field_mappings   Field mappings array (new system)
      * @return array<string, mixed> Test results
      */
     public function testLdapFilter(
@@ -78,7 +79,8 @@ class LdapTestService
         string $base_dn,
         string $filter,
         string $asset_type,
-        string $asset_field,
+        string $asset_field = '',
+        array $field_mappings = [],
     ): array {
         $results = [
             'error' => null,
@@ -88,6 +90,7 @@ class LdapTestService
                 'filter' => $filter,
                 'asset_type' => $asset_type,
                 'asset_field' => $asset_field,
+                'field_mappings' => $field_mappings,
             ],
             'entries' => [],
         ];
@@ -102,10 +105,23 @@ class LdapTestService
 
             $results['config']['authldap_name'] = $authldap->getField('name');
 
-            // Get human-readable field name if asset_type and asset_field are provided
-            if (!empty($asset_type) && !empty($asset_field)) {
+            // Get human-readable field names
+            if (!empty($asset_type)) {
                 $fields = $this->asset_field_provider->getItemTypeFields($asset_type);
-                $results['config']['asset_field'] = $fields[$asset_field] ?? $asset_field;
+
+                // Handle new field mappings system
+                if (!empty($field_mappings)) {
+                    $readable_mappings = [];
+                    foreach ($field_mappings as $glpi_field => $ldap_attribute) {
+                        $readable_mappings[$glpi_field] = $fields[$glpi_field] ?? $glpi_field;
+                    }
+                    $results['config']['field_mappings_readable'] = $readable_mappings;
+                }
+
+                // Legacy support for single asset_field
+                if (!empty($asset_field)) {
+                    $results['config']['asset_field'] = $fields[$asset_field] ?? $asset_field;
+                }
             }
 
             $validation_error = $this->validateParameters($base_dn, $filter, $asset_type);
@@ -125,6 +141,7 @@ class LdapTestService
                 $filter,
                 $asset_type,
                 $asset_field,
+                $field_mappings,
             );
 
         } catch (Exception $e) {
@@ -196,7 +213,8 @@ class LdapTestService
      * @param array $entries Raw LDAP entries
      * @param string $filter LDAP filter
      * @param string $asset_type Asset type
-     * @param string $asset_field Asset field
+     * @param string $asset_field Asset field (legacy)
+     * @param array $field_mappings Field mappings array (new system)
      * @return array<int, array> Processed entries
      */
     private function processLdapEntries(
@@ -204,6 +222,7 @@ class LdapTestService
         string $filter,
         string $asset_type,
         string $asset_field,
+        array $field_mappings = [],
     ): array {
         $processed_entries = [];
         $target_attribute = $this->extractAttributeFromFilter($filter);
@@ -221,6 +240,14 @@ class LdapTestService
             if ($target_attribute) {
                 $attributes_to_show[] = $target_attribute;
             }
+
+            // Add attributes from field mappings
+            if (!empty($field_mappings)) {
+                foreach ($field_mappings as $glpi_field => $ldap_attribute) {
+                    $attributes_to_show[] = $ldap_attribute;
+                }
+            }
+
             $attributes_to_show = array_unique($attributes_to_show);
 
             // Process attributes
@@ -252,6 +279,7 @@ class LdapTestService
                 $asset_type,
                 $asset_field,
                 $processed_entry['attributes'],
+                $field_mappings,
             );
 
             $processed_entries[] = $processed_entry;
@@ -264,11 +292,12 @@ class LdapTestService
      * Analyze what would happen in GLPI
      *
      * @param string $asset_type Asset type
-     * @param string $asset_field Asset field
+     * @param string $asset_field Asset field (legacy)
      * @param array $ldap_attributes LDAP attributes
+     * @param array $field_mappings Field mappings array (new system)
      * @return array<string, mixed> Impact analysis
      */
-    private function analyzeGlpiImpact(string $asset_type, string $asset_field, array $ldap_attributes): array
+    private function analyzeGlpiImpact(string $asset_type, string $asset_field, array $ldap_attributes, array $field_mappings = []): array
     {
         $impact = [
             'exists' => false,
@@ -306,17 +335,23 @@ class LdapTestService
 
             if (count($iterator) > 0) {
                 $impact['exists'] = true;
+
+                // Build message with all fields that will be synchronized
+                $fields_to_sync = $this->buildFieldsSyncMessage($field_mappings, $asset_field);
                 $impact['message'] = sprintf(
-                    __('Asset "%s" exists, field "%s" will be updated', 'advancedldap'),
+                    __('Asset "%s" exists, fields will be updated: %s', 'advancedldap'),
                     $asset_name,
-                    $asset_field,
+                    $fields_to_sync
                 );
             } else {
                 $impact['exists'] = false;
+
+                // Build message with all fields that will be created
+                $fields_to_sync = $this->buildFieldsSyncMessage($field_mappings, $asset_field);
                 $impact['message'] = sprintf(
-                    __('Asset "%s" will be created with field "%s"', 'advancedldap'),
+                    __('Asset "%s" will be created with fields: %s', 'advancedldap'),
                     $asset_name,
-                    $asset_field,
+                    $fields_to_sync
                 );
             }
 
@@ -325,6 +360,59 @@ class LdapTestService
         }
 
         return $impact;
+    }
+
+    /**
+     * Build human-readable message for fields synchronization
+     *
+     * @param array $field_mappings Field mappings array
+     * @param string $asset_field Legacy single field
+     * @return string Human-readable fields list
+     */
+    private function buildFieldsSyncMessage(array $field_mappings, string $asset_field): string
+    {
+        if (!empty($field_mappings)) {
+            // Use new field mappings system
+            $field_names = [];
+            foreach ($field_mappings as $glpi_field => $ldap_attribute) {
+                // Get human-readable GLPI field name
+                $readable_name = $this->getHumanReadableFieldName($glpi_field);
+                $field_names[] = sprintf('%s ← %s', $readable_name, $ldap_attribute);
+            }
+            return implode(', ', $field_names);
+        } elseif (!empty($asset_field)) {
+            // Legacy single field
+            $readable_name = $this->getHumanReadableFieldName($asset_field);
+            return $readable_name;
+        } else {
+            return __('No fields configured', 'advancedldap');
+        }
+    }
+
+    /**
+     * Get human-readable field name
+     *
+     * @param string $field_name Technical field name
+     * @return string Human-readable name
+     */
+    private function getHumanReadableFieldName(string $field_name): string
+    {
+        $field_translations = [
+            'name' => __('Name'),
+            'serial' => __('Serial number'),
+            'comment' => __('Comments'),
+            'locations_id' => __('Location'),
+            'otherserial' => __('Inventory number'),
+            'contact' => __('Contact'),
+            'contact_num' => __('Contact number'),
+            'users_id_tech' => __('Technician in charge'),
+            'groups_id_tech' => __('Group in charge'),
+            'model' => __('Model'),
+            'brand' => __('Brand'),
+            'uuid' => __('UUID'),
+        ];
+
+        return $field_translations[$field_name] ?? $field_name;
     }
 
     /**

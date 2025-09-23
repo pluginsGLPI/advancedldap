@@ -229,11 +229,12 @@
                                     <td>
                                         {% if entry.glpi_impact.exists %}
                                             <span class="badge bg-warning">{{ __('Update existing', 'advancedldap') }}</span>
-                                            <br>{{ entry.glpi_impact.message }}
                                         {% else %}
                                             <span class="badge bg-info">{{ __('Create new', 'advancedldap') }}</span>
-                                            <br>{{ entry.glpi_impact.message }}
                                         {% endif %}
+                                        <div class="mt-1">
+                                            {{ entry.glpi_impact.message }}
+                                        </div>
                                     </td>
                                 </tr>
                             {% endfor %}
