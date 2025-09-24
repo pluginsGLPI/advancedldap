@@ -48,6 +48,8 @@ use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
+use GlpiPlugin\Advancedldap\Services\LdapToInventoryConverter;
+use GlpiPlugin\Advancedldap\Services\LdapInventoryService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterService;
 use GlpiPlugin\Advancedldap\Repositories\SyncFilterRepository;
 use GlpiPlugin\Advancedldap\Repositories\AuthLdapSyncFilterRepository;
@@ -203,13 +205,30 @@ class ServiceContainer
             );
         });
 
+        // LDAP to inventory converter service
+        $this->register(LdapToInventoryConverter::class, function () {
+            return new LdapToInventoryConverter();
+        });
+
+        // LDAP inventory service
+        $this->register(LdapInventoryService::class, function (ServiceContainer $container) {
+            return new LdapInventoryService(
+                $container->get(LdapToInventoryConverter::class),
+            );
+        });
+
         // LDAP synchronization service
         $this->register(LdapSyncService::class, function (ServiceContainer $container) {
-            return new LdapSyncService(
+            $service = new LdapSyncService(
                 $container->get(LdapConnectionInterface::class),
                 $container->get(AssetCreationService::class),
                 $container->get(AssetTypeClassifier::class),
             );
+
+            // Inject the inventory service for inventoriable assets
+            $service->setLdapInventoryService($container->get(LdapInventoryService::class));
+
+            return $service;
         });
 
     }

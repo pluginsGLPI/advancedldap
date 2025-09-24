@@ -373,8 +373,8 @@ class SyncFilter extends CommonDBTM
         ];
 
         // If we have a standard mapping and the LDAP attribute exists in the filter, use it
-        if (isset($standard_mappings[$glpi_field]) &&
-            in_array($standard_mappings[$glpi_field], $available_ldap_attributes)) {
+        if (isset($standard_mappings[$glpi_field])
+            && in_array($standard_mappings[$glpi_field], $available_ldap_attributes)) {
             return $standard_mappings[$glpi_field];
         }
 

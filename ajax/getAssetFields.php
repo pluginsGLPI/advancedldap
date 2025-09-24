@@ -74,13 +74,13 @@ if ($multiple) {
         'multiple' => true,
         'display_emptychoice' => true,
         'emptylabel' => __('Select fields to map...', 'advancedldap'),
-        'width' => '100%'
+        'width' => '100%',
     ]);
 } else {
     Dropdown::showFromArray('asset_field', $fields, [
         'value' => !empty($selected) ? $selected[0] : '',
         'display_emptychoice' => true,
         'emptylabel' => __('Select a field', 'advancedldap'),
-        'width' => '100%'
+        'width' => '100%',
     ]);
 }

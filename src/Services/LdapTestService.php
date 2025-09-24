@@ -341,7 +341,7 @@ class LdapTestService
                 $impact['message'] = sprintf(
                     __('Asset "%s" exists, fields will be updated: %s', 'advancedldap'),
                     $asset_name,
-                    $fields_to_sync
+                    $fields_to_sync,
                 );
             } else {
                 $impact['exists'] = false;
@@ -351,7 +351,7 @@ class LdapTestService
                 $impact['message'] = sprintf(
                     __('Asset "%s" will be created with fields: %s', 'advancedldap'),
                     $asset_name,
-                    $fields_to_sync
+                    $fields_to_sync,
                 );
             }
 

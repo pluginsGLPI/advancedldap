@@ -121,13 +121,13 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
                 $main_table_fields[] = [
                     'key' => $field_key,
                     'name' => $field_name,
-                    'table' => $table
+                    'table' => $table,
                 ];
             } else {
                 $related_table_fields[] = [
                     'key' => $field_key,
                     'name' => $field_name,
-                    'table' => $table
+                    'table' => $table,
                 ];
             }
         }

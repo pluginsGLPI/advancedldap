@@ -195,7 +195,7 @@ if (isset($_POST["add"])) {
                 __('Synchronization completed successfully! Created: %d, Updated: %d, Errors: %d', 'advancedldap'),
                 $stats['created'],
                 $stats['updated'],
-                $stats['errors']
+                $stats['errors'],
             );
             Session::addMessageAfterRedirect($message, false, INFO);
 
@@ -205,7 +205,7 @@ if (isset($_POST["add"])) {
                 "syncfilter",
                 4,
                 "setup",
-                sprintf(__('%1$s synchronizes LDAP data from filter %2$s'), $_SESSION["glpiname"], $syncfilter->getField('name'))
+                sprintf(__('%1$s synchronizes LDAP data from filter %2$s'), $_SESSION["glpiname"], $syncfilter->getField('name')),
             );
         } else {
             // Error message

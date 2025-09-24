@@ -51,6 +51,7 @@ class LdapSyncService
     private LdapConnectionInterface $ldap_connection;
     private AssetCreationService $asset_creation_service;
     private AssetTypeClassifier $asset_type_classifier;
+    private ?LdapInventoryService $ldap_inventory_service = null;
 
     /**
      * @param LdapConnectionInterface $ldap_connection
@@ -60,11 +61,22 @@ class LdapSyncService
     public function __construct(
         LdapConnectionInterface $ldap_connection,
         AssetCreationService $asset_creation_service,
-        AssetTypeClassifier $asset_type_classifier
+        AssetTypeClassifier $asset_type_classifier,
     ) {
         $this->ldap_connection = $ldap_connection;
         $this->asset_creation_service = $asset_creation_service;
         $this->asset_type_classifier = $asset_type_classifier;
+    }
+
+    /**
+     * Set the LDAP inventory service (optional dependency)
+     *
+     * @param LdapInventoryService $service
+     * @return void
+     */
+    public function setLdapInventoryService(LdapInventoryService $service): void
+    {
+        $this->ldap_inventory_service = $service;
     }
 
     /**
@@ -114,7 +126,7 @@ class LdapSyncService
             $ldap_entries = $this->fetchLdapEntries(
                 $authldap_id,
                 $sync_filter->getField('base_dn'),
-                $sync_filter->getField('ldap_filter')
+                $sync_filter->getField('ldap_filter'),
             );
 
             if (isset($ldap_entries['error'])) {
@@ -146,7 +158,7 @@ class LdapSyncService
                     $ldap_entry,
                     $asset_type,
                     $field_mappings,
-                    $sync_method
+                    $sync_method,
                 );
 
                 if ($entry_result['success']) {
@@ -224,7 +236,7 @@ class LdapSyncService
         if (!$search) {
             $error = sprintf(
                 __('LDAP search failed: %s', 'advancedldap'),
-                $this->ldap_connection->getError($connection)
+                $this->ldap_connection->getError($connection),
             );
             $this->ldap_connection->close($connection);
             return ['error' => $error];
@@ -348,11 +360,20 @@ class LdapSyncService
      */
     private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry): array
     {
-        // TODO: Implement inventory workflow for inventoriable assets
-        // This will delegate to LdapInventoryService when implemented
-        Toolbox::logDebug("LdapSyncService: Inventory workflow not yet implemented, falling back to traditional");
+        // Use inventory workflow if service is available
+        if ($this->ldap_inventory_service !== null) {
+            Toolbox::logDebug("LdapSyncService: Processing inventoriable asset via LdapInventoryService");
 
-        // Temporary fallback to traditional method until inventory workflow is implemented
+            // Use the full LDAP entry for inventory processing (more complete than extracted asset_data)
+            return $this->ldap_inventory_service->syncInventoriableAsset(
+                $ldap_entry,
+                $asset_type,
+                [], // TODO: Pass sync filter config if needed
+            );
+        }
+
+        // Fallback to traditional method if inventory service not available
+        Toolbox::logDebug("LdapSyncService: LdapInventoryService not available, falling back to traditional");
         return $this->processTraditionalAsset($asset_type, $asset_data);
     }
 
@@ -367,7 +388,7 @@ class LdapSyncService
     {
         return $this->asset_creation_service->createOrUpdateAsset(
             $asset_type,
-            $asset_data
+            $asset_data,
         );
     }
 
