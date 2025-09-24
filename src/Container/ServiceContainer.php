@@ -42,6 +42,7 @@ use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
+use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
@@ -190,6 +191,11 @@ class ServiceContainer
             );
         });
 
+        // Asset type classifier service
+        $this->register(AssetTypeClassifier::class, function () {
+            return new AssetTypeClassifier();
+        });
+
         // Asset creation service
         $this->register(AssetCreationService::class, function (ServiceContainer $container) {
             return new AssetCreationService(
@@ -202,6 +208,7 @@ class ServiceContainer
             return new LdapSyncService(
                 $container->get(LdapConnectionInterface::class),
                 $container->get(AssetCreationService::class),
+                $container->get(AssetTypeClassifier::class),
             );
         });
 

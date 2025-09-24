@@ -50,17 +50,21 @@ class LdapSyncService
 {
     private LdapConnectionInterface $ldap_connection;
     private AssetCreationService $asset_creation_service;
+    private AssetTypeClassifier $asset_type_classifier;
 
     /**
      * @param LdapConnectionInterface $ldap_connection
      * @param AssetCreationService $asset_creation_service
+     * @param AssetTypeClassifier $asset_type_classifier
      */
     public function __construct(
         LdapConnectionInterface $ldap_connection,
-        AssetCreationService $asset_creation_service
+        AssetCreationService $asset_creation_service,
+        AssetTypeClassifier $asset_type_classifier
     ) {
         $this->ldap_connection = $ldap_connection;
         $this->asset_creation_service = $asset_creation_service;
+        $this->asset_type_classifier = $asset_type_classifier;
     }
 
     /**
@@ -122,6 +126,10 @@ class LdapSyncService
             $field_mappings = $sync_filter->getFieldMappings();
             $asset_type = $sync_filter->getField('asset_type');
 
+            // Determine synchronization method based on asset type
+            $sync_method = $this->asset_type_classifier->getSyncMethod($asset_type);
+            Toolbox::logDebug("LdapSyncService: Using {$sync_method} synchronization for asset type {$asset_type}");
+
             // Handle LDAP entries array properly (skip count and numeric indices)
             $entries = $ldap_entries['entries'];
             $entry_count = $entries['count'] ?? 0;
@@ -137,7 +145,8 @@ class LdapSyncService
                 $entry_result = $this->processSingleEntry(
                     $ldap_entry,
                     $asset_type,
-                    $field_mappings
+                    $field_mappings,
+                    $sync_method
                 );
 
                 if ($entry_result['success']) {
@@ -233,9 +242,10 @@ class LdapSyncService
      * @param array $ldap_entry LDAP entry data
      * @param string $asset_type Asset type class name
      * @param array $field_mappings Field mappings (GLPI field => LDAP attribute)
+     * @param string $sync_method Synchronization method ('inventory' or 'traditional')
      * @return array<string, mixed> Processing result
      */
-    private function processSingleEntry(array $ldap_entry, string $asset_type, array $field_mappings): array
+    private function processSingleEntry(array $ldap_entry, string $asset_type, array $field_mappings, string $sync_method): array
     {
         $result = [
             'success' => false,
@@ -257,11 +267,14 @@ class LdapSyncService
 
             $result['asset_name'] = $asset_data['name'] ?? '';
 
-            // Create or update asset
-            $creation_result = $this->asset_creation_service->createOrUpdateAsset(
-                $asset_type,
-                $asset_data
-            );
+            // Route to appropriate synchronization method
+            if ($sync_method === 'inventory') {
+                Toolbox::logDebug("LdapSyncService: Using inventory method for {$asset_type}");
+                $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry);
+            } else {
+                Toolbox::logDebug("LdapSyncService: Using traditional method for {$asset_type}");
+                $creation_result = $this->processTraditionalAsset($asset_type, $asset_data);
+            }
 
             $result['success'] = $creation_result['success'];
             $result['action'] = $creation_result['action'];
@@ -323,6 +336,39 @@ class LdapSyncService
         }
 
         return $asset_data;
+    }
+
+    /**
+     * Process inventoriable asset using new inventory workflow
+     *
+     * @param string $asset_type Asset type class name
+     * @param array $asset_data Extracted asset data
+     * @param array $ldap_entry Original LDAP entry
+     * @return array<string, mixed> Processing result
+     */
+    private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry): array
+    {
+        // TODO: Implement inventory workflow for inventoriable assets
+        // This will delegate to LdapInventoryService when implemented
+        Toolbox::logDebug("LdapSyncService: Inventory workflow not yet implemented, falling back to traditional");
+
+        // Temporary fallback to traditional method until inventory workflow is implemented
+        return $this->processTraditionalAsset($asset_type, $asset_data);
+    }
+
+    /**
+     * Process asset using traditional GLPI workflow
+     *
+     * @param string $asset_type Asset type class name
+     * @param array $asset_data Extracted asset data
+     * @return array<string, mixed> Processing result
+     */
+    private function processTraditionalAsset(string $asset_type, array $asset_data): array
+    {
+        return $this->asset_creation_service->createOrUpdateAsset(
+            $asset_type,
+            $asset_data
+        );
     }
 
     /**
