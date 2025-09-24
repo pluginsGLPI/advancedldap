@@ -144,6 +144,11 @@ class ServiceContainer
             return new GlpiConfigurationService();
         });
 
+        // Register the service also by its class name for direct access
+        $this->register(GlpiConfigurationService::class, function () {
+            return new GlpiConfigurationService();
+        });
+
         $this->register(LdapConnectionInterface::class, function () {
             return new GlpiLdapConnectionService();
         });

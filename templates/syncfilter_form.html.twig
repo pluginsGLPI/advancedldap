@@ -31,6 +31,20 @@
     </div>
 {% endif %}
 
+{# Warning for inventory not enabled #}
+{% if not inventory_enabled %}
+    <div class="alert alert-warning d-flex align-items-center mb-3">
+        <i class="ti ti-alert-triangle me-2"></i>
+        <div>
+            <strong>{{ __('Warning', 'advancedldap') }}:</strong>
+            {{ __('GLPI Inventory is not enabled. Synchronization using the Inventory class will not work.', 'advancedldap') }}
+            <a href="{{ inventory_config_url }}" class="alert-link ms-2" target="_blank">
+                <i class="ti ti-settings me-1"></i>{{ __('Enable it in the Inventory configuration', 'advancedldap') }}
+            </a>
+        </div>
+    </div>
+{% endif %}
+
 <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" data-submit-once="true">
 <div class="card">
     <div class="card-header d-flex align-items-center">

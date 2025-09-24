@@ -84,4 +84,26 @@ class GlpiConfigurationService implements ConfigurationInterface
         global $CFG_GLPI;
         return $CFG_GLPI[$key] ?? null;
     }
+
+    /**
+     * Check if GLPI inventory is enabled
+     *
+     * @return bool True if inventory is enabled, false otherwise
+     */
+    public function isInventoryEnabled(): bool
+    {
+        $inventoryConfig = Config::getConfigurationValues('inventory');
+        return (bool) ($inventoryConfig['enabled_inventory'] ?? false);
+    }
+
+    /**
+     * Get inventory configuration URL
+     *
+     * @return string URL to inventory configuration page
+     */
+    public function getInventoryConfigUrl(): string
+    {
+        global $CFG_GLPI;
+        return $CFG_GLPI['root_doc'] . '/front/inventory.conf.php';
+    }
 }

@@ -705,6 +705,11 @@ class SyncFilter extends CommonDBTM
         $current_config = $this->getCurrentConfiguration($ID, $current_authldap_id);
         $test_results = $this->handleTestRequest($current_config);
 
+        // Check if GLPI inventory is enabled
+        $config_service = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
+        $inventory_enabled = $config_service->isInventoryEnabled();
+        $inventory_config_url = $config_service->getInventoryConfigUrl();
+
         // Render template
         \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
             'item' => $this,
@@ -715,6 +720,8 @@ class SyncFilter extends CommonDBTM
             'available_assets' => $available_assets,
             'current_config' => $current_config,
             'test_results' => $test_results,
+            'inventory_enabled' => $inventory_enabled,
+            'inventory_config_url' => $inventory_config_url,
         ]);
 
         return true;
