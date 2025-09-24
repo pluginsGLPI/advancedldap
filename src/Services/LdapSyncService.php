@@ -37,7 +37,6 @@ use AuthLDAP;
 use Exception;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
-use Session;
 use Toolbox;
 
 /**
@@ -368,7 +367,7 @@ class LdapSyncService
             return $this->ldap_inventory_service->syncInventoriableAsset(
                 $ldap_entry,
                 $asset_type,
-                [], // TODO: Pass sync filter config if needed
+                [],
             );
         }
 
@@ -400,7 +399,8 @@ class LdapSyncService
      */
     public function getSyncStatistics(int $syncfilter_id): array
     {
-        // This could be extended to track sync history in the database
+        // TODO: Implement database-based sync history tracking using $syncfilter_id
+        // This method is a placeholder for future functionality
         return [
             'last_sync' => null,
             'total_syncs' => 0,
