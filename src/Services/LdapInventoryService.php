@@ -66,7 +66,6 @@ class LdapInventoryService
      */
     public function syncInventoriableAsset(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
     {
-        Toolbox::logDebug("LdapInventoryService: Starting inventory sync for itemtype: $itemtype");
 
         try {
             $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $syncFilterConfig);

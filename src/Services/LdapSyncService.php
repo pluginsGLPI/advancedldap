@@ -139,7 +139,6 @@ class LdapSyncService
 
             // Determine synchronization method based on asset type
             $sync_method = $this->asset_type_classifier->getSyncMethod($asset_type);
-            Toolbox::logDebug("LdapSyncService: Using {$sync_method} synchronization for asset type {$asset_type}");
 
             // Handle LDAP entries array properly (skip count and numeric indices)
             $entries = $ldap_entries['entries'];
@@ -280,10 +279,8 @@ class LdapSyncService
 
             // Route to appropriate synchronization method
             if ($sync_method === 'inventory') {
-                Toolbox::logDebug("LdapSyncService: Using inventory method for {$asset_type}");
                 $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry);
             } else {
-                Toolbox::logDebug("LdapSyncService: Using traditional method for {$asset_type}");
                 $creation_result = $this->processTraditionalAsset($asset_type, $asset_data);
             }
 
@@ -361,8 +358,6 @@ class LdapSyncService
     {
         // Use inventory workflow if service is available
         if ($this->ldap_inventory_service !== null) {
-            Toolbox::logDebug("LdapSyncService: Processing inventoriable asset via LdapInventoryService");
-
             // Use the full LDAP entry for inventory processing (more complete than extracted asset_data)
             return $this->ldap_inventory_service->syncInventoriableAsset(
                 $ldap_entry,
@@ -372,7 +367,6 @@ class LdapSyncService
         }
 
         // Fallback to traditional method if inventory service not available
-        Toolbox::logDebug("LdapSyncService: LdapInventoryService not available, falling back to traditional");
         return $this->processTraditionalAsset($asset_type, $asset_data);
     }
 

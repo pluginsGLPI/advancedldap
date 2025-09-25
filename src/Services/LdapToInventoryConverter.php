@@ -66,8 +66,6 @@ class LdapToInventoryConverter
      */
     public function convertToInventoryFormat(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
     {
-        Toolbox::logDebug("LdapToInventoryConverter: Converting LDAP data for itemtype: $itemtype");
-
         if (!isset(self::SUPPORTED_ITEMTYPES[$itemtype])) {
             throw new \InvalidArgumentException("Unsupported itemtype for inventory conversion: $itemtype");
         }
@@ -81,18 +79,22 @@ class LdapToInventoryConverter
             'partial' => false,
             'content' => [
                 'versionclient' => '4.1',
-                'hardware' => [
-                    'name' => $this->extractDeviceName($ldapData),
-                ],
             ],
         ];
+
+        // Add appropriate main section based on itemtype
+        if ($itemtype === NetworkEquipment::class) {
+            $baseInventory['content']['network_device'] = $this->buildNetworkDeviceSection($ldapData);
+        } else {
+            $baseInventory['content']['hardware'] = [
+                'name' => $this->extractDeviceName($ldapData),
+            ];
+        }
 
         // Add sections only if user has configured them or data exists
         $sections = $this->buildSelectiveSections($ldapData, $itemtype, $syncFilterConfig);
         $baseInventory['content'] = array_merge($baseInventory['content'], $sections);
 
-
-        Toolbox::logDebug("LdapToInventoryConverter: Successfully converted LDAP data to inventory format");
         return $baseInventory;
     }
 
@@ -268,6 +270,95 @@ class LdapToInventoryConverter
     /**
      * Build NetworkEquipment-specific sections
      */
+    /**
+     * Build network_device section specifically for NetworkEquipment
+     * Based on GLPI inventory format standard
+     */
+    private function buildNetworkDeviceSection(array $ldapData): array
+    {
+        $networkDevice = [
+            'name' => $this->extractDeviceName($ldapData),
+            'type' => 'Networking',
+        ];
+
+        // Add serial number if available
+        $serialFields = ['serialnumber', 'serial', 'hardwareserial'];
+        foreach ($serialFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['serial'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add manufacturer if available
+        $manufacturerFields = ['manufacturer', 'vendor', 'company'];
+        foreach ($manufacturerFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['manufacturer'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add model if available
+        $modelFields = ['model', 'hardwaremodel', 'description'];
+        foreach ($modelFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['model'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add firmware/version if available
+        $firmwareFields = ['firmware', 'version', 'softwareversion'];
+        foreach ($firmwareFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['firmware'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add MAC address if available
+        $macFields = ['macaddress', 'mac', 'physicaladdress'];
+        foreach ($macFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['mac'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add IP addresses if available
+        $ipFields = ['ipaddress', 'ip', 'networkaddress'];
+        foreach ($ipFields as $field) {
+            if (!empty($ldapData[$field])) {
+                $ips = is_array($ldapData[$field]) ? array_filter($ldapData[$field], 'is_string') : [$ldapData[$field]];
+                if (!empty($ips)) {
+                    $networkDevice['ips'] = $ips;
+                    break;
+                }
+            }
+        }
+
+        // Add location if available
+        $locationFields = ['location', 'site', 'office'];
+        foreach ($locationFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['location'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        // Add contact if available
+        $contactFields = ['contact', 'owner', 'admin'];
+        foreach ($contactFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $networkDevice['contact'] = $ldapData[$field][0];
+                break;
+            }
+        }
+
+        return $networkDevice;
+    }
+
     private function buildNetworkEquipmentSections(array $ldapData, array $syncFilterConfig): array
     {
         $sections = [];
@@ -275,14 +366,18 @@ class LdapToInventoryConverter
         // Networks section is common
         $sections['networks'] = $this->buildNetworkSection($ldapData);
 
-        // Firmware information
-        if (!empty($ldapData['firmware'][0]) || !empty($ldapData['version'][0])) {
-            $sections['firmware'] = [];
+        // Network ports section (empty by default, can be extended)
+        $sections['network_ports'] = [];
 
-            if (!empty($ldapData['firmware'][0])) {
-                $sections['firmware']['version'] = $ldapData['firmware'][0];
-            } elseif (!empty($ldapData['version'][0])) {
-                $sections['firmware']['version'] = $ldapData['version'][0];
+        // Firmware section
+        $firmwareFields = ['firmware', 'version', 'softwareversion'];
+        foreach ($firmwareFields as $field) {
+            if (!empty($ldapData[$field][0])) {
+                $sections['firmwares'] = [[
+                    'version' => $ldapData[$field][0],
+                    'type' => 'system',
+                ]];
+                break;
             }
         }
 
