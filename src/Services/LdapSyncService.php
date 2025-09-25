@@ -83,7 +83,7 @@ class LdapSyncService
      *
      * @param int $syncfilter_id SyncFilter ID
      * @param int $authldap_id AuthLDAP ID
-     * @return array<string, mixed> Synchronization results
+     * @return array Synchronization results
      */
     public function synchronizeFromFilter(int $syncfilter_id, int $authldap_id): array
     {
@@ -222,7 +222,7 @@ class LdapSyncService
      * @param int $authldap_id AuthLDAP ID
      * @param string $base_dn Base DN
      * @param string $filter LDAP filter
-     * @return array<string, mixed> LDAP entries or error
+     * @return array LDAP entries or error
      */
     private function fetchLdapEntries(int $authldap_id, string $base_dn, string $filter): array
     {
@@ -254,7 +254,7 @@ class LdapSyncService
      * @param string $asset_type Asset type class name
      * @param array $field_mappings Field mappings (GLPI field => LDAP attribute)
      * @param string $sync_method Synchronization method ('inventory' or 'traditional')
-     * @return array<string, mixed> Processing result
+     * @return array Processing result
      */
     private function processSingleEntry(array $ldap_entry, string $asset_type, array $field_mappings, string $sync_method): array
     {
@@ -304,7 +304,7 @@ class LdapSyncService
      *
      * @param array $ldap_entry LDAP entry
      * @param array $field_mappings Field mappings (GLPI field => LDAP attribute)
-     * @return array<string, mixed> Extracted asset data
+     * @return array Extracted asset data
      */
     private function extractAssetData(array $ldap_entry, array $field_mappings): array
     {
@@ -355,7 +355,7 @@ class LdapSyncService
      * @param string $asset_type Asset type class name
      * @param array $asset_data Extracted asset data
      * @param array $ldap_entry Original LDAP entry
-     * @return array<string, mixed> Processing result
+     * @return array Processing result
      */
     private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry): array
     {
@@ -381,7 +381,7 @@ class LdapSyncService
      *
      * @param string $asset_type Asset type class name
      * @param array $asset_data Extracted asset data
-     * @return array<string, mixed> Processing result
+     * @return array Processing result
      */
     private function processTraditionalAsset(string $asset_type, array $asset_data): array
     {
@@ -395,7 +395,7 @@ class LdapSyncService
      * Get synchronization statistics for a sync filter
      *
      * @param int $syncfilter_id SyncFilter ID
-     * @return array<string, mixed> Statistics
+     * @return array Statistics
      */
     public function getSyncStatistics(int $syncfilter_id): array
     {

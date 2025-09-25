@@ -62,7 +62,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
     /**
      * Get all active sync filters
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getActiveSyncFilters(): array
     {
@@ -72,6 +72,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'ORDER'  => 'name',
         ]);
 
+        /** @var array<int, array<string, mixed>> */
         return is_array($results) ? $results : [];
     }
 
@@ -79,7 +80,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      * Get sync filters for a specific AuthLDAP
      *
      * @param int $authldap_id AuthLDAP ID
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
@@ -107,6 +108,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'ORDER'  => $sync_table . '.name',
         ]);
 
+        /** @var array<int, array<string, mixed>> */
         return is_array($results) ? $results : [];
     }
 
@@ -114,7 +116,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      * Find sync filter by ID
      *
      * @param int $id Filter ID
-     * @return array|null
+     * @return array<string, mixed>|null
      */
     public function findById(int $id): ?array
     {
@@ -128,6 +130,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             return null;
         }
 
+        /** @var array<string, mixed> */
         return $results[0];
     }
 
@@ -181,8 +184,8 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
     /**
      * Prepare data for database operations
      *
-     * @param array $data Raw data
-     * @return array Prepared data
+     * @param array<string, mixed> $data Raw data
+     * @return array<string, mixed> Prepared data
      */
     private function prepareData(array $data): array
     {
@@ -190,6 +193,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             $data['field_mappings'] = json_encode($data['field_mappings']);
         }
 
+        /** @var array<string, mixed> */
         return $data;
     }
 }

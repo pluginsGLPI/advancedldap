@@ -59,10 +59,11 @@ class SyncFilterService
     /**
      * Get all available sync filters
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getAvailableSyncFilters(): array
     {
+        /** @var array<int, array<string, mixed>> */
         return $this->sync_filter_repository->getActiveSyncFilters();
     }
 
@@ -70,10 +71,11 @@ class SyncFilterService
      * Get sync filters configured for an AuthLDAP
      *
      * @param int $authldap_id AuthLDAP ID
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
+        /** @var array<int, array<string, mixed>> */
         return $this->sync_filter_repository->getSyncFiltersForAuthLdap($authldap_id);
     }
 
@@ -84,7 +86,7 @@ class SyncFilterService
      * @param string $ldap_filter LDAP filter
      * @param string $base_dn Base DN
      * @param string $asset_type Asset type
-     * @param array $field_mappings Field mappings
+     * @param array<string, mixed> $field_mappings Field mappings
      * @param bool $is_active Active status
      * @return int|false Created filter ID or false on failure
      */
@@ -112,7 +114,7 @@ class SyncFilterService
      * Update an existing sync filter
      *
      * @param int $id Filter ID
-     * @param array $data Updated data
+     * @param array<string, mixed> $data Updated data
      * @return bool Success status
      */
     public function updateSyncFilter(int $id, array $data): bool
@@ -133,7 +135,9 @@ class SyncFilterService
 
         // Remove all relations
         foreach ($authldap_ids as $authldap_id) {
-            $this->relation_repository->removeSyncFilterFromAuthLdap($authldap_id, $id);
+            if (is_int($authldap_id)) {
+                $this->relation_repository->removeSyncFilterFromAuthLdap($authldap_id, $id);
+            }
         }
 
         // Then delete the filter itself
@@ -177,25 +181,30 @@ class SyncFilterService
      * Get field mappings for a sync filter
      *
      * @param int $syncfilter_id SyncFilter ID
-     * @return array Field mappings
+     * @return array<string, mixed> Field mappings
      */
     public function getFieldMappings(int $syncfilter_id): array
     {
         $filter = $this->sync_filter_repository->findById($syncfilter_id);
 
-        if (!$filter || empty($filter['field_mappings'])) {
+        if (!$filter || empty($filter['field_mappings']) || !is_string($filter['field_mappings'])) {
             return [];
         }
 
         $mappings = json_decode($filter['field_mappings'], true);
-        return is_array($mappings) ? $mappings : [];
+        if (!is_array($mappings)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> */
+        return $mappings;
     }
 
     /**
      * Update field mappings for a sync filter
      *
      * @param int $syncfilter_id SyncFilter ID
-     * @param array $mappings Field mappings
+     * @param array<string, mixed> $mappings Field mappings
      * @return bool Success status
      */
     public function updateFieldMappings(int $syncfilter_id, array $mappings): bool

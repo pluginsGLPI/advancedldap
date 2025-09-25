@@ -304,6 +304,24 @@ class LdapToInventoryConverter
             $sections['driver'] = $ldapData['drivername'][0] ?? $ldapData['driver'][0];
         }
 
+        // Add network_device with minimal required structure for printers
+        $networkDevice = [
+            'type' => 'Printer',
+            'name' => $this->extractDeviceName($ldapData),
+        ];
+
+        // Add serial if available
+        if (!empty($ldapData['serialnumber'][0])) {
+            $networkDevice['serial'] = $ldapData['serialnumber'][0];
+        }
+
+        // Add model from description if available
+        if (!empty($ldapData['description'][0])) {
+            $networkDevice['model'] = $ldapData['description'][0];
+        }
+
+        $sections['network_device'] = $networkDevice;
+
         return $sections;
     }
 

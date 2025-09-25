@@ -62,7 +62,7 @@ class AssetCreationService
      *
      * @param string $asset_type Asset class name (Computer, Printer, etc.)
      * @param array $asset_data Asset data from LDAP
-     * @return array<string, mixed> Creation result
+     * @return array Creation result
      */
     public function createOrUpdateAsset(string $asset_type, array $asset_data): array
     {
@@ -135,7 +135,7 @@ class AssetCreationService
      *
      * @param array $asset_data Raw asset data
      * @param string $asset_type Asset type
-     * @return array<string, mixed> Prepared data
+     * @return array Prepared data
      */
     private function prepareAssetData(array $asset_data, string $asset_type): array
     {
@@ -160,7 +160,7 @@ class AssetCreationService
      *
      * @param array $data Asset data
      * @param string $asset_type Asset type
-     * @return array<string, mixed> Modified data
+     * @return array Modified data
      */
     private function handleSpecialFields(array $data, string $asset_type): array
     {
@@ -200,7 +200,7 @@ class AssetCreationService
      * Handle Computer-specific fields
      *
      * @param array $data Asset data
-     * @return array<string, mixed> Modified data
+     * @return array Modified data
      */
     private function handleComputerFields(array $data): array
     {
@@ -221,7 +221,7 @@ class AssetCreationService
      * Handle Printer-specific fields
      *
      * @param array $data Asset data
-     * @return array<string, mixed> Modified data
+     * @return array Modified data
      */
     private function handlePrinterFields(array $data): array
     {
@@ -237,7 +237,7 @@ class AssetCreationService
      * Handle NetworkEquipment-specific fields
      *
      * @param array $data Asset data
-     * @return array<string, mixed> Modified data
+     * @return array Modified data
      */
     private function handleNetworkEquipmentFields(array $data): array
     {
@@ -253,7 +253,7 @@ class AssetCreationService
      * Handle User-specific fields
      *
      * @param array $data Asset data
-     * @return array<string, mixed> Modified data
+     * @return array Modified data
      */
     private function handleUserFields(array $data): array
     {
@@ -275,7 +275,7 @@ class AssetCreationService
      *
      * @param array $data Asset data
      * @param string $asset_type Asset type
-     * @return array<string, mixed> Data with defaults
+     * @return array Data with defaults
      */
     private function setDefaultValues(array $data, string $asset_type): array
     {
@@ -368,7 +368,7 @@ class AssetCreationService
      * Get creation statistics for a specific asset type
      *
      * @param string $asset_type Asset type
-     * @return array<string, mixed> Statistics
+     * @return array Statistics
      */
     public function getCreationStatistics(string $asset_type): array
     {
@@ -386,7 +386,7 @@ class AssetCreationService
      *
      * @param array $asset_data Asset data
      * @param string $asset_type Asset type
-     * @return array<string, mixed> Validation result
+     * @return array Validation result
      */
     public function validateAssetData(array $asset_data, string $asset_type): array
     {

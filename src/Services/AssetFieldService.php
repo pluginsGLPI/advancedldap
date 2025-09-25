@@ -67,7 +67,7 @@ class AssetFieldService implements AssetFieldProviderInterface
     /**
      * Get available itemtypes for assets
      *
-     * @return array<string, string> Array of itemtype => label
+     * @return array Array of itemtype => label
      */
     public function getAvailableItemTypes(): array
     {
@@ -86,7 +86,7 @@ class AssetFieldService implements AssetFieldProviderInterface
      * Get fields for a specific itemtype
      *
      * @param string $itemtype The itemtype to get fields for
-     * @return array<string, string> Array of field_key => field_label
+     * @return array Array of field_key => field_label
      */
     public function getItemTypeFields(string $itemtype): array
     {
@@ -97,7 +97,7 @@ class AssetFieldService implements AssetFieldProviderInterface
     /**
      * Get all available asset types in GLPI
      *
-     * @return array<string, array> Asset types with metadata
+     * @return array Asset types with metadata
      */
     public function getAllAssetTypes(): array
     {
@@ -146,7 +146,7 @@ class AssetFieldService implements AssetFieldProviderInterface
     /**
      * Get native GLPI item types
      *
-     * @return array<string> Native item types
+     * @return array Native item types
      */
     private function getNativeItemTypes(): array
     {
@@ -160,7 +160,7 @@ class AssetFieldService implements AssetFieldProviderInterface
     /**
      * Get generic asset types from AssetDefinition
      *
-     * @return array<string, array> Array of generic asset types
+     * @return array Array of generic asset types
      */
     private function getGenericAssets(): array
     {
