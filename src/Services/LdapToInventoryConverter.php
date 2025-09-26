@@ -39,7 +39,6 @@ use Computer;
 use NetworkEquipment;
 use Printer;
 use Phone;
-use Toolbox;
 
 /**
  * Service for converting LDAP data to Inventory JSON format

@@ -140,10 +140,4 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
 {
     // Your configuration check
     return true;
-
-    // Example:
-    // if ($verbose) {
-    //    echo __('Installed / not configured', 'advancedldap');
-    // }
-    // return false;
 }
