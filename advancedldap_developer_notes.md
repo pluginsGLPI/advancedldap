@@ -5,69 +5,42 @@ Ce document présente l'architecture technique du plugin Advanced LDAP et les bo
 ## Structure Complète du Plugin
 
 ```
-plugins/advancedldap/
-├── 📁 ajax/                           # Requêtes AJAX
-│   └── getAssetFields.php             # Récupération dynamique des champs d'assets
-├── 📁 front/                          # Pages d'interface utilisateur (CRUD)
-│   ├── config.form.php                # Configuration du plugin
-│   ├── plugin_advancedldap.form.php   # Page principale du plugin
-│   ├── syncfilter.php                 # Liste des filtres de synchronisation
-│   └── syncfilter.form.php            # Formulaire CRUD pour les filtres
-├── 📁 src/                            # Code source principal (architecture SOLID)
-│   ├── 📁 Container/                  # Conteneur d'injection de dépendances
-│   │   └── ServiceContainer.php       # Gestionnaire des services
-│   ├── 📁 Contracts/                  # Interfaces (abstractions)
-│   │   ├── AssetFieldProviderInterface.php         # Contrat pour les fournisseurs de champs
-│   │   ├── AuthLdapSyncFilterRepositoryInterface.php # Contrat pour les relations
-│   │   ├── ConfigurationInterface.php              # Contrat pour la configuration
-│   │   ├── DatabaseInterface.php                   # Contrat pour l'accès base de données
-│   │   ├── LdapConnectionInterface.php             # Contrat pour les connexions LDAP
-│   │   └── SyncFilterRepositoryInterface.php       # Contrat pour les filtres
-│   ├── 📁 Factories/                  # Pattern Factory
-│   │   └── AssetFieldProviderFactory.php     # Création des providers d'assets
-│   ├── 📁 Models/                     # Modèles métier (CommonDBTM)
-│   │   ├── SyncFilter.php             # Modèle principal des filtres + legacy alias
-│   │   └── AuthLdapSyncFilter.php     # Relations many-to-many AuthLDAP ↔ SyncFilter
-│   ├── 📁 Providers/                  # Fournisseurs spécialisés
-│   │   ├── GenericAssetFieldProvider.php     # Champs des assets génériques
-│   │   └── NativeAssetFieldProvider.php      # Champs des assets natifs GLPI
-│   ├── 📁 Repositories/               # Pattern Repository (accès aux données)
-│   │   ├── AuthLdapSyncFilterRepository.php  # Relations AuthLDAP/SyncFilter
-│   │   └── SyncFilterRepository.php          # Données des filtres de synchronisation
-│   ├── 📁 Services/                   # Services métier
-│   │   ├── AssetFieldService.php             # Service principal des champs d'assets
-│   │   ├── GlpiConfigurationService.php      # Wrapper configuration GLPI
-│   │   ├── GlpiDatabaseService.php           # Wrapper base de données GLPI
-│   │   ├── GlpiLdapConnectionService.php     # Wrapper connexions LDAP GLPI
-│   │   ├── LdapTestService.php               # Service de test des filtres LDAP
-│   │   └── SyncFilterService.php             # Service métier des filtres de synchronisation
-│   ├── AdvancedLdapSync.php           # Classe principale du plugin
-│   └── Bootstrap.php                  # Point d'entrée et initialisation
-├── 📁 templates/                      # Templates Twig (interface)
-│   ├── syncfilter_form.html.twig      # Formulaire de création/édition de filtres
-│   └── syncfilters_list.html.twig     # Liste des filtres dans l'onglet AuthLDAP
-├── 📁 tests/                          # Tests (structure de base)
-│   └── bootstrap.php                  # Configuration des tests
-├── 📁 tools/                          # Outils de développement
-├── 📁 var/                            # Cache et fichiers temporaires
-│   └── php-cs-fixer/                  # Cache du formateur de code
-├── 📄 setup.php                       # Configuration et hooks du plugin
-├── 📄 hook.php                        # Fonctions d'installation/désinstallation
-├── 📄 composer.json                   # Dépendances et autoloading (PHP 8.2+)
-├── 📄 advancedldap.xml               # Métadonnées du plugin
-├── 📄 CLAUDE.md                       # Guide collaboratif pour l'IA (français)
-├── 📄 advancedldap_developer_notes.md # Documentation technique (ce fichier)
-├── 📄 ldap-notes.md                   # Documentation technique LDAP
-├── 📄 Makefile                        # Commandes de développement automatisées
-├── 📄 .php-cs-fixer.php              # Configuration style de code (PSR-12)
-├── 📄 phpstan.neon                    # Configuration PHPStan
-├── 📄 psalm.xml                       # Configuration Psalm (analyse statique)
-├── 📄 phpunit.xml                     # Configuration tests unitaires
-├── 📄 .gitignore                      # Exclusions Git
-├── 📄 dummy_data.ldif                 # Données de test LDAP
-├── 📄 test_data.sql                   # Données de test SQL
-├── 📄 LICENSE                         # Licence du plugin
-└── 📄 README.md                       # Documentation utilisateur
+📁 advancedldap/
+  ├── 🎯 INTERFACE (front/)
+  │   ├── config.form.php          # Configuration filtres LDAP
+  │   ├── syncfilter.php           # Liste des filtres
+  │   ├── syncfilter.form.php      # CRUD filtres
+  │   └── ajax/getAssetFields.php  # Champs dynamiques
+  │
+  ├── 🧩 MODÈLES (src/Models/)
+  │   ├── SyncFilter.php           # Filtre synchronisation + alias legacy
+  │   └── AuthLdapSyncFilter.php   # Liaison AuthLDAP ↔ Filtres
+  │
+  ├── 🔧 SERVICES MÉTIER (src/Services/)
+  │   ├── AssetFieldService.php          # Gestion champs d'assets
+  │   ├── SyncFilterService.php          # Logique métier filtres
+  │   ├── LdapTestService.php           # Tests & validation LDAP
+  │   ├── AssetCreationService.php      # Création/MAJ assets GLPI
+  │   ├── LdapSyncService.php           # Orchestration synchronisation
+  │   ├── LdapInventoryService.php      # Workflow inventaire natif
+  │   ├── AssetTypeClassifier.php       # Classification assets inventoriables
+  │   ├── LdapToInventoryConverter.php  # Conversion LDAP → JSON inventaire
+  │   ├── GlpiConfigurationService.php  # Wrapper config GLPI
+  │   ├── GlpiDatabaseService.php       # Wrapper base données
+  │   └── GlpiLdapConnectionService.php # Wrapper connexions LDAP
+  │
+  ├── 📦 REPOSITORIES (src/Repositories/)
+  │   ├── SyncFilterRepository.php       # Accès données filtres
+  │   └── AuthLdapSyncFilterRepository.php # Relations AuthLDAP/SyncFilter
+  │
+  ├── 🏭 FOURNISSEURS (src/Providers/)
+  │   ├── NativeAssetFieldProvider.php   # Assets GLPI natifs
+  │   └── GenericAssetFieldProvider.php  # Assets personnalisés
+  │
+  └── 🎨 TEMPLATES (templates/)
+      ├── syncfilter_form.html.twig     # Formulaire CRUD
+      └── syncfilters_list.html.twig    # Liste dans onglet AuthLDAP
+
 ```
 
 
@@ -78,8 +51,13 @@ plugins/advancedldap/
 
 ### **2. Services Métier**
 - `AssetFieldService` : Gestion unifiée des champs d'assets
+- `SyncFilterService` : Gestion métier des filtres de synchronisation
 - `LdapTestService` : Tests et validation des filtres LDAP
-- `SyncFilterService` : Gestion métier des filtres de synchronisation LDAP
+- `LdapSyncService` : Orchestration complète de la synchronisation
+- `AssetCreationService` : Création/mise à jour assets GLPI
+- `LdapInventoryService` : Intégration avec système d'inventaire natif GLPI
+- `AssetTypeClassifier` : Classification automatique assets inventoriables vs traditionnels
+- `LdapToInventoryConverter` : Conversion données LDAP vers format JSON inventaire
 
 ### **3. Modèles de Données**
 - `SyncFilter` : Modèle principal des filtres de synchronisation LDAP
@@ -143,9 +121,11 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 - `hook.php` : Installation, désinstallation, mise à jour
 
 ### **Interface Utilisateur**
-- `front/config.form.php` : Page de configuration
+- `front/config.form.php` : Configuration et test des filtres LDAP
+- `front/syncfilter.php` : Liste des filtres (Search::show)
+- `front/syncfilter.form.php` : CRUD complet des filtres
 - `templates/` : Templates Twig pour l'affichage
-- `ajax/getAssetFields.php` : Requêtes dynamiques
+- `ajax/getAssetFields.php` : Récupération dynamique des champs
 
 ### **Points d'Entrée**
 - `Bootstrap::createAdvancedLdapSync()` : Création d'instance complète
@@ -215,6 +195,14 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 ## État Actuel du Plugin (Septembre 2025)
 
+### **Audit de Code - Architecture Optimisée (26/09/2025)**
+- ✅ **Doublons** : Aucun doublon problématique, méthodes partagées justifiées
+- ✅ **Architecture hybride** : Support double workflow (traditionnel + inventaire)
+- ✅ **Services spécialisés** : 11 services avec responsabilités distinctes
+- ✅ **Standards respectés** : PHP 8.2+, PSR-12, typage strict, documentation PHPDoc
+- ✅ **Logs GLPI** : Utilisation de `Toolbox::logDebug()` dans tous les services
+
+
 ### **Interface Utilisateur Fonctionnelle**
 - ✅ **Onglet AuthLDAP** : "Items to synchronize" intégré dans `setup.php:60-62`
 - ✅ **Liste des filtres** : Template `syncfilters_list.html.twig`
@@ -227,22 +215,19 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 - ✅ **Modèles** : `SyncFilter.php` et `AuthLdapSyncFilter.php`
 - ✅ **CRUD complet** : extends CommonDBTM, actions de masse, droits utilisateurs
 - ✅ **Repositories** : Accès aux données avec gestion d'erreurs et validation
-- ✅ **Services métier** : 6 services spécialisés, logique applicative séparée
+- ✅ **Services métier** : 11 services spécialisés, logique applicative séparée
 - ✅ **Injection de dépendances** : ServiceContainer complet
+- ✅ **Synchronisation hybride** : Support traditionnel + inventaire natif GLPI
 - ✅ **Legacy compatibility** : Alias de classe intégré dans `src/Models/SyncFilter.php` pour GLPI 11 Search
 
-### **Code Mort & Refactoring Récent**
-- ✅ **Nettoyage effectué** : Suppression des classes obsolètes (AssetFieldManager, LdapTester)
-- ✅ **Migration Models/** : SyncFilter et AuthLdapSyncFilter déplacés dans Models/
-- ✅ **Architecture cohérente** : Aucune référence orpheline détectée
-- ✅ **Standards respectés** : PHP 8.2+, PSR-12, typage strict, commentaires anglais
+### **Fonctionnalités Avancées (Nouveau)**
+- ✅ **Synchronisation intelligente** : Classification automatique assets inventoriables
+- ✅ **Double workflow** : Support traditionnel (CommonDBTM) + inventaire natif (Inventory.php)
+- ✅ **Conversion LDAP→JSON** : Transformation automatique pour système d'inventaire
+- ✅ **Gestion des erreurs** : Validation et logs centralisés dans tous les services
+- ✅ **Architecture extensible** : Factory pattern pour nouveaux types d'assets
 
 ## Outils de Développement
-
-### **CI/CD GitHub Actions**
-- Workflow `.github/workflows/continuous-integration.yml`
-- Tests automatisés sur différentes versions PHP
-- Vérifications de style de code et analyse statique
 
 ### **Données de Test**
 - `dummy_data.ldif` : Données LDAP pour les tests d'intégration
