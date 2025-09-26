@@ -59,20 +59,13 @@ class AssetTypeClassifier
     {
         global $CFG_GLPI;
 
-        Toolbox::logDebug("AssetTypeClassifier: Checking if {$asset_type} is inventoriable");
-
         if (empty($asset_type) || !class_exists($asset_type)) {
-            Toolbox::logDebug("AssetTypeClassifier: Asset type {$asset_type} is invalid or does not exist");
             return false;
         }
 
         // Get inventoriable types from GLPI core configuration
         $inventoriable_types = $this->getInventoriableAssetTypes();
-        $is_inventoriable = in_array($asset_type, $inventoriable_types, true);
-
-        Toolbox::logDebug("AssetTypeClassifier: {$asset_type} is " . ($is_inventoriable ? '' : 'NOT ') . "inventoriable");
-
-        return $is_inventoriable;
+        return in_array($asset_type, $inventoriable_types, true);
     }
 
     /**
@@ -97,7 +90,6 @@ class AssetTypeClassifier
 
         // Fallback to hardcoded types if CFG_GLPI not available (shouldn't happen in normal GLPI context)
         if (!isset($CFG_GLPI['inventory_types'])) {
-            Toolbox::logDebug("AssetTypeClassifier: CFG_GLPI['inventory_types'] not found, using fallback");
             return [
                 Computer::class,
                 Phone::class,
@@ -106,10 +98,7 @@ class AssetTypeClassifier
             ];
         }
 
-        $types = $CFG_GLPI['inventory_types'];
-        Toolbox::logDebug("AssetTypeClassifier: Found " . count($types) . " inventoriable asset types from CFG_GLPI");
-
-        return $types;
+        return $CFG_GLPI['inventory_types'];
     }
 
     /**

@@ -32,7 +32,7 @@ class LdapToInventoryConverterTest extends DbTestCase
             'operatingsystemversion' => ['10.0.19042'],
             'totalmemory' => ['8589934592'],
             'ipaddress' => ['192.168.1.100'],
-            'macaddress' => ['00:1B:63:84:45:E6']
+            'macaddress' => ['00:1B:63:84:45:E6'],
         ];
 
         // Act
@@ -79,7 +79,7 @@ class LdapToInventoryConverterTest extends DbTestCase
             'firmware' => ['15.2(4)E10'],
             'macaddress' => ['00:1A:2B:3C:4D:5E'],
             'ipaddress' => ['192.168.1.10'],
-            'location' => ['Server Room A']
+            'location' => ['Server Room A'],
         ];
 
         // Act
@@ -117,7 +117,7 @@ class LdapToInventoryConverterTest extends DbTestCase
             'description' => ['HP LaserJet Pro M404n'],
             'drivername' => ['HP Universal Printing PCL 6'],
             'ipaddress' => ['192.168.1.200'],
-            'location' => ['Office Floor 1']
+            'location' => ['Office Floor 1'],
         ];
 
         // Act
@@ -151,7 +151,7 @@ class LdapToInventoryConverterTest extends DbTestCase
             'cn' => ['PHONE-001'],
             'entryuuid' => ['phone-uuid-001'],
             'ipaddress' => ['192.168.1.150'],
-            'macaddress' => ['AA:BB:CC:DD:EE:FF']
+            'macaddress' => ['AA:BB:CC:DD:EE:FF'],
         ];
 
         // Act
@@ -227,14 +227,14 @@ class LdapToInventoryConverterTest extends DbTestCase
         // Arrange
         $ldapData = [
             'cn' => ['CONFIG-TEST'],
-            'operatingsystem' => ['Ubuntu 20.04']
+            'operatingsystem' => ['Ubuntu 20.04'],
         ];
 
         $syncFilterConfig = [
             'field_mappings' => json_encode([
                 'name' => 'cn',
-                'os' => 'operatingsystem'
-            ])
+                'os' => 'operatingsystem',
+            ]),
         ];
 
         // Act

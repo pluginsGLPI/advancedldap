@@ -24,7 +24,7 @@ class SyncFilterServiceTest extends DbTestCase
         // Create service instance with mocked dependencies
         $this->syncFilterService = new SyncFilterService(
             $this->syncFilterRepository,
-            $this->relationRepository
+            $this->relationRepository,
         );
     }
 
@@ -36,7 +36,7 @@ class SyncFilterServiceTest extends DbTestCase
         // Arrange
         $expectedFilters = [
             ['id' => 1, 'name' => 'Filter 1', 'is_active' => 1],
-            ['id' => 2, 'name' => 'Filter 2', 'is_active' => 1]
+            ['id' => 2, 'name' => 'Filter 2', 'is_active' => 1],
         ];
 
         $this->syncFilterRepository
@@ -59,7 +59,7 @@ class SyncFilterServiceTest extends DbTestCase
         // Arrange
         $authldapId = 123;
         $expectedFilters = [
-            ['id' => 1, 'name' => 'Filter for AuthLDAP 123', 'authldap_id' => 123]
+            ['id' => 1, 'name' => 'Filter for AuthLDAP 123', 'authldap_id' => 123],
         ];
 
         $this->syncFilterRepository
@@ -145,7 +145,7 @@ class SyncFilterServiceTest extends DbTestCase
             $baseDn,
             $assetType,
             $fieldMappings,
-            $isActive
+            $isActive,
         );
 
         // Assert
@@ -194,7 +194,7 @@ class SyncFilterServiceTest extends DbTestCase
         $this->relationRepository
             ->expects($this->exactly(3))
             ->method('removeSyncFilterFromAuthLdap')
-            ->willReturnCallback(function($authldapId, $syncfilterId) use ($filterId) {
+            ->willReturnCallback(function ($authldapId, $syncfilterId) use ($filterId) {
                 static $expectedIds = [100, 200, 300];
                 static $callIndex = 0;
 
@@ -241,7 +241,7 @@ class SyncFilterServiceTest extends DbTestCase
         $this->relationRepository
             ->expects($this->exactly(2))
             ->method('removeSyncFilterFromAuthLdap')
-            ->willReturnCallback(function($authldapId, $syncfilterId) use ($filterId) {
+            ->willReturnCallback(function ($authldapId, $syncfilterId) use ($filterId) {
                 // Only integer IDs should reach this method
                 $this->assertIsInt($authldapId, "Expected integer authldap_id, got: " . gettype($authldapId));
                 $this->assertContains($authldapId, [100, 300], "Unexpected authldap_id: $authldapId");
@@ -358,7 +358,7 @@ class SyncFilterServiceTest extends DbTestCase
         $mappings = ['name' => 'cn', 'description' => 'description'];
         $filterData = [
             'id' => $syncfilterId,
-            'field_mappings' => json_encode($mappings)
+            'field_mappings' => json_encode($mappings),
         ];
 
         $this->syncFilterRepository
@@ -383,7 +383,7 @@ class SyncFilterServiceTest extends DbTestCase
         $syncfilterId = 90;
         $filterData = [
             'id' => $syncfilterId,
-            'field_mappings' => ''
+            'field_mappings' => '',
         ];
 
         $this->syncFilterRepository
