@@ -98,6 +98,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
         // Get the main table for this specific itemtype
         $main_table = getTableForItemType($itemtype);
 
+
         // Separate main table fields from related table fields for proper priority
         $main_table_fields = [];
         $related_table_fields = [];
@@ -132,27 +133,48 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
             }
         }
 
-        // Process main table fields first (they get priority)
-        foreach ($main_table_fields as $field_info) {
-            $fields[$field_info['key']] = $field_info['name'];
+        // Track field names to detect label duplicates
+        $name_counts = [];
+
+        // Count all field names first
+        foreach (array_merge($main_table_fields, $related_table_fields) as $field_info) {
+            $name = $field_info['name'];
+            $name_counts[$name] = ($name_counts[$name] ?? 0) + 1;
         }
 
-        // Process related table fields (with qualified keys to avoid collisions)
+        // Process main table fields first (they get priority)
+        foreach ($main_table_fields as $field_info) {
+            $field_key = $field_info['key'];
+            $field_name = $field_info['name'];
+
+            // If this name appears multiple times, qualify the main table field as well
+            if ($name_counts[$field_name] > 1) {
+                $table_display = $this->getTableDisplayName($field_info['table']);
+                $qualified_name = $field_name . ' (' . $table_display . ')';
+                $fields[$field_key] = $qualified_name;
+            } else {
+                $fields[$field_key] = $field_name;
+            }
+        }
+
+        // Process related table fields
         foreach ($related_table_fields as $field_info) {
             $field_key = $field_info['key'];
             $field_name = $field_info['name'];
             $table = $field_info['table'];
 
             if (isset($fields[$field_key])) {
-                // Collision with main table field - create qualified key for related field
-                $table_display = $this->getTableDisplayName($table);
-                $table_key = strtolower(str_replace([' ', '-'], '_', $table_display));
-                $unique_key = $field_key . '_' . $table_key;
-                $qualified_name = $field_name . ' (' . $table_display . ')';
-                $fields[$unique_key] = $qualified_name;
+                // Collision with main table field key - skip the related field to avoid key duplicates
+                continue;
             } else {
-                // No collision - use original key without qualification
-                $fields[$field_key] = $field_name;
+                // If this name appears multiple times, qualify it
+                if ($name_counts[$field_name] > 1) {
+                    $table_display = $this->getTableDisplayName($table);
+                    $qualified_name = $field_name . ' (' . $table_display . ')';
+                    $fields[$field_key] = $qualified_name;
+                } else {
+                    $fields[$field_key] = $field_name;
+                }
             }
         }
 
