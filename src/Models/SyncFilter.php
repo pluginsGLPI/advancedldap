@@ -712,6 +712,9 @@ class SyncFilter extends CommonDBTM
         $inventory_enabled = $config_service->isInventoryEnabled();
         $inventory_config_url = $config_service->getInventoryConfigUrl();
 
+        // Check LDAP connection status
+        $ldap_connection_status = $this->checkLdapConnectionStatus($current_authldap_id);
+
         // Render template
         \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
             'item' => $this,
@@ -724,6 +727,7 @@ class SyncFilter extends CommonDBTM
             'test_results' => $test_results,
             'inventory_enabled' => $inventory_enabled,
             'inventory_config_url' => $inventory_config_url,
+            'ldap_connection_status' => $ldap_connection_status,
         ]);
 
         return true;
@@ -927,6 +931,20 @@ class SyncFilter extends CommonDBTM
         }
 
         return null;
+    }
+
+    /**
+     * Check LDAP connection status using the centralized test service
+     *
+     * @param int|null $authldap_id AuthLDAP server ID
+     * @return array Connection status information
+     */
+    private function checkLdapConnectionStatus(?int $authldap_id): array
+    {
+        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+        $ldap_test_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapTestService::class);
+
+        return $ldap_test_service->checkLdapConnection($authldap_id);
     }
 }
 

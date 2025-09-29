@@ -45,6 +45,25 @@
     </div>
 {% endif %}
 
+{# Warning for LDAP connection issues #}
+{% if ldap_connection_status and not ldap_connection_status.connected %}
+    <div class="alert alert-danger d-flex align-items-center mb-3">
+        <i class="ti ti-alert-circle me-2"></i>
+        <div>
+            <strong>{{ __('LDAP Connection Error', 'advancedldap') }}:</strong>
+            {% if ldap_connection_status.server_name %}
+                {{ __('Unable to connect to LDAP server', 'advancedldap') }} "<strong>{{ ldap_connection_status.server_name }}</strong>".
+            {% endif %}
+            {{ ldap_connection_status.error }}
+            {% if current_authldap_id %}
+                <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ current_authldap_id }}" class="alert-link ms-2" target="_blank">
+                    <i class="ti ti-settings me-1"></i>{{ __('Check LDAP server configuration', 'advancedldap') }}
+                </a>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
 <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" data-submit-once="true">
 <div class="card">
     <div class="card-header d-flex align-items-center">
