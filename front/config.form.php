@@ -35,8 +35,9 @@ include('../../../inc/includes.php');
 
 use Glpi\Exception\Http\BadRequestHttpException;
 use GlpiPlugin\Advancedldap\Bootstrap;
+use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 
-global $CFG_GLPI;
+$configService = new GlpiConfigurationService();
 
 Session::checkRight('config', UPDATE);
 
@@ -88,7 +89,7 @@ if (isset($_POST['save_filter'])) {
     }
 
     // Redirect back to the AuthLDAP form
-    Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . $authldap_id);
+    Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . $authldap_id);
 } elseif (isset($_POST['test_ldap_filter'])) {
     // Handle LDAP filter test
     $authldap_id = $_POST['authldap_id'] ?? null;
@@ -98,7 +99,7 @@ if (isset($_POST['save_filter'])) {
     $asset_field = $_POST['asset_field'] ?? '';
 
     // Redirect back to the AuthLDAP form with test parameters
-    $redirect_url = $CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id);
+    $redirect_url = $configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id);
     $redirect_url .= "&test_ldap=1";
     $redirect_url .= "&test_base_dn=" . urlencode($ldap_base_dn);
     $redirect_url .= "&test_filter=" . urlencode($ldap_connection_filter);

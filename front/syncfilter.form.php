@@ -33,8 +33,10 @@
 
 include('../../../inc/includes.php');
 
-use Glpi\Event;
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
+use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
+
+$configService = new GlpiConfigurationService();
 
 Session::checkRight(SyncFilter::$rightname, READ);
 
@@ -53,17 +55,9 @@ if (isset($_POST["add"])) {
     }
 
     if ($newID = $syncfilter->add($_POST)) {
-        Event::log(
-            $newID,
-            "syncfilter",
-            4,
-            "setup",
-            sprintf(__('%1$s adds the item %2$s'), $_SESSION["glpiname"], $_POST["name"]),
-        );
         if ($_SESSION['glpibackcreated']) {
             // Build correct redirect URL (not using getLinkURL which points to wrong path)
-            global $CFG_GLPI;
-            $redirect_url = $CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
+            $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
 
             // Preserve authldap_id if it was provided
             $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? '';
@@ -82,18 +76,10 @@ if (isset($_POST["add"])) {
     $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? null;
 
     if ($syncfilter->delete($_POST, true)) {
-        Event::log(
-            $_POST['id'],
-            "syncfilter",
-            4,
-            "setup",
-            sprintf(__('%s purges an item'), $_SESSION["glpiname"]),
-        );
 
         // Redirect to parent AuthLDAP if we have the ID
         if ($authldap_id) {
-            global $CFG_GLPI;
-            Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id));
+            Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id));
         } else {
             $syncfilter->redirectToList();
         }
@@ -104,13 +90,6 @@ if (isset($_POST["add"])) {
     $syncfilter->check($_POST['id'], UPDATE);
 
     $syncfilter->update($_POST);
-    Event::log(
-        $_POST['id'],
-        "syncfilter",
-        4,
-        "setup",
-        sprintf(__('%s updates an item'), $_SESSION["glpiname"]),
-    );
     Html::back();
 } elseif (isset($_POST['test_ldap_filter'])) {
     // Handle LDAP filter test
@@ -139,8 +118,7 @@ if (isset($_POST["add"])) {
             }
         }
         // Redirect back to the form with test parameters
-        global $CFG_GLPI;
-        $redirect_url = $CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $syncfilter_id;
+        $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $syncfilter_id;
         $redirect_url .= "&test_ldap=1";
         $redirect_url .= "&test_authldap_id=" . urlencode($authldap_id);
         $redirect_url .= "&test_base_dn=" . urlencode($ldap_base_dn);
@@ -198,15 +176,6 @@ if (isset($_POST["add"])) {
                 $stats['errors'],
             );
             Session::addMessageAfterRedirect($message, false, INFO);
-
-            // Log the synchronization event
-            Event::log(
-                $syncfilter_id,
-                "syncfilter",
-                4,
-                "setup",
-                sprintf(__('%1$s synchronizes LDAP data from filter %2$s'), $_SESSION["glpiname"], $syncfilter->getField('name')),
-            );
         } else {
             // Error message
             $error_message = $sync_results['error'] ?? __('Unknown synchronization error', 'advancedldap');

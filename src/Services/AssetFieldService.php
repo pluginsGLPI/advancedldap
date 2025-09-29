@@ -152,9 +152,8 @@ class AssetFieldService implements AssetFieldProviderInterface
     {
         $asset_types = $this->configuration->getGlpiConfig('asset_types') ?? [];
         $inventory_types = $this->configuration->getGlpiConfig('inventory_types') ?? [];
-        $state_types = $this->configuration->getGlpiConfig('state_types') ?? [];
 
-        return array_unique(array_merge($asset_types, $inventory_types, $state_types));
+        return array_unique(array_merge($asset_types, $inventory_types));
     }
 
     /**

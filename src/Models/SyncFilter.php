@@ -37,6 +37,7 @@ use CommonDBTM;
 use Html;
 use MassiveAction;
 use Session;
+use GlpiPlugin\Advancedldap\Bootstrap;
 
 /**
  * SyncFilter class for managing LDAP synchronization filters
@@ -115,14 +116,15 @@ class SyncFilter extends CommonDBTM
      */
     public function redirectToList(): void
     {
-        global $CFG_GLPI;
+        $container = Bootstrap::getContainer();
+        $configService = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
 
         // Try to get authldap_id from current URL parameters (after deletion context)
         $authldap_id = $_GET['authldap_id'] ?? null;
 
         // If we have a parent AuthLDAP from URL, redirect there
         if ($authldap_id) {
-            Html::redirect($CFG_GLPI['root_doc'] . "/front/authldap.form.php?id=" . intval($authldap_id));
+            Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id));
             return;
         }
 
