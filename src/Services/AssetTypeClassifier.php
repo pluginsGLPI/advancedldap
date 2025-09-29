@@ -37,7 +37,6 @@ use Computer;
 use NetworkEquipment;
 use Phone;
 use Printer;
-use Toolbox;
 
 /**
  * Asset type classification service
@@ -57,8 +56,6 @@ class AssetTypeClassifier
      */
     public function isInventoriableAsset(string $asset_type): bool
     {
-        global $CFG_GLPI;
-
         if (empty($asset_type) || !class_exists($asset_type)) {
             return false;
         }
