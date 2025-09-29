@@ -232,8 +232,14 @@ class ServiceContainer
                 $container->get(AssetTypeClassifier::class),
             );
 
-            // Inject the inventory service for inventoriable assets
-            $service->setLdapInventoryService($container->get(LdapInventoryService::class));
+            // Only inject the inventory service if GLPI inventory is enabled
+            $configService = $container->get(ConfigurationInterface::class);
+            if ($configService->isInventoryEnabled()) {
+                $service->setLdapInventoryService($container->get(LdapInventoryService::class));
+                \Toolbox::logDebug("ServiceContainer: LdapInventoryService INJECTED - inventory workflow is available");
+            } else {
+                \Toolbox::logDebug("ServiceContainer: LdapInventoryService NOT injected - inventory disabled, fallback to traditional workflow");
+            }
 
             return $service;
         });

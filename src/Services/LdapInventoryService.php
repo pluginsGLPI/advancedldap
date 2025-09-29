@@ -31,6 +31,7 @@
  * -------------------------------------------------------------------------
  */
 
+// Enable strict type checking to prevent automatic type conversions and ensure type safety
 declare(strict_types=1);
 
 namespace GlpiPlugin\Advancedldap\Services;
@@ -66,6 +67,8 @@ class LdapInventoryService
      */
     public function syncInventoriableAsset(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
     {
+        $assetName = $ldapData['name'][0] ?? $ldapData['cn'][0] ?? 'Unknown';
+        Toolbox::logDebug("LdapInventoryService: Starting inventory sync for asset '$assetName' (type: $itemtype)");
 
         try {
             $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $syncFilterConfig);
@@ -78,6 +81,7 @@ class LdapInventoryService
 
             if (!$inventory->setData($inventoryObject, Request::JSON_MODE)) {
                 $errors = $inventory->getErrors();
+                Toolbox::logDebug("LdapInventoryService: FAILED to set inventory data for '$assetName': " . implode(', ', $errors));
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -91,6 +95,7 @@ class LdapInventoryService
 
             if ($inventory->inError()) {
                 $errors = $inventory->getErrors();
+                Toolbox::logDebug("LdapInventoryService: Inventory processing FAILED for '$assetName': " . implode(', ', $errors));
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -108,6 +113,8 @@ class LdapInventoryService
                 $assetId = $item->getID();
             }
 
+            Toolbox::logDebug("LdapInventoryService: SUCCESS - Asset '$assetName' synchronized via inventory system (ID: $assetId)");
+
             return [
                 'success' => true,
                 'action' => 'inventory',
@@ -117,6 +124,7 @@ class LdapInventoryService
             ];
 
         } catch (\InvalidArgumentException $e) {
+            Toolbox::logDebug("LdapInventoryService: Invalid argument for '$assetName': " . $e->getMessage());
             return [
                 'success' => false,
                 'action' => 'inventory',
@@ -126,7 +134,7 @@ class LdapInventoryService
             ];
 
         } catch (\Exception $e) {
-            Toolbox::logDebug("LdapInventoryService: Unexpected error - " . $e->getMessage());
+            Toolbox::logDebug("LdapInventoryService: Unexpected error for '$assetName': " . $e->getMessage());
 
             return [
                 'success' => false,

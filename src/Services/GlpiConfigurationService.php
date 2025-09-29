@@ -93,7 +93,11 @@ class GlpiConfigurationService implements ConfigurationInterface
     public function isInventoryEnabled(): bool
     {
         $inventoryConfig = Config::getConfigurationValues('inventory');
-        return (bool) ($inventoryConfig['enabled_inventory'] ?? false);
+        $isEnabled = (bool) ($inventoryConfig['enabled_inventory'] ?? false);
+
+        Toolbox::logDebug("GlpiConfigurationService: GLPI Inventory status - " . ($isEnabled ? 'ENABLED' : 'DISABLED'));
+
+        return $isEnabled;
     }
 
     /**
