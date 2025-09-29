@@ -37,6 +37,7 @@ use Computer;
 use NetworkEquipment;
 use Phone;
 use Printer;
+use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 
 /**
  * Asset type classification service
@@ -44,10 +45,16 @@ use Printer;
  * Determines if an asset type is inventoriable (managed by Inventory.php)
  * or should use traditional GLPI synchronization methods.
  *
- * Uses native GLPI configuration $CFG_GLPI['inventory_types'] as source of truth.
+ * Uses native GLPI configuration via ConfigurationInterface as source of truth.
  */
 class AssetTypeClassifier
 {
+    private ConfigurationInterface $configuration;
+
+    public function __construct(ConfigurationInterface $configuration)
+    {
+        $this->configuration = $configuration;
+    }
     /**
      * Check if an asset type is inventoriable
      *
@@ -83,10 +90,10 @@ class AssetTypeClassifier
      */
     public function getInventoriableAssetTypes(): array
     {
-        global $CFG_GLPI;
+        $inventory_types = $this->configuration->getGlpiConfig('inventory_types');
 
-        // Fallback to hardcoded types if CFG_GLPI not available (shouldn't happen in normal GLPI context)
-        if (!isset($CFG_GLPI['inventory_types'])) {
+        // Fallback to hardcoded types if configuration not available
+        if ($inventory_types === null) {
             return [
                 Computer::class,
                 Phone::class,
@@ -95,7 +102,7 @@ class AssetTypeClassifier
             ];
         }
 
-        return $CFG_GLPI['inventory_types'];
+        return $inventory_types;
     }
 
     /**

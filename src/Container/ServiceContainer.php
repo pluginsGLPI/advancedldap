@@ -199,8 +199,10 @@ class ServiceContainer
         });
 
         // Asset type classifier service
-        $this->register(AssetTypeClassifier::class, function () {
-            return new AssetTypeClassifier();
+        $this->register(AssetTypeClassifier::class, function (ServiceContainer $container) {
+            return new AssetTypeClassifier(
+                $container->get(ConfigurationInterface::class)
+            );
         });
 
         // Asset creation service

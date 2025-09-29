@@ -3,6 +3,7 @@
 namespace GlpiPlugin\Advancedldap\Tests;
 
 use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
+use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use Computer;
 use Phone;
 use Printer;
@@ -12,11 +13,27 @@ use DbTestCase;
 class AssetTypeClassifierTest extends DbTestCase
 {
     private $classifier;
+    private $configurationMock;
 
     public function setUp(): void
     {
         parent::setUp();
-        $this->classifier = new AssetTypeClassifier();
+
+        $this->configurationMock = $this->createMock(ConfigurationInterface::class);
+        $this->classifier = new AssetTypeClassifier($this->configurationMock);
+    }
+
+    private function setupInventoryTypesMock($inventoryTypes = null)
+    {
+        if ($inventoryTypes === null) {
+            $inventoryTypes = [Computer::class, Phone::class, Printer::class, NetworkEquipment::class];
+        }
+
+        $this->configurationMock
+            ->expects($this->any())
+            ->method('getGlpiConfig')
+            ->with('inventory_types')
+            ->willReturn($inventoryTypes);
     }
 
     /**
@@ -24,6 +41,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testIsInventoriableAssetWithValidTypes()
     {
+        $this->setupInventoryTypesMock();
+
         // Test with standard inventoriable types
         $this->assertTrue($this->classifier->isInventoriableAsset(Computer::class));
         $this->assertTrue($this->classifier->isInventoriableAsset(Phone::class));
@@ -36,6 +55,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testIsInventoriableAssetWithNonInventoriableTypes()
     {
+        $this->setupInventoryTypesMock();
+
         // Test with non-inventoriable types (examples)
         $this->assertFalse($this->classifier->isInventoriableAsset('User'));
         $this->assertFalse($this->classifier->isInventoriableAsset('Group'));
@@ -47,6 +68,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testIsInventoriableAssetWithInvalidInputs()
     {
+        $this->setupInventoryTypesMock();
+
         // Test with empty string
         $this->assertFalse($this->classifier->isInventoriableAsset(''));
 
@@ -62,6 +85,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetSyncMethodWithInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertEquals('inventory', $this->classifier->getSyncMethod(Computer::class));
         $this->assertEquals('inventory', $this->classifier->getSyncMethod(Phone::class));
         $this->assertEquals('inventory', $this->classifier->getSyncMethod(Printer::class));
@@ -73,6 +98,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetSyncMethodWithNonInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertEquals('traditional', $this->classifier->getSyncMethod('User'));
         $this->assertEquals('traditional', $this->classifier->getSyncMethod('Group'));
         $this->assertEquals('traditional', $this->classifier->getSyncMethod(''));
@@ -84,6 +111,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetInventoriableAssetTypes()
     {
+        $this->setupInventoryTypesMock();
+
         $types = $this->classifier->getInventoriableAssetTypes();
 
         // Should return an array
@@ -104,6 +133,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetInventoriableAssetTypesConsistency()
     {
+        $this->setupInventoryTypesMock();
+
         $types1 = $this->classifier->getInventoriableAssetTypes();
         $types2 = $this->classifier->getInventoriableAssetTypes();
 
@@ -116,6 +147,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testShouldUseInventoryWorkflowWithInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertTrue($this->classifier->shouldUseInventoryWorkflow(Computer::class));
         $this->assertTrue($this->classifier->shouldUseInventoryWorkflow(Phone::class));
         $this->assertTrue($this->classifier->shouldUseInventoryWorkflow(Printer::class));
@@ -127,6 +160,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testShouldUseInventoryWorkflowWithNonInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertFalse($this->classifier->shouldUseInventoryWorkflow('User'));
         $this->assertFalse($this->classifier->shouldUseInventoryWorkflow('Group'));
         $this->assertFalse($this->classifier->shouldUseInventoryWorkflow(''));
@@ -138,6 +173,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testShouldUseTraditionalWorkflowWithInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertFalse($this->classifier->shouldUseTraditionalWorkflow(Computer::class));
         $this->assertFalse($this->classifier->shouldUseTraditionalWorkflow(Phone::class));
         $this->assertFalse($this->classifier->shouldUseTraditionalWorkflow(Printer::class));
@@ -149,6 +186,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testShouldUseTraditionalWorkflowWithNonInventoriableAssets()
     {
+        $this->setupInventoryTypesMock();
+
         $this->assertTrue($this->classifier->shouldUseTraditionalWorkflow('User'));
         $this->assertTrue($this->classifier->shouldUseTraditionalWorkflow('Group'));
         $this->assertTrue($this->classifier->shouldUseTraditionalWorkflow(''));
@@ -160,6 +199,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testWorkflowMethodsAreComplementary()
     {
+        $this->setupInventoryTypesMock();
+
         $testCases = [
             Computer::class,
             'User',
@@ -184,6 +225,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetAssetTypeInfoWithInventoriableAsset()
     {
+        $this->setupInventoryTypesMock();
+
         $info = $this->classifier->getAssetTypeInfo(Computer::class);
 
         $this->assertIsArray($info);
@@ -199,6 +242,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetAssetTypeInfoWithNonInventoriableAsset()
     {
+        $this->setupInventoryTypesMock();
+
         $info = $this->classifier->getAssetTypeInfo('User');
 
         $this->assertIsArray($info);
@@ -214,6 +259,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetAssetTypeInfoWithEmptyString()
     {
+        $this->setupInventoryTypesMock();
+
         $info = $this->classifier->getAssetTypeInfo('');
 
         $this->assertIsArray($info);
@@ -229,6 +276,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testGetAssetTypeInfoContainsAllRequiredKeys()
     {
+        $this->setupInventoryTypesMock();
+
         $info = $this->classifier->getAssetTypeInfo(Computer::class);
 
         $expectedKeys = ['asset_type', 'is_inventoriable', 'sync_method', 'workflow', 'use_inventory_php'];
@@ -245,6 +294,8 @@ class AssetTypeClassifierTest extends DbTestCase
      */
     public function testMethodsConsistency()
     {
+        $this->setupInventoryTypesMock();
+
         $testCases = [
             Computer::class,
             Phone::class,
