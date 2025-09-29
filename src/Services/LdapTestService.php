@@ -151,54 +151,6 @@ class LdapTestService
         return $results;
     }
 
-    /**
-     * Check LDAP connection status for warning display
-     * Reuses the same connection logic as performLdapSearch but only tests connectivity
-     *
-     * @param int|null $authldap_id AuthLDAP server ID
-     * @return array Connection status information
-     */
-    public function checkLdapConnection(?int $authldap_id): array
-    {
-        if (!$authldap_id) {
-            return [
-                'connected' => false,
-                'error' => __('No AuthLDAP server selected', 'advancedldap'),
-                'server_name' => null,
-            ];
-        }
-
-        // Get AuthLDAP server information
-        $authldap = new AuthLDAP();
-        if (!$authldap->getFromDB($authldap_id)) {
-            return [
-                'connected' => false,
-                'error' => __('AuthLDAP server not found', 'advancedldap'),
-                'server_name' => null,
-            ];
-        }
-
-        $server_name = $authldap->fields['name'] ?? "ID $authldap_id";
-
-        // Test connection using the same logic as performLdapSearch
-        $connection = $this->ldap_connection->connect($authldap_id);
-        if (!$connection) {
-            return [
-                'connected' => false,
-                'error' => __('Cannot connect to LDAP server', 'advancedldap'),
-                'server_name' => $server_name,
-            ];
-        }
-
-        // Close connection immediately
-        $this->ldap_connection->close($connection);
-
-        return [
-            'connected' => true,
-            'error' => null,
-            'server_name' => $server_name,
-        ];
-    }
 
     /**
      * Validate required parameters

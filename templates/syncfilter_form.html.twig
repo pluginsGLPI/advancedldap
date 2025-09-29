@@ -52,7 +52,7 @@
         <div>
             <strong>{{ __('LDAP Connection Error', 'advancedldap') }}:</strong>
             {% if ldap_connection_status.server_name %}
-                {{ __('Unable to connect to LDAP server', 'advancedldap') }} "<strong>{{ ldap_connection_status.server_name }}</strong>".
+                {{ __('Server', 'advancedldap') }} "<strong>{{ ldap_connection_status.server_name }}</strong>":
             {% endif %}
             {{ ldap_connection_status.error }}
             {% if current_authldap_id %}

@@ -129,7 +129,7 @@ class SyncFilter extends CommonDBTM
         }
 
         // Fallback to default behavior (redirect to plugin search page)
-        Html::redirect($CFG_GLPI['root_doc'] . "/plugins/advancedldap/front/syncfilter.php");
+        Html::redirect($configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.php");
     }
 
     /**
@@ -942,9 +942,9 @@ class SyncFilter extends CommonDBTM
     private function checkLdapConnectionStatus(?int $authldap_id): array
     {
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-        $ldap_test_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapTestService::class);
+        $ldap_connection_service = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface::class);
 
-        return $ldap_test_service->checkLdapConnection($authldap_id);
+        return $ldap_connection_service->checkConnection($authldap_id);
     }
 }
 

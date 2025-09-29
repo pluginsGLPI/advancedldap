@@ -80,4 +80,12 @@ interface LdapConnectionInterface
      * @return string Error message
      */
     public function getError($connection): string;
+
+    /**
+     * Check LDAP connection status for warning display
+     *
+     * @param int|null $authldap_id AuthLDAP server ID
+     * @return array Connection status information
+     */
+    public function checkConnection(?int $authldap_id): array;
 }

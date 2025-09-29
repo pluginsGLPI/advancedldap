@@ -105,4 +105,53 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
     {
         return ldap_error($connection);
     }
+
+    /**
+     * Check LDAP connection status for warning display
+     * Reuses the same connection logic but only tests connectivity
+     *
+     * @param int|null $authldap_id AuthLDAP server ID
+     * @return array Connection status information
+     */
+    public function checkConnection(?int $authldap_id): array
+    {
+        if (!$authldap_id) {
+            return [
+                'connected' => false,
+                'error' => __('No AuthLDAP server selected', 'advancedldap'),
+                'server_name' => null,
+            ];
+        }
+
+        // Get AuthLDAP server information
+        $authldap = new AuthLDAP();
+        if (!$authldap->getFromDB($authldap_id)) {
+            return [
+                'connected' => false,
+                'error' => __('AuthLDAP server not found', 'advancedldap'),
+                'server_name' => null,
+            ];
+        }
+
+        $server_name = $authldap->fields['name'] ?? "ID $authldap_id";
+
+        // Test connection using the same logic as connect method
+        $connection = $this->connect($authldap_id);
+        if (!$connection) {
+            return [
+                'connected' => false,
+                'error' => __('Cannot connect to LDAP server', 'advancedldap'),
+                'server_name' => $server_name,
+            ];
+        }
+
+        // Close connection immediately
+        $this->close($connection);
+
+        return [
+            'connected' => true,
+            'error' => null,
+            'server_name' => $server_name,
+        ];
+    }
 }
