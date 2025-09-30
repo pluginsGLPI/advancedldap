@@ -55,6 +55,13 @@ class LdapToInventoryConverter
         Phone::class => 'Phone',
     ];
 
+    private LdapDataExtractor $data_extractor;
+
+    public function __construct()
+    {
+        $this->data_extractor = new LdapDataExtractor();
+    }
+
     /**
      * Convert LDAP data to Inventory JSON format
      *
@@ -562,17 +569,7 @@ class LdapToInventoryConverter
      */
     private function extractDeviceName(array $ldapData): string
     {
-        // Try different LDAP attributes for the device name
-        $nameFields = ['cn', 'name', 'displayname', 'samaccountname', 'hostname'];
-
-        foreach ($nameFields as $field) {
-            if (!empty($ldapData[$field][0])) {
-                return (string) $ldapData[$field][0];
-            }
-        }
-
-        // Fallback to generic name
-        return 'Unknown Device';
+        return $this->data_extractor->extractDeviceName($ldapData);
     }
 
     /**

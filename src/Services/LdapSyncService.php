@@ -51,6 +51,7 @@ class LdapSyncService
     private AssetCreationService $asset_creation_service;
     private AssetTypeClassifier $asset_type_classifier;
     private ?LdapInventoryService $ldap_inventory_service = null;
+    private LdapDataExtractor $data_extractor;
 
     /**
      * @param LdapConnectionInterface $ldap_connection
@@ -65,6 +66,7 @@ class LdapSyncService
         $this->ldap_connection = $ldap_connection;
         $this->asset_creation_service = $asset_creation_service;
         $this->asset_type_classifier = $asset_type_classifier;
+        $this->data_extractor = new LdapDataExtractor();
     }
 
     /**
@@ -294,45 +296,7 @@ class LdapSyncService
      */
     private function extractAssetData(array $ldap_entry, array $field_mappings): array
     {
-        $asset_data = [];
-
-        foreach ($field_mappings as $glpi_field => $ldap_attribute) {
-            // Normalize LDAP attribute name to lowercase (PHP ldap_get_entries normalizes all keys)
-            $normalized_ldap_attribute = strtolower($ldap_attribute);
-
-            if (isset($ldap_entry[$normalized_ldap_attribute])) {
-                $ldap_value = $ldap_entry[$normalized_ldap_attribute];
-
-                // Handle LDAP array values
-                if (is_array($ldap_value)) {
-                    if (isset($ldap_value['count'])) {
-                        unset($ldap_value['count']);
-                    }
-                    // Use first value for single-value fields, join for multi-value
-                    $asset_data[$glpi_field] = count($ldap_value) === 1 ? $ldap_value[0] : implode(', ', $ldap_value);
-                } else {
-                    $asset_data[$glpi_field] = $ldap_value;
-                }
-            }
-        }
-
-        // Ensure we have at least a name
-        if (empty($asset_data['name'])) {
-            // Fallback to common LDAP naming attributes
-            $name_candidates = ['cn', 'displayName', 'uid', 'sAMAccountName'];
-            foreach ($name_candidates as $candidate) {
-                if (isset($ldap_entry[$candidate])) {
-                    $value = $ldap_entry[$candidate];
-                    if (is_array($value) && isset($value[0])) {
-                        $value = $value[0];
-                    }
-                    $asset_data['name'] = $value;
-                    break;
-                }
-            }
-        }
-
-        return $asset_data;
+        return $this->data_extractor->extractAssetData($ldap_entry, $field_mappings);
     }
 
     /**
