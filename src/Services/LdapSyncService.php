@@ -76,7 +76,7 @@ class LdapSyncService
     public function setLdapInventoryService(LdapInventoryService $service): void
     {
         $this->ldap_inventory_service = $service;
-        Toolbox::logDebug("LdapSyncService: LdapInventoryService has been SET - inventory workflow is AVAILABLE");
+        // Debug: LdapInventoryService has been SET - inventory workflow is AVAILABLE
     }
 
     /**

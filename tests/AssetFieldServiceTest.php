@@ -231,12 +231,11 @@ class AssetFieldServiceTest extends DbTestCase
     {
         // Arrange
         // Mock configuration calls - note that native itemtypes won't exist in test environment
-        $this->configuration->expects($this->exactly(3))
+        $this->configuration->expects($this->exactly(2))
             ->method('getGlpiConfig')
             ->willReturnMap([
                 ['asset_types', null, ['Computer', 'Monitor']],
                 ['inventory_types', null, ['Computer', 'Printer']],
-                ['state_types', null, ['Monitor']],
             ]);
 
         $this->configuration->expects($this->once())
@@ -285,12 +284,11 @@ class AssetFieldServiceTest extends DbTestCase
     public function testGetAllAssetTypesWithInactiveGenericAssets()
     {
         // Arrange
-        $this->configuration->expects($this->exactly(3))
+        $this->configuration->expects($this->exactly(2))
             ->method('getGlpiConfig')
             ->willReturnMap([
                 ['asset_types', null, ['Computer']],
                 ['inventory_types', null, []],
-                ['state_types', null, []],
             ]);
 
         $this->configuration->expects($this->once())
@@ -325,12 +323,11 @@ class AssetFieldServiceTest extends DbTestCase
     public function testGetAllAssetTypesWithInvalidItemtypeClasses()
     {
         // Arrange
-        $this->configuration->expects($this->exactly(3))
+        $this->configuration->expects($this->exactly(2))
             ->method('getGlpiConfig')
             ->willReturnMap([
                 ['asset_types', null, ['Computer', 'InvalidClass', 'NonExistentClass']],
                 ['inventory_types', null, []],
-                ['state_types', null, []],
             ]);
 
         $this->configuration->expects($this->once())
@@ -357,12 +354,11 @@ class AssetFieldServiceTest extends DbTestCase
     public function testGetAllAssetTypesWithDuplicateNames()
     {
         // Arrange
-        $this->configuration->expects($this->exactly(3))
+        $this->configuration->expects($this->exactly(2))
             ->method('getGlpiConfig')
             ->willReturnMap([
                 ['asset_types', null, ['Computer']],
                 ['inventory_types', null, []],
-                ['state_types', null, []],
             ]);
 
         $this->configuration->expects($this->once())
@@ -400,12 +396,11 @@ class AssetFieldServiceTest extends DbTestCase
     public function testGetAllAssetTypesWithEmptySystemName()
     {
         // Arrange
-        $this->configuration->expects($this->exactly(3))
+        $this->configuration->expects($this->exactly(2))
             ->method('getGlpiConfig')
             ->willReturnMap([
                 ['asset_types', null, []],
                 ['inventory_types', null, []],
-                ['state_types', null, []],
             ]);
 
         $this->configuration->expects($this->once())
