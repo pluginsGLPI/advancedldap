@@ -52,21 +52,25 @@ class LdapSyncService
     private AssetTypeClassifier $asset_type_classifier;
     private ?LdapInventoryService $ldap_inventory_service = null;
     private LdapDataExtractor $data_extractor;
+    private LdapParameterValidator $parameter_validator;
 
     /**
      * @param LdapConnectionInterface $ldap_connection
      * @param AssetCreationService $asset_creation_service
      * @param AssetTypeClassifier $asset_type_classifier
+     * @param LdapParameterValidator|null $parameter_validator
      */
     public function __construct(
         LdapConnectionInterface $ldap_connection,
         AssetCreationService $asset_creation_service,
         AssetTypeClassifier $asset_type_classifier,
+        ?LdapParameterValidator $parameter_validator = null
     ) {
         $this->ldap_connection = $ldap_connection;
         $this->asset_creation_service = $asset_creation_service;
         $this->asset_type_classifier = $asset_type_classifier;
         $this->data_extractor = new LdapDataExtractor();
+        $this->parameter_validator = $parameter_validator ?? new LdapParameterValidator();
     }
 
     /**
@@ -194,30 +198,7 @@ class LdapSyncService
      */
     private function validateSyncFilter(SyncFilter $sync_filter): ?string
     {
-        if (empty($sync_filter->getField('base_dn'))) {
-            return __('Base DN is required', 'advancedldap');
-        }
-
-        if (empty($sync_filter->getField('ldap_filter'))) {
-            return __('LDAP filter is required', 'advancedldap');
-        }
-
-        if (empty($sync_filter->getField('asset_type'))) {
-            return __('Asset type is required', 'advancedldap');
-        }
-
-        $field_mappings = $sync_filter->getFieldMappings();
-        if (empty($field_mappings)) {
-            return __('Field mappings are required', 'advancedldap');
-        }
-
-        // Validate asset type exists
-        $asset_type = $sync_filter->getField('asset_type');
-        if (!class_exists($asset_type)) {
-            return sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
-        }
-
-        return null;
+        return $this->parameter_validator->validateSyncFilter($sync_filter);
     }
 
     /**

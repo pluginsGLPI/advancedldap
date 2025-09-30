@@ -47,20 +47,24 @@ class LdapTestService
     private LdapConnectionInterface $ldap_connection;
     private DatabaseInterface $database;
     private AssetFieldProviderInterface $asset_field_provider;
+    private LdapParameterValidator $parameter_validator;
 
     /**
      * @param LdapConnectionInterface $ldap_connection
      * @param DatabaseInterface $database
      * @param AssetFieldProviderInterface $asset_field_provider
+     * @param LdapParameterValidator|null $parameter_validator
      */
     public function __construct(
         LdapConnectionInterface $ldap_connection,
         DatabaseInterface $database,
         AssetFieldProviderInterface $asset_field_provider,
+        ?LdapParameterValidator $parameter_validator = null
     ) {
         $this->ldap_connection = $ldap_connection;
         $this->database = $database;
         $this->asset_field_provider = $asset_field_provider;
+        $this->parameter_validator = $parameter_validator ?? new LdapParameterValidator();
     }
 
     /**
@@ -162,19 +166,7 @@ class LdapTestService
      */
     private function validateParameters(string $base_dn, string $filter, string $asset_type): ?string
     {
-        if (empty($base_dn)) {
-            return __('Base DN is required', 'advancedldap');
-        }
-
-        if (empty($filter)) {
-            return __('LDAP filter is required', 'advancedldap');
-        }
-
-        if (empty($asset_type)) {
-            return __('Asset type is required', 'advancedldap');
-        }
-
-        return null;
+        return $this->parameter_validator->validateBasicParameters($base_dn, $filter, $asset_type);
     }
 
     /**
