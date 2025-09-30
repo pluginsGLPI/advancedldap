@@ -82,7 +82,7 @@ class AssetFieldServiceTest extends DbTestCase
             ->willReturn($mockAssetTypes);
 
         // Act
-        $result = $service->getAvailableItemTypes();
+        $result = $service->getAvailableItemtypes();
 
         // Assert
         $this->assertIsArray($result);
@@ -128,7 +128,7 @@ class AssetFieldServiceTest extends DbTestCase
             ->willReturn($mockAssetTypes);
 
         // Act
-        $result = $service->getAvailableItemTypes();
+        $result = $service->getAvailableItemtypes();
 
         // Assert
         $this->assertIsArray($result);
@@ -154,7 +154,7 @@ class AssetFieldServiceTest extends DbTestCase
             ->willReturn([]);
 
         // Act
-        $result = $service->getAvailableItemTypes();
+        $result = $service->getAvailableItemtypes();
 
         // Assert
         $this->assertIsArray($result);
@@ -186,7 +186,7 @@ class AssetFieldServiceTest extends DbTestCase
             ->willReturn($mockProvider);
 
         // Act
-        $result = $this->assetFieldService->getItemTypeFields($itemtype);
+        $result = $this->assetFieldService->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -217,7 +217,7 @@ class AssetFieldServiceTest extends DbTestCase
             ->willReturn($mockProvider);
 
         // Act
-        $result = $this->assetFieldService->getItemTypeFields($itemtype);
+        $result = $this->assetFieldService->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);

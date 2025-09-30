@@ -56,7 +56,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
     public function testGetAvailableItemTypes()
     {
         // Act
-        $result = $this->provider->getAvailableItemTypes();
+        $result = $this->provider->getAvailableItemtypes();
 
         // Assert
         $this->assertIsArray($result);
@@ -72,7 +72,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_' . $this->asset_definition_id;
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -97,7 +97,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_99999'; // Non-existent ID
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -113,7 +113,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_abc';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -129,7 +129,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = '';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -145,7 +145,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -161,7 +161,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_0';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -177,7 +177,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_-1';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -193,7 +193,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_' . $this->asset_definition_id;
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -215,7 +215,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_' . $this->asset_definition_id;
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -240,7 +240,7 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_' . $this->asset_definition_id . '_extra';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -257,8 +257,8 @@ class GenericAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_' . $this->asset_definition_id;
 
         // Act
-        $result1 = $this->provider->getItemTypeFields($itemtype);
-        $result2 = $this->provider->getItemTypeFields($itemtype);
+        $result1 = $this->provider->getItemtypeFields($itemtype);
+        $result2 = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertEquals($result1, $result2);

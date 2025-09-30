@@ -47,7 +47,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
      *
      * @return array<string, string> Array of itemtype => label
      */
-    public function getAvailableItemTypes(): array
+    public function getAvailableItemtypes(): array
     {
         // This method is implemented at the service level
         return [];
@@ -59,7 +59,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
      * @param string $itemtype Class name (e.g. 'Computer')
      * @return array<string, string> Array of field_key => field_label
      */
-    public function getItemTypeFields(string $itemtype): array
+    public function getItemtypeFields(string $itemtype): array
     {
         // Validate standard GLPI itemtype classes
         if (!class_exists($itemtype)) {

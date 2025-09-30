@@ -48,7 +48,7 @@ class GenericAssetFieldProvider implements AssetFieldProviderInterface
      *
      * @return array<string, string> Array of itemtype => label
      */
-    public function getAvailableItemTypes(): array
+    public function getAvailableItemtypes(): array
     {
         // This method is implemented at the service level
         return [];
@@ -60,7 +60,7 @@ class GenericAssetFieldProvider implements AssetFieldProviderInterface
      * @param string $itemtype Generic asset itemtype (format: GenericAsset_ID)
      * @return array<string, string> Array of field_key => field_label
      */
-    public function getItemTypeFields(string $itemtype): array
+    public function getItemtypeFields(string $itemtype): array
     {
         // Extract the asset definition ID from the itemtype string
         $asset_definition_id = (int) str_replace('GenericAsset_', '', $itemtype);

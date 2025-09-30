@@ -111,7 +111,7 @@ class LdapTestService
 
             // Get human-readable field names
             if (!empty($asset_type)) {
-                $fields = $this->asset_field_provider->getItemTypeFields($asset_type);
+                $fields = $this->asset_field_provider->getItemtypeFields($asset_type);
 
                 // Handle new field mappings system
                 if (!empty($field_mappings)) {

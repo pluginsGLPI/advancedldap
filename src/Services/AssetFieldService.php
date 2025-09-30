@@ -69,7 +69,7 @@ class AssetFieldService implements AssetFieldProviderInterface
      *
      * @return array Array of itemtype => label
      */
-    public function getAvailableItemTypes(): array
+    public function getAvailableItemtypes(): array
     {
         $asset_types = $this->getAllAssetTypes();
         $itemtypes = [];
@@ -88,10 +88,10 @@ class AssetFieldService implements AssetFieldProviderInterface
      * @param string $itemtype The itemtype to get fields for
      * @return array Array of field_key => field_label
      */
-    public function getItemTypeFields(string $itemtype): array
+    public function getItemtypeFields(string $itemtype): array
     {
         $provider = $this->factory->createProvider($itemtype);
-        return $provider->getItemTypeFields($itemtype);
+        return $provider->getItemtypeFields($itemtype);
     }
 
     /**

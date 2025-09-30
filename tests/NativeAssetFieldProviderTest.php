@@ -32,7 +32,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
     public function testGetAvailableItemTypes()
     {
         // Act
-        $result = $this->provider->getAvailableItemTypes();
+        $result = $this->provider->getAvailableItemtypes();
 
         // Assert
         $this->assertIsArray($result);
@@ -48,7 +48,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -73,7 +73,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Monitor';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -90,7 +90,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'NonExistentClass';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -106,7 +106,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'stdClass';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -122,7 +122,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = '';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -138,7 +138,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -161,7 +161,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -186,7 +186,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Printer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -203,7 +203,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'NetworkEquipment';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -220,8 +220,8 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result1 = $this->provider->getItemTypeFields($itemtype);
-        $result2 = $this->provider->getItemTypeFields($itemtype);
+        $result1 = $this->provider->getItemtypeFields($itemtype);
+        $result2 = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertEquals($result1, $result2);
@@ -237,7 +237,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -256,7 +256,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'GenericAsset_1';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -273,7 +273,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -293,7 +293,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -314,7 +314,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Software';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert
         $this->assertIsArray($result);
@@ -332,7 +332,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         $itemtype = 'Computer';
 
         // Act
-        $result = $this->provider->getItemTypeFields($itemtype);
+        $result = $this->provider->getItemtypeFields($itemtype);
 
         // Assert - Just verify it doesn't crash and returns valid data
         $this->assertIsArray($result);

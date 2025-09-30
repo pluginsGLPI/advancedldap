@@ -60,7 +60,7 @@ try {
     $asset_field_provider = $container->get(AssetFieldProviderInterface::class);
 
     // Get fields for the itemtype
-    $fields = $asset_field_provider->getItemTypeFields($itemtype);
+    $fields = $asset_field_provider->getItemtypeFields($itemtype);
 } catch (Exception $e) {
     Toolbox::logDebug("Advanced LDAP - AJAX Error: " . $e->getMessage());
     http_response_code(500);

@@ -43,7 +43,7 @@ interface AssetFieldProviderInterface
      *
      * @return array<string, string> Array of itemtype => label
      */
-    public function getAvailableItemTypes(): array;
+    public function getAvailableItemtypes(): array;
 
     /**
      * Get fields for a specific itemtype
@@ -51,5 +51,5 @@ interface AssetFieldProviderInterface
      * @param string $itemtype The itemtype to get fields for
      * @return array<string, string> Array of field_key => field_label
      */
-    public function getItemTypeFields(string $itemtype): array;
+    public function getItemtypeFields(string $itemtype): array;
 }
