@@ -37,6 +37,7 @@ use AuthLDAP;
 use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
 use GlpiPlugin\Advancedldap\Container\ServiceContainer;
+use Session;
 
 /**
  * Advanced LDAP synchronization functionality
@@ -68,7 +69,7 @@ class AdvancedLdapSync extends CommonGLPI
     {
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             $nb = 0;
-            if ($_SESSION['glpishow_count_on_tabs']) {
+            if (Session::getCurrentInterface() !== 'helpdesk') {
                 $nb = $this->countSyncFiltersForAuthLdap($item->getID());
             }
 

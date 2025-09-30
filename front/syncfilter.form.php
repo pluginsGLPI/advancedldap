@@ -55,7 +55,8 @@ if (isset($_POST["add"])) {
     }
 
     if ($newID = $syncfilter->add($_POST)) {
-        if ($_SESSION['glpibackcreated']) {
+        $user_pref = $_SESSION['glpibackcreated'] ?? false;
+        if ($user_pref) {
             // Build correct redirect URL (not using getLinkURL which points to wrong path)
             $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
 

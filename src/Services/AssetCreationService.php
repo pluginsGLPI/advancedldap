@@ -171,7 +171,7 @@ class AssetCreationService
 
         // Handle entity (use current session entity)
         if (!isset($data['entities_id'])) {
-            $data['entities_id'] = $_SESSION['glpiactive_entity'] ?? 0;
+            $data['entities_id'] = Session::getActiveEntity();
         }
 
         // Asset type specific handling
@@ -358,7 +358,7 @@ class AssetCreationService
         $location = new Location();
         $location_id = $location->add([
             'name' => $location_name,
-            'entities_id' => $_SESSION['glpiactive_entity'] ?? 0,
+            'entities_id' => Session::getActiveEntity(),
         ]);
 
         return $location_id ?: 0;
