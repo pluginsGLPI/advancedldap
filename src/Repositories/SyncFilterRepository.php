@@ -214,6 +214,10 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             ],
         ]);
 
+        if (!is_iterable($results)) {
+            return [];
+        }
+
         $authldaps = [];
         foreach ($results as $data) {
             $authldaps[] = (int) $data['authldap_id'];
@@ -250,6 +254,10 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'WHERE'  => ['syncfilter_id' => $syncfilter_id],
         ]);
 
+        if (!is_iterable($iterator)) {
+            return [];
+        }
+
         $relations = [];
         foreach ($iterator as $data) {
             $relations[] = $data;
@@ -272,6 +280,10 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'ORDER'  => 'name',
         ]);
 
+        if (!is_iterable($iterator)) {
+            return [];
+        }
+
         $servers = [];
         foreach ($iterator as $data) {
             $servers[] = $data;
@@ -293,6 +305,10 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'WHERE'  => ['is_active' => 1],
             'LIMIT'  => 1,
         ]);
+
+        if (!is_iterable($iterator)) {
+            return null;
+        }
 
         foreach ($iterator as $data) {
             return (int) $data['id'];
@@ -337,6 +353,10 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             ],
             'ORDER'  => 'sf.name',
         ]);
+
+        if (!is_iterable($iterator)) {
+            return [];
+        }
 
         $filters = [];
         foreach ($iterator as $data) {

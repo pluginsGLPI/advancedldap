@@ -88,28 +88,16 @@ class LdapAttributeMapper implements LdapAttributeMapperInterface
         if (isset($this->standard_mappings[$normalized_field])) {
             $mapped_attribute = $this->standard_mappings[$normalized_field];
             if (in_array($mapped_attribute, $available_ldap_attributes)) {
-                Toolbox::logDebug('LdapAttributeMapper: Found RFC 4519 mapping', [
-                    'glpi_field' => $glpi_field,
-                    'ldap_attribute' => $mapped_attribute,
-                ]);
                 return $mapped_attribute;
             }
         }
 
         // Fallback: if the exact GLPI field name exists as LDAP attribute, use it
         if (in_array($glpi_field, $available_ldap_attributes)) {
-            Toolbox::logDebug('LdapAttributeMapper: Using exact field name match', [
-                'glpi_field' => $glpi_field,
-            ]);
             return $glpi_field;
         }
 
         // Final fallback: use the GLPI field name (may not exist in LDAP)
-        Toolbox::logDebug('LdapAttributeMapper: No mapping found, using field name as-is', [
-            'glpi_field' => $glpi_field,
-            'available_attributes' => $available_ldap_attributes,
-        ]);
-
         return $glpi_field;
     }
 
@@ -137,10 +125,6 @@ class LdapAttributeMapper implements LdapAttributeMapperInterface
             return $reverse_mapping[$ldap_attribute];
         }
 
-        Toolbox::logDebug('LdapAttributeMapper: No reverse mapping found', [
-            'ldap_attribute' => $ldap_attribute,
-        ]);
-
         return null;
     }
 
@@ -153,13 +137,6 @@ class LdapAttributeMapper implements LdapAttributeMapperInterface
      */
     public function isAttributeAvailable(string $ldap_attribute, array $available_attributes): bool
     {
-        $is_available = in_array($ldap_attribute, $available_attributes);
-
-        Toolbox::logDebug('LdapAttributeMapper: Checking attribute availability', [
-            'ldap_attribute' => $ldap_attribute,
-            'is_available' => $is_available,
-        ]);
-
-        return $is_available;
+        return in_array($ldap_attribute, $available_attributes);
     }
 }
