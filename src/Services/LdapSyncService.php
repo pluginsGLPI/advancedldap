@@ -400,21 +400,4 @@ class LdapSyncService
         );
     }
 
-    /**
-     * Get synchronization statistics for a sync filter
-     *
-     * @param int $syncfilter_id SyncFilter ID
-     * @return array Statistics
-     */
-    public function getSyncStatistics(int $syncfilter_id): array
-    {
-        // TODO: Implement database-based sync history tracking using $syncfilter_id
-        // This method is a placeholder for future functionality
-        return [
-            'last_sync' => null,
-            'total_syncs' => 0,
-            'last_success' => null,
-            'last_error' => null,
-        ];
-    }
 }

@@ -365,23 +365,6 @@ class AssetCreationService
     }
 
     /**
-     * Get creation statistics for a specific asset type
-     *
-     * @param string $asset_type Asset type
-     * @return array Statistics
-     */
-    public function getCreationStatistics(string $asset_type): array
-    {
-        // This could be extended to track creation history in the database
-        return [
-            'total_created' => 0,
-            'total_updated' => 0,
-            'last_creation' => null,
-            'last_update' => null,
-        ];
-    }
-
-    /**
      * Validate asset data before creation
      *
      * @param array $asset_data Asset data
