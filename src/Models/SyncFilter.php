@@ -241,27 +241,14 @@ class SyncFilter extends CommonDBTM
      */
     public function getAssociatedAuthLDAPs(): array
     {
-        global $DB;
-
         if (!$this->getID()) {
             return [];
         }
 
-        $iterator = $DB->request([
-            'SELECT' => ['authldap_id'],
-            'FROM' => AuthLdapSyncFilter::getTable(),
-            'WHERE' => [
-                'syncfilter_id' => $this->getID(),
-                'is_active' => 1,
-            ],
-        ]);
+        $container = Bootstrap::getContainer();
+        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
 
-        $authldaps = [];
-        foreach ($iterator as $data) {
-            $authldaps[] = $data['authldap_id'];
-        }
-
-        return $authldaps;
+        return $repository->getAssociatedAuthLdaps($this->getID());
     }
 
     /**
@@ -433,11 +420,9 @@ class SyncFilter extends CommonDBTM
         }
 
         // Delete all related AuthLDAP relations before deleting the sync filter
-        global $DB;
-        $DB->delete(
-            'glpi_plugin_advancedldap_authldap_syncfilters',
-            ['syncfilter_id' => $this->getID()],
-        );
+        $container = Bootstrap::getContainer();
+        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        $repository->deleteAuthLdapRelations($this->getID());
 
         return true;
     }
@@ -520,14 +505,11 @@ class SyncFilter extends CommonDBTM
                         $new_item = new static();
                         if ($new_item->add($input)) {
                             // Duplicate ALL AuthLDAP relations
-                            global $DB;
-                            $iterator = $DB->request([
-                                'SELECT' => ['authldap_id', 'is_active'],
-                                'FROM' => AuthLdapSyncFilter::getTable(),
-                                'WHERE' => ['syncfilter_id' => $id],
-                            ]);
+                            $container = Bootstrap::getContainer();
+                            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+                            $relations = $repository->getAuthLdapRelations($id);
 
-                            foreach ($iterator as $relation_data) {
+                            foreach ($relations as $relation_data) {
                                 $relation = new AuthLdapSyncFilter();
                                 $relation->add([
                                     'authldap_id' => $relation_data['authldap_id'],
@@ -654,21 +636,19 @@ class SyncFilter extends CommonDBTM
             $current_authldap_id = $parent_authldap->getID();
         }
 
+        // Get container for dependency injection
+        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+
         // Get AuthLDAP servers for dropdown
+        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        $servers = $repository->getActiveAuthLdapServers();
+
         $authldap_servers = [];
-        global $DB;
-        $iterator = $DB->request([
-            'SELECT' => ['id', 'name'],
-            'FROM' => 'glpi_authldaps',
-            'WHERE' => ['is_active' => 1],
-            'ORDER' => 'name',
-        ]);
-        foreach ($iterator as $data) {
+        foreach ($servers as $data) {
             $authldap_servers[$data['id']] = $data['name'];
         }
 
         // Get available assets and current configuration
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
         $asset_field_provider = $container->get(\GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface::class);
 
         $available_assets = $this->buildAssetDropdown($asset_field_provider);
@@ -748,17 +728,9 @@ class SyncFilter extends CommonDBTM
         // Use provided authldap_id, or fall back to GET parameter, or find the first active one
         $default_authldap_id = $authldap_id ?? $_GET['authldap_id'] ?? '';
         if (empty($default_authldap_id)) {
-            global $DB;
-            $iterator = $DB->request([
-                'SELECT' => ['id'],
-                'FROM' => 'glpi_authldaps',
-                'WHERE' => ['is_active' => 1],
-                'LIMIT' => 1,
-            ]);
-            foreach ($iterator as $data) {
-                $default_authldap_id = $data['id'];
-                break;
-            }
+            $container = Bootstrap::getContainer();
+            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+            $default_authldap_id = $repository->getFirstActiveAuthLdapId();
         }
 
         $config = [
@@ -819,17 +791,9 @@ class SyncFilter extends CommonDBTM
 
         // If no authldap_id provided, use the first available one
         if (!$test_authldap_id) {
-            global $DB;
-            $iterator = $DB->request([
-                'SELECT' => ['id'],
-                'FROM' => 'glpi_authldaps',
-                'WHERE' => ['is_active' => 1],
-                'LIMIT' => 1,
-            ]);
-            foreach ($iterator as $data) {
-                $test_authldap_id = $data['id'];
-                break;
-            }
+            $container = Bootstrap::getContainer();
+            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+            $test_authldap_id = $repository->getFirstActiveAuthLdapId();
 
             if (!$test_authldap_id) {
                 return null;

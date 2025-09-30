@@ -196,4 +196,153 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
         /** @var array<string, mixed> */
         return $data;
     }
+
+    /**
+     * Get associated AuthLDAP IDs for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return array<int, int> Array of AuthLDAP IDs
+     */
+    public function getAssociatedAuthLdaps(int $syncfilter_id): array
+    {
+        $results = $this->database->request([
+            'SELECT' => ['authldap_id'],
+            'FROM'   => AuthLdapSyncFilter::getTable(),
+            'WHERE'  => [
+                'syncfilter_id' => $syncfilter_id,
+                'is_active' => 1,
+            ],
+        ]);
+
+        $authldaps = [];
+        foreach ($results as $data) {
+            $authldaps[] = (int) $data['authldap_id'];
+        }
+
+        return $authldaps;
+    }
+
+    /**
+     * Delete all AuthLDAP relations for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return bool Success status
+     */
+    public function deleteAuthLdapRelations(int $syncfilter_id): bool
+    {
+        return $this->database->delete(
+            AuthLdapSyncFilter::getTable(),
+            ['syncfilter_id' => $syncfilter_id],
+        );
+    }
+
+    /**
+     * Get all AuthLDAP relations for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return array<int, array<string, mixed>> Array of relations
+     */
+    public function getAuthLdapRelations(int $syncfilter_id): array
+    {
+        $iterator = $this->database->request([
+            'SELECT' => ['authldap_id', 'is_active'],
+            'FROM'   => AuthLdapSyncFilter::getTable(),
+            'WHERE'  => ['syncfilter_id' => $syncfilter_id],
+        ]);
+
+        $relations = [];
+        foreach ($iterator as $data) {
+            $relations[] = $data;
+        }
+
+        return $relations;
+    }
+
+    /**
+     * Get all active AuthLDAP servers
+     *
+     * @return array<int, array{id: int, name: string}> Array of active servers
+     */
+    public function getActiveAuthLdapServers(): array
+    {
+        $iterator = $this->database->request([
+            'SELECT' => ['id', 'name'],
+            'FROM'   => 'glpi_authldaps',
+            'WHERE'  => ['is_active' => 1],
+            'ORDER'  => 'name',
+        ]);
+
+        $servers = [];
+        foreach ($iterator as $data) {
+            $servers[] = $data;
+        }
+
+        return $servers;
+    }
+
+    /**
+     * Get the first active AuthLDAP ID
+     *
+     * @return int|null First active AuthLDAP ID or null if none found
+     */
+    public function getFirstActiveAuthLdapId(): ?int
+    {
+        $iterator = $this->database->request([
+            'SELECT' => ['id'],
+            'FROM'   => 'glpi_authldaps',
+            'WHERE'  => ['is_active' => 1],
+            'LIMIT'  => 1,
+        ]);
+
+        foreach ($iterator as $data) {
+            return (int) $data['id'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get sync filters for a specific AuthLDAP with full details
+     *
+     * @param int $authldap_id AuthLDAP ID
+     * @return array<int, array<string, mixed>> Array of sync filters with full details
+     */
+    public function getSyncFiltersForAuthLdapDetailed(int $authldap_id): array
+    {
+        $sync_table = SyncFilter::$table;
+        $relation_table = AuthLdapSyncFilter::$table;
+
+        $iterator = $this->database->request([
+            'SELECT' => [
+                'sf.id',
+                'sf.name',
+                'sf.ldap_filter',
+                'sf.base_dn',
+                'sf.asset_type',
+                'sf.field_mappings',
+                'sf.is_active',
+                'sf.date_creation',
+            ],
+            'FROM'   => "$sync_table AS sf",
+            'INNER JOIN' => [
+                "$relation_table AS rel" => [
+                    'ON' => [
+                        'sf' => 'id',
+                        'rel' => 'syncfilter_id',
+                    ],
+                ],
+            ],
+            'WHERE'  => [
+                'rel.authldap_id' => $authldap_id,
+            ],
+            'ORDER'  => 'sf.name',
+        ]);
+
+        $filters = [];
+        foreach ($iterator as $data) {
+            $filters[] = $data;
+        }
+
+        return $filters;
+    }
 }

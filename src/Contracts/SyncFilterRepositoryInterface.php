@@ -85,4 +85,50 @@ interface SyncFilterRepositoryInterface
      * @return bool Success status
      */
     public function delete(int $id): bool;
+
+    /**
+     * Get associated AuthLDAP IDs for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return array<int, int> Array of AuthLDAP IDs
+     */
+    public function getAssociatedAuthLdaps(int $syncfilter_id): array;
+
+    /**
+     * Delete all AuthLDAP relations for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return bool Success status
+     */
+    public function deleteAuthLdapRelations(int $syncfilter_id): bool;
+
+    /**
+     * Get all AuthLDAP relations for a sync filter
+     *
+     * @param int $syncfilter_id Sync filter ID
+     * @return array<int, array<string, mixed>> Array of relations
+     */
+    public function getAuthLdapRelations(int $syncfilter_id): array;
+
+    /**
+     * Get all active AuthLDAP servers
+     *
+     * @return array<int, array{id: int, name: string}> Array of active servers
+     */
+    public function getActiveAuthLdapServers(): array;
+
+    /**
+     * Get the first active AuthLDAP ID
+     *
+     * @return int|null First active AuthLDAP ID or null if none found
+     */
+    public function getFirstActiveAuthLdapId(): ?int;
+
+    /**
+     * Get sync filters for a specific AuthLDAP with full details
+     *
+     * @param int $authldap_id AuthLDAP ID
+     * @return array<int, array<string, mixed>> Array of sync filters with full details
+     */
+    public function getSyncFiltersForAuthLdapDetailed(int $authldap_id): array;
 }

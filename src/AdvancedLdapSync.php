@@ -150,41 +150,8 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        global $DB;
-
-        $iterator = $DB->request([
-            'SELECT' => [
-                'sf.id',
-                'sf.name',
-                'sf.ldap_filter',
-                'sf.base_dn',
-                'sf.asset_type',
-                'sf.field_mappings',
-                'sf.is_active',
-                'sf.date_creation',
-            ],
-            'FROM' => 'glpi_plugin_advancedldap_syncfilters AS sf',
-            'INNER JOIN' => [
-                'glpi_plugin_advancedldap_authldap_syncfilters AS rel' => [
-                    'ON' => [
-                        'sf' => 'id',
-                        'rel' => 'syncfilter_id',
-                    ],
-                ],
-            ],
-            'WHERE' => [
-                'rel.authldap_id' => $authldap_id,
-                // Removed rel.is_active filter to show ALL relations (active and inactive)
-            ],
-            'ORDER' => 'sf.name',
-        ]);
-
-        $filters = [];
-        foreach ($iterator as $data) {
-            $filters[] = $data;
-        }
-
-        return $filters;
+        $repository = $this->container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        return $repository->getSyncFiltersForAuthLdapDetailed($authldap_id);
     }
 
     /**
