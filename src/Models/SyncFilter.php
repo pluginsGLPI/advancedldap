@@ -267,6 +267,7 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Prepare field mappings from input data
+     * Delegates to LdapFilterParser and LdapAttributeMapper services
      *
      * @param array $input Input data
      * @return array Prepared input with field_mappings
@@ -278,6 +279,11 @@ class SyncFilter extends CommonDBTM
             $input['field_mappings'] = json_encode($input['field_mappings']);
         }
 
+        // Get services from container
+        $container = Bootstrap::getContainer();
+        $filter_parser = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface::class);
+        $attribute_mapper = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface::class);
+
         // Create intelligent field mapping from asset_fields using LDAP filter analysis
         if (isset($input['asset_fields']) && is_array($input['asset_fields']) && !empty($input['asset_fields'])) {
             $field_mappings = [];
@@ -285,15 +291,14 @@ class SyncFilter extends CommonDBTM
             // Parse LDAP filter to get available attributes
             $available_attributes = [];
             if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
-                $available_attributes = $this->parseLdapFilterAttributes($input['ldap_filter']);
+                $available_attributes = $filter_parser->parseFilterAttributes($input['ldap_filter']);
             }
 
             // Map each selected asset field to corresponding LDAP attribute
             foreach ($input['asset_fields'] as $glpi_field) {
                 if (!empty($glpi_field)) {
-                    $ldap_attribute = $this->findMatchingLdapAttribute($glpi_field, $available_attributes);
+                    $ldap_attribute = $attribute_mapper->findMatchingAttribute($glpi_field, $available_attributes);
                     $field_mappings[$glpi_field] = $ldap_attribute;
-
                 }
             }
 
@@ -308,8 +313,8 @@ class SyncFilter extends CommonDBTM
 
             // If we have an LDAP filter, parse it to find the best matching attribute
             if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
-                $available_attributes = $this->parseLdapFilterAttributes($input['ldap_filter']);
-                $ldap_attribute = $this->findMatchingLdapAttribute($input['asset_field'], $available_attributes);
+                $available_attributes = $filter_parser->parseFilterAttributes($input['ldap_filter']);
+                $ldap_attribute = $attribute_mapper->findMatchingAttribute($input['asset_field'], $available_attributes);
             }
 
             $field_mappings = [$input['asset_field'] => $ldap_attribute];
@@ -330,62 +335,6 @@ class SyncFilter extends CommonDBTM
         return $this->prepareMappingsInput($input);
     }
 
-    /**
-     * Parse LDAP filter to extract available attributes
-     *
-     * @param string $ldap_filter LDAP filter string
-     * @return array List of LDAP attributes found in the filter
-     */
-    private function parseLdapFilterAttributes(string $ldap_filter): array
-    {
-        $attributes = [];
-
-        // Pattern to match LDAP attribute patterns like (attribute=*) or (attribute=value)
-        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*=/', $ldap_filter, $matches)) {
-            $attributes = array_unique($matches[1]);
-        }
-
-        return $attributes;
-    }
-
-    /**
-     * Find matching LDAP attribute for a GLPI field based on RFC 4519 conventions
-     *
-     * @param string $glpi_field GLPI field name
-     * @param array $available_ldap_attributes Available LDAP attributes from filter
-     * @return string Best matching LDAP attribute or same name as fallback
-     */
-    private function findMatchingLdapAttribute(string $glpi_field, array $available_ldap_attributes): string
-    {
-        // RFC 4519 standard correspondences between GLPI fields and LDAP attributes
-        $standard_mappings = [
-            'serial' => 'serialNumber',
-            'name' => 'cn',
-            'comment' => 'description',
-            'location' => 'l',
-            'phone' => 'telephoneNumber',
-            'mail' => 'mail',
-            'email' => 'mail',
-            'emails' => 'mail',
-            'firstname' => 'givenName',
-            'realname' => 'sn',
-            'mobile' => 'mobile',
-        ];
-
-        // If we have a standard mapping and the LDAP attribute exists in the filter, use it
-        if (isset($standard_mappings[$glpi_field])
-            && in_array($standard_mappings[$glpi_field], $available_ldap_attributes)) {
-            return $standard_mappings[$glpi_field];
-        }
-
-        // Fallback: if the exact GLPI field name exists as LDAP attribute, use it
-        if (in_array($glpi_field, $available_ldap_attributes)) {
-            return $glpi_field;
-        }
-
-        // Final fallback: use the GLPI field name (will likely fail sync but preserves intent)
-        return $glpi_field;
-    }
 
     /**
      * Actions after item was added to database
@@ -639,29 +588,28 @@ class SyncFilter extends CommonDBTM
         // Get container for dependency injection
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
 
-        // Get AuthLDAP servers for dropdown
-        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
-        $servers = $repository->getActiveAuthLdapServers();
-
-        $authldap_servers = [];
-        foreach ($servers as $data) {
-            $authldap_servers[$data['id']] = $data['name'];
-        }
-
-        // Get available assets and current configuration
+        // Get services
+        $form_helper = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface::class);
         $asset_field_provider = $container->get(\GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface::class);
+        $config_service = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
 
-        $available_assets = $this->buildAssetDropdown($asset_field_provider);
-        $current_config = $this->getCurrentConfiguration($ID, $current_authldap_id);
+        // Get AuthLDAP servers for dropdown
+        $authldap_servers = $form_helper->getAvailableAuthLdapServers();
+
+        // Get available assets using form helper
+        $available_assets = $form_helper->buildAssetDropdown($asset_field_provider);
+
+        // Get current configuration
+        $filter_data = $ID > 0 && $this->getFromDB($ID) ? $this->fields : [];
+        $current_config = $form_helper->getCurrentConfiguration($ID, $current_authldap_id, $filter_data);
         $test_results = $this->handleTestRequest($current_config);
 
         // Check if GLPI inventory is enabled
-        $config_service = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
         $inventory_enabled = $config_service->isInventoryEnabled();
         $inventory_config_url = $config_service->getInventoryConfigUrl();
 
         // Check LDAP connection status
-        $ldap_connection_status = $this->checkLdapConnectionStatus($current_authldap_id);
+        $ldap_connection_status = $form_helper->checkLdapConnectionStatus($current_authldap_id);
 
         // Render template
         \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
@@ -681,91 +629,7 @@ class SyncFilter extends CommonDBTM
         return true;
     }
 
-    /**
-     * Build asset dropdown options
-     *
-     * @param mixed $asset_field_provider
-     * @return array
-     */
-    private function buildAssetDropdown($asset_field_provider): array
-    {
-        $available_assets = [];
 
-        // Separate assets by type
-        $all_asset_types = $asset_field_provider instanceof \GlpiPlugin\Advancedldap\Services\AssetFieldService
-            ? $asset_field_provider->getAllAssetTypes()
-            : [];
-
-        $native_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'native');
-        $generic_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'generic');
-
-        if (!empty($native_assets)) {
-            $available_assets['native_separator'] = '--- ' . __('Native Assets') . ' ---';
-            foreach ($native_assets as $itemtype => $info) {
-                $available_assets[$itemtype] = $info['name'];
-            }
-        }
-
-        if (!empty($generic_assets)) {
-            $available_assets['generic_separator'] = '--- ' . __('Generic Assets') . ' ---';
-            foreach ($generic_assets as $itemtype => $info) {
-                $available_assets[$itemtype] = $info['name'];
-            }
-        }
-
-        return $available_assets;
-    }
-
-    /**
-     * Get current configuration for the filter
-     *
-     * @param int $ID Filter ID
-     * @param int|null $authldap_id Specific AuthLDAP ID to use
-     * @return array
-     */
-    private function getCurrentConfiguration(int $ID, ?int $authldap_id = null): array
-    {
-        // Use provided authldap_id, or fall back to GET parameter, or find the first active one
-        $default_authldap_id = $authldap_id ?? $_GET['authldap_id'] ?? '';
-        if (empty($default_authldap_id)) {
-            $container = Bootstrap::getContainer();
-            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
-            $default_authldap_id = $repository->getFirstActiveAuthLdapId();
-        }
-
-        $config = [
-            'authldap_id' => $default_authldap_id,
-            'filter_name' => '',
-            'ldap_connection_filter' => '',
-            'ldap_base_dn' => '',
-            'asset_type' => '',
-            'asset_field' => '',
-            'is_active' => 1,
-        ];
-
-        if ($ID > 0 && $this->getFromDB($ID)) {
-            $field_mappings = $this->getFieldMappings();
-            $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
-
-            // Check GET parameters for test scenarios (overrides stored data when testing)
-            $test_base_dn = $_GET['test_base_dn'] ?? '';
-            $test_filter = $_GET['test_filter'] ?? '';
-            $test_asset_type = $_GET['test_asset_type'] ?? '';
-            $test_asset_field = $_GET['test_asset_field'] ?? '';
-
-            $config = [
-                'authldap_id' => $default_authldap_id, // Use the default AuthLDAP ID
-                'filter_name' => $this->fields['name'],
-                'ldap_connection_filter' => !empty($test_filter) ? $test_filter : $this->fields['ldap_filter'],
-                'ldap_base_dn' => !empty($test_base_dn) ? $test_base_dn : $this->fields['base_dn'],
-                'asset_type' => !empty($test_asset_type) ? $test_asset_type : $this->fields['asset_type'],
-                'asset_field' => !empty($test_asset_field) ? $test_asset_field : $asset_field,
-                'is_active' => $this->fields['is_active'],
-            ];
-        }
-
-        return $config;
-    }
 
     /**
      * Handle test request
@@ -865,19 +729,6 @@ class SyncFilter extends CommonDBTM
         return null;
     }
 
-    /**
-     * Check LDAP connection status using the centralized test service
-     *
-     * @param int|null $authldap_id AuthLDAP server ID
-     * @return array Connection status information
-     */
-    private function checkLdapConnectionStatus(?int $authldap_id): array
-    {
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-        $ldap_connection_service = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface::class);
-
-        return $ldap_connection_service->checkConnection($authldap_id);
-    }
 }
 
 // Legacy compatibility for GLPI 11 Search engine

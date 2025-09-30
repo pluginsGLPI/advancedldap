@@ -37,6 +37,9 @@ use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
@@ -46,6 +49,9 @@ use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
+use GlpiPlugin\Advancedldap\Services\LdapFilterParser;
+use GlpiPlugin\Advancedldap\Services\LdapAttributeMapper;
+use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
 use GlpiPlugin\Advancedldap\Services\LdapToInventoryConverter;
@@ -153,6 +159,15 @@ class ServiceContainer
             return new GlpiLdapConnectionService();
         });
 
+        // LDAP utilities
+        $this->register(LdapFilterParserInterface::class, function () {
+            return new LdapFilterParser();
+        });
+
+        $this->register(LdapAttributeMapperInterface::class, function () {
+            return new LdapAttributeMapper();
+        });
+
         // Factory
         $this->register(AssetFieldProviderFactory::class, function () {
             return new AssetFieldProviderFactory();
@@ -195,6 +210,14 @@ class ServiceContainer
             return new SyncFilterService(
                 $container->get(SyncFilterRepositoryInterface::class),
                 $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+            );
+        });
+
+        // SyncFilter form helper service
+        $this->register(SyncFilterFormHelperInterface::class, function (ServiceContainer $container) {
+            return new SyncFilterFormHelper(
+                $container->get(SyncFilterRepositoryInterface::class),
+                $container->get(LdapConnectionInterface::class),
             );
         });
 
