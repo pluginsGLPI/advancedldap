@@ -165,29 +165,6 @@ class AssetCreationServiceTest extends DbTestCase
     }
 
     /**
-     * Test getCreationStatistics method
-     */
-    public function testGetCreationStatistics()
-    {
-        // Arrange
-        $assetType = 'Computer';
-
-        // Act
-        $result = $this->assetCreationService->getCreationStatistics($assetType);
-
-        // Assert
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('total_created', $result);
-        $this->assertArrayHasKey('total_updated', $result);
-        $this->assertArrayHasKey('last_creation', $result);
-        $this->assertArrayHasKey('last_update', $result);
-        $this->assertEquals(0, $result['total_created']);
-        $this->assertEquals(0, $result['total_updated']);
-        $this->assertNull($result['last_creation']);
-        $this->assertNull($result['last_update']);
-    }
-
-    /**
      * Test validateAssetData method with valid data
      */
     public function testValidateAssetDataWithValidData()

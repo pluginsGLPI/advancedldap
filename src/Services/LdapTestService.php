@@ -135,8 +135,8 @@ class LdapTestService
             }
 
             $ldap_entries = $this->performLdapSearch($authldap_id, $base_dn, $filter);
-            if (isset($ldap_entries['error'])) {
-                $results['error'] = $ldap_entries['error'];
+            if (isset($ldap_entries['error']) || !isset($ldap_entries['entries'])) {
+                $results['error'] = $ldap_entries['error'] ?? __('No entries returned from LDAP search', 'advancedldap');
                 return $results;
             }
 

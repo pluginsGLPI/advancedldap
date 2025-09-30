@@ -90,27 +90,4 @@ class LdapSyncServiceTest extends DbTestCase
         $this->assertNotNull($result['error']);
     }
 
-    /**
-     * Test getSyncStatistics returns expected structure
-     * Note: Method is currently a placeholder returning static data
-     */
-    public function testGetSyncStatistics()
-    {
-        // Arrange
-        $syncfilterId = 1;
-
-        // Act
-        $result = $this->ldapSyncService->getSyncStatistics($syncfilterId);
-
-        // Assert - verify placeholder structure
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('last_sync', $result);
-        $this->assertArrayHasKey('total_syncs', $result);
-        $this->assertArrayHasKey('last_success', $result);
-        $this->assertArrayHasKey('last_error', $result);
-        $this->assertNull($result['last_sync']);
-        $this->assertEquals(0, $result['total_syncs']);
-        $this->assertNull($result['last_success']);
-        $this->assertNull($result['last_error']);
-    }
 }

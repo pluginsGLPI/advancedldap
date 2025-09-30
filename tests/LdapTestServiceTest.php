@@ -146,12 +146,12 @@ class LdapTestServiceTest extends DbTestCase
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
 
-        // Mock AuthLDAP to exist but connection to fail
+        // Mock searchWithErrorHandling to return connection error
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn(false); // Connection failure
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['error' => 'Cannot connect to LDAP server']);
 
         // Act
         $result = $this->ldapTestService->testLdapFilter($authldapId, $baseDn, $filter, $assetType);
@@ -173,31 +173,13 @@ class LdapTestServiceTest extends DbTestCase
         $baseDn = 'OU=Computers,DC=example,DC=com';
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
-        $mockConnection = 'mock_connection_resource';
 
-        // Mock successful connection but failed search
+        // Mock searchWithErrorHandling to return search error
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn(false); // Search failure
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getError')
-            ->with($mockConnection)
-            ->willReturn('Invalid DN syntax');
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['error' => 'LDAP search failed: Invalid DN syntax']);
 
         // Act
         $result = $this->ldapTestService->testLdapFilter($authldapId, $baseDn, $filter, $assetType);
@@ -220,32 +202,13 @@ class LdapTestServiceTest extends DbTestCase
         $baseDn = 'OU=Computers,DC=example,DC=com';
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
-        $mockConnection = 'mock_connection_resource';
-        $mockSearchResult = 'mock_search_result';
 
-        // Mock successful connection and search but no entries
+        // Mock searchWithErrorHandling to return empty entries
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn($mockSearchResult);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getEntries')
-            ->with($mockConnection, $mockSearchResult)
-            ->willReturn(['count' => 0]);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['entries' => ['count' => 0]]);
 
         $this->assetFieldProvider
             ->expects($this->once())
@@ -277,8 +240,6 @@ class LdapTestServiceTest extends DbTestCase
         $baseDn = 'OU=Computers,DC=example,DC=com';
         $filter = '(cn=*)';
         $assetType = 'Computer';
-        $mockConnection = 'mock_connection_resource';
-        $mockSearchResult = 'mock_search_result';
 
         $mockEntries = [
             'count' => 1,
@@ -292,29 +253,12 @@ class LdapTestServiceTest extends DbTestCase
             ],
         ];
 
-        // Mock successful connection, search and entries
+        // Mock searchWithErrorHandling to return entries
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn($mockSearchResult);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getEntries')
-            ->with($mockConnection, $mockSearchResult)
-            ->willReturn($mockEntries);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['entries' => $mockEntries]);
 
         $this->assetFieldProvider
             ->expects($this->once())
@@ -370,32 +314,13 @@ class LdapTestServiceTest extends DbTestCase
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
         $assetField = 'serial'; // Legacy parameter
-        $mockConnection = 'mock_connection_resource';
-        $mockSearchResult = 'mock_search_result';
 
-        // Mock successful connection and search but no entries for simplicity
+        // Mock searchWithErrorHandling to return empty entries
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn($mockSearchResult);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getEntries')
-            ->with($mockConnection, $mockSearchResult)
-            ->willReturn(['count' => 0]);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['entries' => ['count' => 0]]);
 
         $this->assetFieldProvider
             ->expects($this->once())
@@ -424,32 +349,13 @@ class LdapTestServiceTest extends DbTestCase
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
         $fieldMappings = ['name' => 'cn', 'serial' => 'serialNumber'];
-        $mockConnection = 'mock_connection_resource';
-        $mockSearchResult = 'mock_search_result';
 
-        // Mock successful connection and search but no entries for simplicity
+        // Mock searchWithErrorHandling to return empty entries
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn($mockSearchResult);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getEntries')
-            ->with($mockConnection, $mockSearchResult)
-            ->willReturn(['count' => 0]);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['entries' => ['count' => 0]]);
 
         $this->assetFieldProvider
             ->expects($this->once())
@@ -486,8 +392,6 @@ class LdapTestServiceTest extends DbTestCase
         $baseDn = 'OU=Computers,DC=example,DC=com';
         $filter = '(cn=computer1)';
         $assetType = 'Computer';
-        $mockConnection = 'mock_connection_resource';
-        $mockSearchResult = 'mock_search_result';
 
         $mockEntries = [
             'count' => 1,
@@ -501,29 +405,12 @@ class LdapTestServiceTest extends DbTestCase
             ],
         ];
 
-        // Mock successful connection, search and entries
+        // Mock searchWithErrorHandling to return entries
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->willReturn($mockConnection);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('search')
-            ->with($mockConnection, $baseDn, $filter)
-            ->willReturn($mockSearchResult);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('getEntries')
-            ->with($mockConnection, $mockSearchResult)
-            ->willReturn($mockEntries);
-
-        $this->ldapConnection
-            ->expects($this->once())
-            ->method('close')
-            ->with($mockConnection);
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->willReturn(['entries' => $mockEntries]);
 
         $this->assetFieldProvider
             ->expects($this->once())
@@ -573,12 +460,12 @@ class LdapTestServiceTest extends DbTestCase
         $filter = '(objectClass=computer)';
         $assetType = 'Computer';
 
-        // Mock connection to throw exception
+        // Mock searchWithErrorHandling to throw exception
         $this->ldapConnection
             ->expects($this->once())
-            ->method('connect')
-            ->with($authldapId)
-            ->will($this->throwException(new Exception('Connection timeout')));
+            ->method('searchWithErrorHandling')
+            ->with($authldapId, $baseDn, $filter)
+            ->will($this->throwException(new \Exception('Connection timeout')));
 
         // Act
         $result = $this->ldapTestService->testLdapFilter($authldapId, $baseDn, $filter, $assetType);
