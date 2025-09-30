@@ -88,4 +88,14 @@ interface LdapConnectionInterface
      * @return array Connection status information
      */
     public function checkConnection(?int $authldap_id): array;
+
+    /**
+     * Perform LDAP search with connection and error handling
+     *
+     * @param int $authldap_id AuthLDAP configuration ID
+     * @param string $base_dn Base DN for search
+     * @param string $filter LDAP filter
+     * @return array Returns ['entries' => array] on success or ['error' => string] on failure
+     */
+    public function searchWithErrorHandling(int $authldap_id, string $base_dn, string $filter): array;
 }

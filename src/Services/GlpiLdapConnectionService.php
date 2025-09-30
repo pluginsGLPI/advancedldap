@@ -154,4 +154,35 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
             'server_name' => $server_name,
         ];
     }
+
+    /**
+     * Perform LDAP search with connection and error handling
+     *
+     * @param int $authldap_id AuthLDAP configuration ID
+     * @param string $base_dn Base DN for search
+     * @param string $filter LDAP filter
+     * @return array Returns ['entries' => array] on success or ['error' => string] on failure
+     */
+    public function searchWithErrorHandling(int $authldap_id, string $base_dn, string $filter): array
+    {
+        $connection = $this->connect($authldap_id);
+        if (!$connection) {
+            return ['error' => __('Cannot connect to LDAP server', 'advancedldap')];
+        }
+
+        $search = $this->search($connection, $base_dn, $filter);
+        if (!$search) {
+            $error = sprintf(
+                __('LDAP search failed: %s', 'advancedldap'),
+                $this->getError($connection),
+            );
+            $this->close($connection);
+            return ['error' => $error];
+        }
+
+        $entries = $this->getEntries($connection, $search);
+        $this->close($connection);
+
+        return ['entries' => $entries];
+    }
 }

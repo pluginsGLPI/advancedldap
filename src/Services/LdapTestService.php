@@ -187,25 +187,7 @@ class LdapTestService
      */
     private function performLdapSearch(int $authldap_id, string $base_dn, string $filter): array
     {
-        $connection = $this->ldap_connection->connect($authldap_id);
-        if (!$connection) {
-            return ['error' => __('Cannot connect to LDAP server', 'advancedldap')];
-        }
-
-        $search = $this->ldap_connection->search($connection, $base_dn, $filter);
-        if (!$search) {
-            $error = sprintf(
-                __('LDAP search failed: %s', 'advancedldap'),
-                $this->ldap_connection->getError($connection),
-            );
-            $this->ldap_connection->close($connection);
-            return ['error' => $error];
-        }
-
-        $entries = $this->ldap_connection->getEntries($connection, $search);
-        $this->ldap_connection->close($connection);
-
-        return ['entries' => $entries];
+        return $this->ldap_connection->searchWithErrorHandling($authldap_id, $base_dn, $filter);
     }
 
     /**
