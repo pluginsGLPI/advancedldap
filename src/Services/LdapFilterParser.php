@@ -61,11 +61,6 @@ class LdapFilterParser implements LdapFilterParserInterface
             sort($attributes);
         }
 
-        Toolbox::logDebug('LdapFilterParser: Extracted attributes from filter', [
-            'filter' => $ldap_filter,
-            'attributes' => $attributes,
-        ]);
-
         return $attributes;
     }
 
@@ -84,7 +79,6 @@ class LdapFilterParser implements LdapFilterParserInterface
     {
         // Check if filter is empty
         if (empty(trim($ldap_filter))) {
-            Toolbox::logDebug('LdapFilterParser: Filter is empty');
             return false;
         }
 
@@ -92,28 +86,18 @@ class LdapFilterParser implements LdapFilterParserInterface
         $open_count = substr_count($ldap_filter, '(');
         $close_count = substr_count($ldap_filter, ')');
         if ($open_count !== $close_count) {
-            Toolbox::logDebug('LdapFilterParser: Unbalanced parentheses', [
-                'open' => $open_count,
-                'close' => $close_count,
-            ]);
             return false;
         }
 
         // Check for at least one attribute-value pair pattern
         if (!preg_match('/\([a-zA-Z][a-zA-Z0-9]*\s*[=<>~]/', $ldap_filter)) {
-            Toolbox::logDebug('LdapFilterParser: No valid attribute-value pattern found');
             return false;
         }
 
         // Check for invalid characters (basic check)
         if (preg_match('/[^\w\s()\[\]&|!=<>~*\-:.,;@\\\]/', $ldap_filter)) {
-            Toolbox::logDebug('LdapFilterParser: Invalid characters detected');
             return false;
         }
-
-        Toolbox::logDebug('LdapFilterParser: Filter validation passed', [
-            'filter' => $ldap_filter,
-        ]);
 
         return true;
     }
@@ -137,11 +121,6 @@ class LdapFilterParser implements LdapFilterParserInterface
             );
             $object_classes = array_values($object_classes); // Re-index array
         }
-
-        Toolbox::logDebug('LdapFilterParser: Extracted objectClasses', [
-            'filter' => $ldap_filter,
-            'objectClasses' => $object_classes,
-        ]);
 
         return $object_classes;
     }

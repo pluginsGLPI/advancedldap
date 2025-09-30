@@ -94,11 +94,6 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
             }
         }
 
-        Toolbox::logDebug('SyncFilterFormHelper: Built asset dropdown', [
-            'native_count' => count($native_assets),
-            'generic_count' => count($generic_assets),
-        ]);
-
         return $available_assets;
     }
 
@@ -148,11 +143,6 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
             ];
         }
 
-        Toolbox::logDebug('SyncFilterFormHelper: Retrieved configuration', [
-            'filter_id' => $filter_id,
-            'config' => $config,
-        ]);
-
         return $config;
     }
 
@@ -187,10 +177,6 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
             $servers[(int) $row['id']] = $row['name'];
         }
 
-        Toolbox::logDebug('SyncFilterFormHelper: Retrieved AuthLDAP servers', [
-            'count' => count($servers),
-        ]);
-
         return $servers;
     }
 
@@ -202,10 +188,6 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
     public function getFirstActiveAuthLdapId(): ?int
     {
         $first_id = $this->repository->getFirstActiveAuthLdapId();
-
-        Toolbox::logDebug('SyncFilterFormHelper: Retrieved first active AuthLDAP', [
-            'authldap_id' => $first_id,
-        ]);
 
         return $first_id;
     }

@@ -115,12 +115,30 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
      */
     public function checkConnection(?int $authldap_id): array
     {
+        // If no authldap_id provided, try to get the first active one
         if (!$authldap_id) {
-            return [
-                'connected' => false,
-                'error' => __('No AuthLDAP server selected', 'advancedldap'),
-                'server_name' => null,
-            ];
+            global $DB;
+            $table = AuthLDAP::getTable();
+
+            $iterator = $DB->request([
+                'SELECT' => ['id', 'name', 'is_active'],
+                'FROM' => $table,
+            ]);
+
+            foreach ($iterator as $data) {
+                if ($data['is_active'] == 1 && !$authldap_id) {
+                    $authldap_id = (int) $data['id'];
+                }
+            }
+
+            // If still no authldap_id found, there are no active LDAP servers
+            if (!$authldap_id) {
+                return [
+                    'connected' => false,
+                    'error' => __('No active AuthLDAP server found in GLPI', 'advancedldap'),
+                    'server_name' => null,
+                ];
+            }
         }
 
         // Get AuthLDAP server information
