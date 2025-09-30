@@ -91,7 +91,10 @@ class GenericAssetFieldProvider implements AssetFieldProviderInterface
             // Build lookup map for field options
             $field_options_map = [];
             foreach ($fields_display as $field_config) {
-                $field_options_map[$field_config['key']] = $field_config['field_options'] ?? [];
+                // Defensive check: ensure field_config is array and has required key
+                if (is_array($field_config) && isset($field_config['key'])) {
+                    $field_options_map[$field_config['key']] = $field_config['field_options'] ?? [];
+                }
             }
 
             $fields = [];
