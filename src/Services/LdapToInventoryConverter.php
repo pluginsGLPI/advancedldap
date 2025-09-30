@@ -31,8 +31,6 @@
  * -------------------------------------------------------------------------
  */
 
-declare(strict_types=1);
-
 namespace GlpiPlugin\Advancedldap\Services;
 
 use Computer;

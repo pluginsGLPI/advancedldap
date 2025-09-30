@@ -558,6 +558,51 @@ class SyncFilter extends CommonDBTM
     {
         $this->initForm($ID, $options);
 
+        // 1. Resolve parent AuthLDAP from options or existing relations
+        $authldap_context = $this->resolveParentAuthLdap($ID, $options);
+
+        // 2. Prepare form data (services, dropdowns, configuration)
+        $form_data = $this->prepareFormData($ID, $authldap_context['current_authldap_id']);
+
+        // 3. Handle test request if present
+        $test_results = $this->handleTestRequest($form_data['current_config']);
+
+        // 4. Collect form metadata (inventory status, LDAP connection)
+        $metadata = $this->collectFormMetadata(
+            $authldap_context['current_authldap_id'],
+            $form_data['form_helper'],
+            $form_data['config_service']
+        );
+
+        // 5. Render template with all collected data
+        \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
+            'item' => $this,
+            'params' => $options,
+            'parent_authldap' => $authldap_context['parent_authldap'],
+            'current_authldap_id' => $authldap_context['current_authldap_id'],
+            'authldap_servers' => $form_data['authldap_servers'],
+            'available_assets' => $form_data['available_assets'],
+            'current_config' => $form_data['current_config'],
+            'test_results' => $test_results,
+            'inventory_enabled' => $metadata['inventory_enabled'],
+            'inventory_config_url' => $metadata['inventory_config_url'],
+            'ldap_connection_status' => $metadata['ldap_connection_status'],
+        ]);
+
+        return true;
+    }
+
+
+
+    /**
+     * Resolve the parent AuthLDAP from options or existing relations
+     *
+     * @param int $ID The sync filter ID
+     * @param array $options Options array
+     * @return array Array with 'authldap' and 'authldap_id' keys
+     */
+    private function resolveParentAuthLdap(int $ID, array $options): array
+    {
         // Handle parent AuthLDAP if provided (following GLPI conventions)
         $parent_authldap = null;
         if (isset($options['parent']) && $options['parent'] instanceof \AuthLDAP) {
@@ -585,6 +630,21 @@ class SyncFilter extends CommonDBTM
             $current_authldap_id = $parent_authldap->getID();
         }
 
+        return [
+            'parent_authldap' => $current_authldap,
+            'current_authldap_id' => $current_authldap_id,
+        ];
+    }
+
+    /**
+     * Prepare all form data (services, dropdowns, configuration)
+     *
+     * @param int $ID The sync filter ID
+     * @param int|null $authldap_id Current AuthLDAP ID
+     * @return array Array with form data and services
+     */
+    private function prepareFormData(int $ID, ?int $authldap_id): array
+    {
         // Get container for dependency injection
         $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
 
@@ -601,35 +661,40 @@ class SyncFilter extends CommonDBTM
 
         // Get current configuration
         $filter_data = $ID > 0 && $this->getFromDB($ID) ? $this->fields : [];
-        $current_config = $form_helper->getCurrentConfiguration($ID, $current_authldap_id, $filter_data);
-        $test_results = $this->handleTestRequest($current_config);
+        $current_config = $form_helper->getCurrentConfiguration($ID, $authldap_id, $filter_data);
 
+        return [
+            'form_helper' => $form_helper,
+            'config_service' => $config_service,
+            'authldap_servers' => $authldap_servers,
+            'available_assets' => $available_assets,
+            'current_config' => $current_config,
+        ];
+    }
+
+    /**
+     * Collect form metadata (inventory status, LDAP connection)
+     *
+     * @param int|null $authldap_id Current AuthLDAP ID
+     * @param mixed $form_helper Form helper service
+     * @param mixed $config_service Configuration service
+     * @return array Array with metadata
+     */
+    private function collectFormMetadata(?int $authldap_id, $form_helper, $config_service): array
+    {
         // Check if GLPI inventory is enabled
         $inventory_enabled = $config_service->isInventoryEnabled();
         $inventory_config_url = $config_service->getInventoryConfigUrl();
 
         // Check LDAP connection status
-        $ldap_connection_status = $form_helper->checkLdapConnectionStatus($current_authldap_id);
+        $ldap_connection_status = $form_helper->checkLdapConnectionStatus($authldap_id);
 
-        // Render template
-        \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
-            'item' => $this,
-            'params' => $options,
-            'parent_authldap' => $current_authldap,
-            'current_authldap_id' => $current_authldap_id,
-            'authldap_servers' => $authldap_servers,
-            'available_assets' => $available_assets,
-            'current_config' => $current_config,
-            'test_results' => $test_results,
+        return [
             'inventory_enabled' => $inventory_enabled,
             'inventory_config_url' => $inventory_config_url,
             'ldap_connection_status' => $ldap_connection_status,
-        ]);
-
-        return true;
+        ];
     }
-
-
 
     /**
      * Handle test request

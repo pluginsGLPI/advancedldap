@@ -31,8 +31,6 @@
  * -------------------------------------------------------------------------
  */
 
-// Enable strict type checking to prevent automatic type conversions and ensure type safety
-declare(strict_types=1);
 
 namespace GlpiPlugin\Advancedldap\Services;
 
