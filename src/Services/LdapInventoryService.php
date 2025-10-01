@@ -111,11 +111,15 @@ class LdapInventoryService
                 $assetId = $item->getID();
             }
 
-            Toolbox::logDebug("LdapInventoryService: SUCCESS - Asset '$assetName' synchronized via inventory system (ID: $assetId)");
+            // Determine if this was a creation or update based on MainAsset status
+            $mainAsset = $inventory->getMainAsset();
+            $action = $mainAsset->isNew() ? 'created' : 'updated';
+
+            Toolbox::logDebug("LdapInventoryService: SUCCESS - Asset '$assetName' $action via inventory system (ID: $assetId)");
 
             return [
                 'success' => true,
-                'action' => 'inventory',
+                'action' => $action,
                 'asset_id' => $assetId,
                 'error' => null,
                 'message' => 'Asset synchronized via inventory system',
