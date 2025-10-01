@@ -38,6 +38,10 @@ use Html;
 use MassiveAction;
 use Session;
 use GlpiPlugin\Advancedldap\Bootstrap;
+use Safe\Exceptions\JsonException;
+use Toolbox;
+
+use function Safe\json_decode;
 
 /**
  * SyncFilter class for managing LDAP synchronization filters
@@ -242,8 +246,13 @@ class SyncFilter extends CommonDBTM
             return [];
         }
 
-        $mappings = json_decode($this->fields['field_mappings'], true);
-        return is_array($mappings) ? $mappings : [];
+        try {
+            $mappings = json_decode($this->fields['field_mappings'], true);
+            return is_array($mappings) ? $mappings : [];
+        } catch (JsonException $e) {
+            Toolbox::logDebug("SyncFilter: Failed to decode field_mappings for filter " . $this->getID() . ": " . $e->getMessage());
+            return [];
+        }
     }
 
     /**

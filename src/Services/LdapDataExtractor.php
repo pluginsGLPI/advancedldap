@@ -55,7 +55,7 @@ class LdapDataExtractor
      * Tries multiple common LDAP naming attributes in order of priority
      * and returns the first non-empty value found.
      *
-     * @param array $ldap_entry LDAP entry data
+     * @param array<string, mixed> $ldap_entry LDAP entry data
      * @param string|null $fallback Fallback value if no name found (default: 'Unknown Device')
      * @return string Extracted device name or fallback
      */
@@ -82,9 +82,9 @@ class LdapDataExtractor
      * Automatically ensures a 'name' field is present using extractDeviceName()
      * as fallback.
      *
-     * @param array $ldap_entry LDAP entry data
-     * @param array $field_mappings Mapping of GLPI field => LDAP attribute
-     * @return array Extracted asset data with GLPI field names as keys
+     * @param array<string, mixed> $ldap_entry LDAP entry data
+     * @param array<string, string> $field_mappings Mapping of GLPI field => LDAP attribute
+     * @return array<string, mixed> Extracted asset data with GLPI field names as keys
      */
     public function extractAssetData(array $ldap_entry, array $field_mappings): array
     {
@@ -151,7 +151,7 @@ class LdapDataExtractor
     /**
      * Check if LDAP entry has a specific attribute with a non-empty value
      *
-     * @param array $ldap_entry LDAP entry data
+     * @param array<string, mixed> $ldap_entry LDAP entry data
      * @param string $attribute Attribute name (case-insensitive)
      * @return bool True if attribute exists and has a non-empty value
      */
@@ -172,7 +172,7 @@ class LdapDataExtractor
      *
      * Convenience method that normalizes the attribute name and value
      *
-     * @param array $ldap_entry LDAP entry data
+     * @param array<string, mixed> $ldap_entry LDAP entry data
      * @param string $attribute Attribute name (case-insensitive)
      * @param mixed $default Default value if attribute not found
      * @param bool $multi_value_join Join multiple values with comma

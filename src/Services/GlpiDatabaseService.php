@@ -43,7 +43,7 @@ class GlpiDatabaseService implements DatabaseInterface
     /**
      * Execute a database request
      *
-     * @param array $criteria Database query criteria
+     * @param array<string, mixed> $criteria Database query criteria
      * @return \DBmysqlIterator Query result iterator
      */
     public function request(array $criteria)
@@ -67,21 +67,22 @@ class GlpiDatabaseService implements DatabaseInterface
      * Insert data into a table
      *
      * @param string $table Table name
-     * @param array $data Data to insert
+     * @param array<string, mixed> $data Data to insert
      * @return int|false Inserted ID or false on failure
      */
-    public function insert(string $table, array $data)
+    public function insert(string $table, array $data): int|false
     {
         global $DB;
-        return $DB->insert($table, $data);
+        $result = $DB->insert($table, $data);
+        return is_int($result) ? $result : false;
     }
 
     /**
      * Update data in a table
      *
      * @param string $table Table name
-     * @param array $data Data to update
-     * @param array $where Where conditions
+     * @param array<string, mixed> $data Data to update
+     * @param array<string, mixed> $where Where conditions
      * @return bool Success status
      */
     public function update(string $table, array $data, array $where): bool
@@ -94,7 +95,7 @@ class GlpiDatabaseService implements DatabaseInterface
      * Delete data from a table
      *
      * @param string $table Table name
-     * @param array $where Where conditions
+     * @param array<string, mixed> $where Where conditions
      * @return bool Success status
      */
     public function delete(string $table, array $where): bool

@@ -30,13 +30,16 @@
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
  */
-    
 
 namespace GlpiPlugin\Advancedldap\Services;
 
 use Glpi\Inventory\Inventory;
 use Glpi\Inventory\Request;
+use Safe\Exceptions\JsonException;
 use Toolbox;
+
+use function Safe\json_decode;
+use function Safe\json_encode;
 
 /**
  * Service for orchestrating LDAP inventory synchronization
@@ -58,10 +61,10 @@ class LdapInventoryService
     /**
      * Synchronize inventoriable asset from LDAP data
      *
-     * @param array $ldapData LDAP attributes
+     * @param array<string, mixed> $ldapData LDAP attributes
      * @param string $itemtype GLPI itemtype (Computer, NetworkEquipment, etc.)
-     * @param array $syncFilterConfig SyncFilter configuration
-     * @return array Result with success status and details
+     * @param array<string, mixed> $syncFilterConfig SyncFilter configuration
+     * @return array<string, mixed> Result with success status and details
      */
     public function syncInventoriableAsset(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
     {
@@ -72,7 +75,18 @@ class LdapInventoryService
             $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $syncFilterConfig);
 
             // Convert array to object for GLPI schema validation
-            $inventoryObject = json_decode(json_encode($inventoryData));
+            try {
+                $inventoryObject = json_decode(json_encode($inventoryData));
+            } catch (JsonException $e) {
+                Toolbox::logDebug("LdapInventoryService: Failed to encode/decode inventory data for '$assetName': " . $e->getMessage());
+                return [
+                    'success' => false,
+                    'action' => 'inventory',
+                    'asset_id' => null,
+                    'error' => $e->getMessage(),
+                    'message' => 'Failed to convert inventory data to object',
+                ];
+            }
 
             // Create inventory without auto-processing to avoid file storage issues
             $inventory = new Inventory(null, Inventory::FULL_MODE, Request::JSON_MODE);
@@ -105,11 +119,7 @@ class LdapInventoryService
 
             // Extract result information from the processed inventory
             $item = $inventory->getItem();
-            $assetId = null;
-
-            if ($item && is_object($item) && method_exists($item, 'getID')) {
-                $assetId = $item->getID();
-            }
+            $assetId = $item->getID();
 
             // Determine if this was a creation or update based on MainAsset status
             $mainAsset = $inventory->getMainAsset();
@@ -162,7 +172,7 @@ class LdapInventoryService
     /**
      * Get supported itemtypes for inventory processing
      *
-     * @return array List of supported itemtypes
+     * @return array<string> List of supported itemtypes
      */
     public function getSupportedItemtypes(): array
     {
@@ -172,9 +182,9 @@ class LdapInventoryService
     /**
      * Validate LDAP data before processing (optional pre-check)
      *
-     * @param array $ldapData LDAP attributes
+     * @param array<string, mixed> $ldapData LDAP attributes
      * @param string $itemtype GLPI itemtype
-     * @return array Validation result
+     * @return array<string, mixed> Validation result
      */
     public function validateLdapData(array $ldapData, string $itemtype): array
     {

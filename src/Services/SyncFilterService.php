@@ -35,6 +35,10 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
+use Safe\Exceptions\JsonException;
+use Toolbox;
+
+use function Safe\json_decode;
 
 /**
  * Service for SyncFilter business logic
@@ -191,13 +195,18 @@ class SyncFilterService
             return [];
         }
 
-        $mappings = json_decode($filter['field_mappings'], true);
-        if (!is_array($mappings)) {
+        try {
+            $mappings = json_decode($filter['field_mappings'], true);
+            if (!is_array($mappings)) {
+                return [];
+            }
+
+            /** @var array<string, mixed> */
+            return $mappings;
+        } catch (JsonException $e) {
+            Toolbox::logDebug("SyncFilterService: Failed to decode field_mappings for filter $syncfilter_id: " . $e->getMessage());
             return [];
         }
-
-        /** @var array<string, mixed> */
-        return $mappings;
     }
 
     /**

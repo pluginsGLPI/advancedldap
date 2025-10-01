@@ -89,7 +89,7 @@ class LdapSyncService
      *
      * @param int $syncfilter_id SyncFilter ID
      * @param int $authldap_id AuthLDAP ID
-     * @return array Synchronization results
+     * @return array<string, mixed> Synchronization results
      */
     public function synchronizeFromFilter(int $syncfilter_id, int $authldap_id): array
     {
@@ -206,7 +206,7 @@ class LdapSyncService
      * @param int $authldap_id AuthLDAP ID
      * @param string $base_dn Base DN
      * @param string $filter LDAP filter
-     * @return array LDAP entries or error
+     * @return array<string, mixed> LDAP entries or error
      */
     private function fetchLdapEntries(int $authldap_id, string $base_dn, string $filter): array
     {
@@ -216,11 +216,11 @@ class LdapSyncService
     /**
      * Process a single LDAP entry
      *
-     * @param array $ldap_entry LDAP entry data
+     * @param array<string, mixed> $ldap_entry LDAP entry data
      * @param string $asset_type Asset type class name
-     * @param array $field_mappings Field mappings (GLPI field => LDAP attribute)
+     * @param array<string, string> $field_mappings Field mappings (GLPI field => LDAP attribute)
      * @param string $sync_method Synchronization method ('inventory' or 'traditional')
-     * @return array Processing result
+     * @return array<string, mixed> Processing result
      */
     private function processSingleEntry(array $ldap_entry, string $asset_type, array $field_mappings, string $sync_method): array
     {
@@ -270,9 +270,9 @@ class LdapSyncService
     /**
      * Extract asset data from LDAP entry using field mappings
      *
-     * @param array $ldap_entry LDAP entry
-     * @param array $field_mappings Field mappings (GLPI field => LDAP attribute)
-     * @return array Extracted asset data
+     * @param array<string, mixed> $ldap_entry LDAP entry
+     * @param array<string, string> $field_mappings Field mappings (GLPI field => LDAP attribute)
+     * @return array<string, mixed> Extracted asset data
      */
     private function extractAssetData(array $ldap_entry, array $field_mappings): array
     {
@@ -283,9 +283,9 @@ class LdapSyncService
      * Process inventoriable asset using new inventory workflow
      *
      * @param string $asset_type Asset type class name
-     * @param array $asset_data Extracted asset data
-     * @param array $ldap_entry Original LDAP entry
-     * @return array Processing result
+     * @param array<string, mixed> $asset_data Extracted asset data
+     * @param array<string, mixed> $ldap_entry Original LDAP entry
+     * @return array<string, mixed> Processing result
      */
     private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry): array
     {
@@ -312,8 +312,8 @@ class LdapSyncService
      * Process asset using traditional GLPI workflow
      *
      * @param string $asset_type Asset type class name
-     * @param array $asset_data Extracted asset data
-     * @return array Processing result
+     * @param array<string, mixed> $asset_data Extracted asset data
+     * @return array<string, mixed> Processing result
      */
     private function processTraditionalAsset(string $asset_type, array $asset_data): array
     {

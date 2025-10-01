@@ -135,7 +135,7 @@ class LdapParameterValidator
     /**
      * Validate field mappings array
      *
-     * @param array $field_mappings Field mappings array
+     * @param array<int, array<string, mixed>> $field_mappings Field mappings array
      * @return string|null Error message or null if valid
      */
     public function validateFieldMappings(array $field_mappings): ?string

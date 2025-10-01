@@ -37,8 +37,11 @@ use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use Safe\Exceptions\JsonException;
 use Toolbox;
 use AuthLDAP;
+
+use function Safe\json_decode;
 
 /**
  * Service for building SyncFilter form components
@@ -126,9 +129,15 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
 
         // Populate with existing filter data
         if ($filter_id > 0 && !empty($filter_data)) {
-            $field_mappings = isset($filter_data['field_mappings']) && is_string($filter_data['field_mappings'])
-                ? json_decode($filter_data['field_mappings'], true) ?? []
-                : [];
+            $field_mappings = [];
+            if (isset($filter_data['field_mappings']) && is_string($filter_data['field_mappings'])) {
+                try {
+                    $field_mappings = json_decode($filter_data['field_mappings'], true) ?? [];
+                } catch (JsonException $e) {
+                    Toolbox::logDebug("SyncFilterFormHelper: Failed to decode field_mappings for filter $filter_id: " . $e->getMessage());
+                    $field_mappings = [];
+                }
+            }
 
             $asset_field = !empty($field_mappings) ? array_key_first($field_mappings) : '';
 
@@ -160,7 +169,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
     /**
      * Get all available AuthLDAP servers
      *
-     * @return array<int, string> Associative array [authldap_id => server_name]
+     * @return string[] Associative array [authldap_id => server_name]
      */
     public function getAvailableAuthLdapServers(): array
     {
@@ -177,6 +186,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
             $servers[(int) $row['id']] = $row['name'];
         }
 
+        /** @var string[] */
         return $servers;
     }
 

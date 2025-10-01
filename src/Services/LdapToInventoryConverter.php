@@ -38,6 +38,8 @@ use NetworkEquipment;
 use Printer;
 use Phone;
 
+use function Safe\preg_match;
+
 /**
  * Service for converting LDAP data to Inventory JSON format
  *
@@ -63,10 +65,10 @@ class LdapToInventoryConverter
     /**
      * Convert LDAP data to Inventory JSON format
      *
-     * @param array $ldapData LDAP attributes
+     * @param array<string, mixed> $ldapData LDAP attributes
      * @param string $itemtype GLPI itemtype (Computer, NetworkEquipment, etc.)
-     * @param array $syncFilterConfig SyncFilter configuration
-     * @return array JSON data compatible with Inventory.php
+     * @param array<string, mixed> $syncFilterConfig SyncFilter configuration
+     * @return array<string, mixed> JSON data compatible with Inventory.php
      */
     public function convertToInventoryFormat(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
     {
@@ -104,6 +106,10 @@ class LdapToInventoryConverter
 
     /**
      * Build inventory sections selectively based on available LDAP data and user configuration
+     *
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
      */
     private function buildSelectiveSections(array $ldapData, string $itemtype, array $syncFilterConfig): array
     {
@@ -145,6 +151,8 @@ class LdapToInventoryConverter
 
     /**
      * Generate unique device ID from LDAP data
+     *
+     * @param array<string, mixed> $ldapData
      */
     private function generateDeviceId(array $ldapData, string $itemtype): string
     {
@@ -176,6 +184,10 @@ class LdapToInventoryConverter
 
     /**
      * Build hardware section common to all itemtypes
+     *
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
      */
     private function buildHardwareSection(array $ldapData, string $itemtype, array $syncFilterConfig): array
     {
@@ -229,6 +241,10 @@ class LdapToInventoryConverter
 
     /**
      * Build Computer-specific sections
+     *
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
      */
     private function buildComputerSpecificSections(array $ldapData, array $syncFilterConfig): array
     {
@@ -277,6 +293,9 @@ class LdapToInventoryConverter
     /**
      * Build network_device section specifically for NetworkEquipment
      * Based on GLPI inventory format standard
+     *
+     * @param array<string, mixed> $ldapData
+     * @return array<string, mixed>
      */
     private function buildNetworkDeviceSection(array $ldapData): array
     {
@@ -363,6 +382,11 @@ class LdapToInventoryConverter
         return $networkDevice;
     }
 
+    /**
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
+     */
     private function buildNetworkEquipmentSections(array $ldapData, array $syncFilterConfig): array
     {
         $sections = [];
@@ -390,6 +414,10 @@ class LdapToInventoryConverter
 
     /**
      * Build Printer-specific sections
+     *
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
      */
     private function buildPrinterSections(array $ldapData, array $syncFilterConfig): array
     {
@@ -426,6 +454,10 @@ class LdapToInventoryConverter
 
     /**
      * Build Phone-specific sections
+     *
+     * @param array<string, mixed> $ldapData
+     * @param array<string, mixed> $syncFilterConfig
+     * @return array<string, mixed>
      */
     private function buildPhoneSections(array $ldapData, array $syncFilterConfig): array
     {
@@ -439,6 +471,9 @@ class LdapToInventoryConverter
 
     /**
      * Build BIOS section for hardware information
+     *
+     * @param array<string, mixed> $ldapData
+     * @return array<string, mixed>
      */
     private function buildBiosSection(array $ldapData): array
     {
@@ -514,6 +549,9 @@ class LdapToInventoryConverter
 
     /**
      * Build network section common to multiple itemtypes
+     *
+     * @param array<string, mixed> $ldapData
+     * @return array<string, mixed>
      */
     private function buildNetworkSection(array $ldapData): array
     {
@@ -564,6 +602,8 @@ class LdapToInventoryConverter
 
     /**
      * Extract device name from LDAP data
+     *
+     * @param array<string, mixed> $ldapData
      */
     private function extractDeviceName(array $ldapData): string
     {
@@ -572,6 +612,8 @@ class LdapToInventoryConverter
 
     /**
      * Get supported itemtypes for inventory conversion
+     *
+     * @return array<int, class-string>
      */
     public function getSupportedItemtypes(): array
     {

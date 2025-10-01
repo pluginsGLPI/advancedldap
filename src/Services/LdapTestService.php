@@ -39,6 +39,8 @@ use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 
+use function Safe\preg_match_all;
+
 /**
  * LDAP filter testing service
  */
@@ -75,7 +77,7 @@ class LdapTestService
      * @param string $filter           LDAP filter
      * @param string $asset_type       Asset type (Computer, Printer, etc.)
      * @param string $asset_field      Asset field to synchronize (legacy)
-     * @param array  $field_mappings   Field mappings array (new system)
+     * @param array<string, mixed>  $field_mappings   Field mappings array (new system)
      * @return array<string, mixed> Test results
      */
     public function testLdapFilter(
@@ -185,12 +187,12 @@ class LdapTestService
     /**
      * Process LDAP entries for display
      *
-     * @param array $entries Raw LDAP entries
+     * @param array<string, mixed> $entries Raw LDAP entries
      * @param string $filter LDAP filter
      * @param string $asset_type Asset type
      * @param string $asset_field Asset field (legacy)
-     * @param array $field_mappings Field mappings array (new system)
-     * @return array<int, array> Processed entries
+     * @param array<string, mixed> $field_mappings Field mappings array (new system)
+     * @return array<int, array<string, mixed>> Processed entries
      */
     private function processLdapEntries(
         array $entries,
@@ -203,6 +205,9 @@ class LdapTestService
         $target_attribute = $this->extractAttributeFromFilter($filter);
 
         for ($i = 0; $i < $entries['count']; $i++) {
+            if (!isset($entries[$i]) || !is_array($entries[$i])) {
+                continue;
+            }
             $entry = $entries[$i];
             $processed_entry = [
                 'dn' => $entry['dn'],
@@ -268,8 +273,8 @@ class LdapTestService
      *
      * @param string $asset_type Asset type
      * @param string $asset_field Asset field (legacy)
-     * @param array $ldap_attributes LDAP attributes
-     * @param array $field_mappings Field mappings array (new system)
+     * @param array<string, mixed> $ldap_attributes LDAP attributes
+     * @param array<string, mixed> $field_mappings Field mappings array (new system)
      * @return array<string, mixed> Impact analysis
      */
     private function analyzeGlpiImpact(string $asset_type, string $asset_field, array $ldap_attributes, array $field_mappings = []): array
@@ -340,7 +345,7 @@ class LdapTestService
     /**
      * Build human-readable message for fields synchronization
      *
-     * @param array $field_mappings Field mappings array
+     * @param array<string, mixed> $field_mappings Field mappings array
      * @param string $asset_field Legacy single field
      * @return string Human-readable fields list
      */
