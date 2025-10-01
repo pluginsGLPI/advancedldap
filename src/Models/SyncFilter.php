@@ -78,7 +78,19 @@ class SyncFilter extends CommonDBTM
      */
     public static function getType(): string
     {
-        // Return legacy name for GLPI compatibility
+        // For massive actions, use the namespaced class name to match with $ma->remainings keys
+        // which come from HTML checkboxes generated with SyncFilter::class
+        // Otherwise, return legacy name for hooks and setup compatibility
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
+
+        // Check if called from MassiveAction context
+        foreach ($backtrace as $trace) {
+            if (isset($trace['class']) && $trace['class'] === 'MassiveAction') {
+                return self::class;
+            }
+        }
+
+        // Return legacy name for GLPI compatibility (hooks, setup, etc.)
         return 'PluginAdvancedldapSyncFilter';
     }
 
@@ -453,12 +465,6 @@ class SyncFilter extends CommonDBTM
     {
         switch ($ma->getAction()) {
             case 'duplicate':
-                // Initialize results array to avoid the undefined key error
-                $itemtype = get_class($item);
-                if (!isset($ma->results[$itemtype])) {
-                    $ma->results[$itemtype] = [];
-                }
-
                 foreach ($ids as $id) {
                     if ($item->getFromDB($id)) {
                         $input = $item->fields;
@@ -481,12 +487,12 @@ class SyncFilter extends CommonDBTM
                                     'is_active' => $relation_data['is_active'],
                                 ]);
                             }
-                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_OK);
+                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_OK);
                         } else {
-                            $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
+                            $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
                         }
                     } else {
-                        $ma->itemDone($itemtype, $id, MassiveAction::ACTION_KO);
+                        $ma->itemDone($item->getType(), $id, MassiveAction::ACTION_KO);
                     }
                 }
                 return;
