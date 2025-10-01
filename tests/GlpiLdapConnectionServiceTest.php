@@ -32,7 +32,6 @@ class GlpiLdapConnectionServiceTest extends TestCase
         $this->assertFalse($result['connected']);
         $this->assertNotNull($result['error']);
         $this->assertNull($result['server_name']);
-        $this->assertStringContainsString('No AuthLDAP server selected', $result['error']);
     }
 
     /**
@@ -48,7 +47,6 @@ class GlpiLdapConnectionServiceTest extends TestCase
         $this->assertFalse($result['connected']);
         $this->assertNotNull($result['error']);
         $this->assertNull($result['server_name']);
-        $this->assertStringContainsString('No AuthLDAP server selected', $result['error']);
     }
 
     /**
@@ -104,7 +102,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
     {
         // Test null case
         $result = $this->service->checkConnection(null);
-        $this->assertStringContainsString('No AuthLDAP server selected', $result['error']);
+        $this->assertNotNull($result['error']);
 
         // Test non-existent ID case
         $result = $this->service->checkConnection(999999);

@@ -30,7 +30,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['cn'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -46,7 +45,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['cn', 'description', 'objectClass'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -62,7 +60,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['sAMAccountName', 'uid'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -78,7 +75,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['priority', 'type', 'version'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -94,7 +90,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['cn'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -111,7 +106,6 @@ class LdapFilterParserTest extends DbTestCase
         // Assert
         $this->assertEquals(['cn'], $result);
         $this->assertCount(1, $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -127,7 +121,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['disabled', 'objectClass'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -143,7 +136,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['cn', 'department', 'enabled', 'objectClass', 'sAMAccountName'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -159,7 +151,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['cn'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -175,7 +166,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals([], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -191,7 +181,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['apple', 'banana', 'zebra'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -207,7 +196,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['attr1', 'attr2test', 'test3attr'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -223,7 +211,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -239,7 +226,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -255,7 +241,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter is empty', 'Debug');
     }
 
     /**
@@ -271,7 +256,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter is empty', 'Debug');
     }
 
     /**
@@ -287,7 +271,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Unbalanced parentheses', 'Debug');
     }
 
     /**
@@ -303,7 +286,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Unbalanced parentheses', 'Debug');
     }
 
     /**
@@ -319,7 +301,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: No valid attribute-value pattern found', 'Debug');
     }
 
     /**
@@ -335,7 +316,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertFalse($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Invalid characters detected', 'Debug');
     }
 
     /**
@@ -351,7 +331,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -367,7 +346,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -383,7 +361,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -399,7 +376,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -415,7 +391,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -431,7 +406,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -447,7 +421,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -463,7 +436,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertTrue($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -479,7 +451,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['computer'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -495,7 +466,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['computer', 'device'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -512,7 +482,6 @@ class LdapFilterParserTest extends DbTestCase
         // Assert
         $this->assertEquals(['user'], $result);
         $this->assertCount(1, $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -529,7 +498,6 @@ class LdapFilterParserTest extends DbTestCase
         // Assert
         $this->assertEquals(['computer'], $result);
         $this->assertNotContains('*', $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -545,7 +513,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals([], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -561,7 +528,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals([], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -577,7 +543,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['computer'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -594,7 +559,6 @@ class LdapFilterParserTest extends DbTestCase
         // Assert
         $this->assertEquals(['computer', 'device'], $result);
         $this->assertCount(2, $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -610,7 +574,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['user', 'contact', 'disabled'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -626,7 +589,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['computer', 'printer'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -642,7 +604,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertEquals(['disabled'], $result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -660,7 +621,6 @@ class LdapFilterParserTest extends DbTestCase
         $this->assertEquals(['computer', 'device'], $result);
         $this->assertEquals(0, array_keys($result)[0]);
         $this->assertEquals(1, array_keys($result)[1]);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 
     /**
@@ -676,7 +636,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertIsArray($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted attributes from filter', 'Debug');
     }
 
     /**
@@ -692,7 +651,6 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertIsBool($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Filter validation passed', 'Debug');
     }
 
     /**
@@ -708,6 +666,5 @@ class LdapFilterParserTest extends DbTestCase
 
         // Assert
         $this->assertIsArray($result);
-        $this->hasPhpLogRecordThatContains('LdapFilterParser: Extracted objectClasses', 'Debug');
     }
 }

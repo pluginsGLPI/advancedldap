@@ -354,6 +354,17 @@ class SyncFilterTest extends DbTestCase
     // ========== Massive actions ==========
 
     /**
+     * Test getForbiddenStandardMassiveAction includes update action
+     */
+    public function testGetForbiddenStandardMassiveAction(): void
+    {
+        $forbidden = $this->syncFilter->getForbiddenStandardMassiveAction();
+
+        $this->assertIsArray($forbidden);
+        $this->assertContains('MassiveAction:update', $forbidden);
+    }
+
+    /**
      * Test getSpecificMassiveActions returns array
      */
     public function testGetSpecificMassiveActions(): void
@@ -463,4 +474,180 @@ class SyncFilterTest extends DbTestCase
         $this->login();
         $this->assertTrue(SyncFilter::canPurge());
     }
+
+    // ========== Integration tests ==========
+
+    /**
+     * Test post_addItem creates AuthLDAP relation
+     */
+    public function testPostAddItemCreatesAuthLdapRelation(): void
+    {
+        $this->login();
+
+        // Create an AuthLDAP server
+        $authldap = new \AuthLDAP();
+        $authldap_id = $authldap->add([
+            'name' => 'Test LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $this->assertGreaterThan(0, $authldap_id);
+
+        // Create a SyncFilter with authldap_id in input
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Test Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            'authldap_id' => $authldap_id,
+        ]);
+
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Verify relation was created
+        $relation = new \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter();
+        $found = $relation->getFromDBByCrit([
+            'authldap_id' => $authldap_id,
+            'syncfilter_id' => $filter_id,
+        ]);
+
+        $this->assertTrue($found);
+        $this->assertEquals(1, $relation->fields['is_active']);
+    }
+
+    /**
+     * Test post_addItem without authldap_id does not create relation
+     */
+    public function testPostAddItemWithoutAuthLdapId(): void
+    {
+        $this->login();
+
+        // Create a SyncFilter without authldap_id
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Test Filter No LDAP',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+        ]);
+
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Verify no relation was created
+        global $DB;
+        $iterator = $DB->request([
+            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'WHERE' => ['syncfilter_id' => $filter_id],
+        ]);
+
+        $this->assertEquals(0, count($iterator));
+    }
+
+    /**
+     * Test pre_deleteItem deletes AuthLDAP relations
+     */
+    public function testPreDeleteItemDeletesRelations(): void
+    {
+        $this->login();
+
+        // Create an AuthLDAP server
+        $authldap = new \AuthLDAP();
+        $authldap_id = $authldap->add([
+            'name' => 'Test LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $this->assertGreaterThan(0, $authldap_id);
+
+        // Create a SyncFilter with relation
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Test Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            'authldap_id' => $authldap_id,
+        ]);
+
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Verify relation exists
+        global $DB;
+        $iterator = $DB->request([
+            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'WHERE' => ['syncfilter_id' => $filter_id],
+        ]);
+        $this->assertEquals(1, count($iterator));
+
+        // Delete the SyncFilter
+        $result = $syncFilter->delete(['id' => $filter_id]);
+        $this->assertTrue($result);
+
+        // Verify relation was deleted
+        $iterator = $DB->request([
+            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'WHERE' => ['syncfilter_id' => $filter_id],
+        ]);
+        $this->assertEquals(0, count($iterator));
+    }
+
+    /**
+     * Test getAssociatedAuthLDAPs with valid ID
+     */
+    public function testGetAssociatedAuthLDAPsWithValidId(): void
+    {
+        $this->login();
+
+        // Create AuthLDAP servers
+        $authldap1 = new \AuthLDAP();
+        $authldap_id1 = $authldap1->add([
+            'name' => 'LDAP Server 1',
+            'host' => 'ldap1.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+
+        $authldap2 = new \AuthLDAP();
+        $authldap_id2 = $authldap2->add([
+            'name' => 'LDAP Server 2',
+            'host' => 'ldap2.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+
+        // Create SyncFilter
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Test Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            'authldap_id' => $authldap_id1,
+        ]);
+
+        // Add second relation manually
+        $relation = new \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter();
+        $relation->add([
+            'authldap_id' => $authldap_id2,
+            'syncfilter_id' => $filter_id,
+            'is_active' => 1,
+        ]);
+
+        // Test getAssociatedAuthLDAPs
+        $syncFilter->getFromDB($filter_id);
+        $associated = $syncFilter->getAssociatedAuthLDAPs();
+
+        $this->assertIsArray($associated);
+        $this->assertCount(2, $associated);
+        $this->assertContains($authldap_id1, $associated);
+        $this->assertContains($authldap_id2, $associated);
+    }
+
 }
