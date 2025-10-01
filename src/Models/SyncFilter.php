@@ -388,6 +388,21 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
+     * Get forbidden massive actions for this itemtype
+     *
+     * @return array Array of forbidden massive actions
+     */
+    public function getForbiddenStandardMassiveAction(): array
+    {
+        $forbidden = parent::getForbiddenStandardMassiveAction();
+
+        // Remove update action from massive actions
+        $forbidden[] = 'MassiveAction:update';
+
+        return $forbidden;
+    }
+
+    /**
      * Get massive actions available for this itemtype
      *
      * @param object|null $checkitem link item to check right
