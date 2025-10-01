@@ -567,6 +567,11 @@ class SyncFilter extends CommonDBTM
         // 3. Handle test request if present
         $test_results = $this->handleTestRequest($form_data['current_config']);
 
+        // Update authldap_id if test request changed it
+        if (isset($_GET['test_ldap']) && $_GET['test_ldap'] === '1' && isset($_GET['test_authldap_id'])) {
+            $authldap_context['current_authldap_id'] = intval($_GET['test_authldap_id']);
+        }
+
         // 4. Collect form metadata (inventory status, LDAP connection)
         $metadata = $this->collectFormMetadata(
             $authldap_context['current_authldap_id'],

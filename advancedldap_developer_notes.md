@@ -614,7 +614,19 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 ## Outils de Développement
 
-### **Données de Test**
-- `dummy_data.ldif` : Données LDAP pour les tests d'intégration
-- `test_data.sql` : Données SQL pour les tests unitaires
-- `tests/bootstrap.php` : Configuration de l'environnement de test
+### **Workflow humain / IA**
+
+  🤖 Le développement de ce plugin a été fortement assisté par un LLM (Claude Code, Anthropic).
+  #### L’IA a contribué à :
+
+  - la génération de l’architecture initiale (organisation fichiers, services, interfaces),
+  - la production de portions de code récurrentes ou verbeuses (CRUD, formulaires, repositories),
+  - la rédaction et la mise à jour de la documentation technique,
+  - la création de tests unitaires et de scripts de tests (relus et ajustés par le développeur).
+
+  #### Rôle du développeur humain
+
+  - Supervision de l’ensemble du code métier et des choix d’architecture,
+  - Relecture, ajustement et validation des tests unitaires existants,
+  - Refactorisation et adaptation du code généré pour respecter SOLID et PSR-12,
+  - Vérification de la cohérence avec GLPI et correction des anomalies,
