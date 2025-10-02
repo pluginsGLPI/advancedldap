@@ -105,7 +105,7 @@ function plugin_advancedldap_uninstall(): bool
 
     foreach ($tables as $table) {
         if ($DB->tableExists($table)) {
-            $DB->query("DROP TABLE `$table`");
+            $DB->doQuery("DROP TABLE `$table`");
         }
     }
 
@@ -145,7 +145,7 @@ function plugin_advancedldap_addDefaultWhere($itemtype): string
  * Hook to add massive actions for plugin items
  *
  * @param string $type The itemtype for which to return massive actions
- * @return array Array of massive actions
+ * @return array<string, string> Array of massive actions
  */
 function plugin_advancedldap_MassiveActions($type): array
 {

@@ -42,6 +42,8 @@ use Safe\Exceptions\JsonException;
 use Toolbox;
 
 use function Safe\json_decode;
+use function Safe\json_encode;
+use function Safe\class_alias;
 
 /**
  * SyncFilter class for managing LDAP synchronization filters
@@ -49,6 +51,7 @@ use function Safe\json_decode;
 class SyncFilter extends CommonDBTM
 {
     public static $rightname = 'config';
+    /** @var string */
     public static $table = 'glpi_plugin_advancedldap_syncfilters';
     public $dohistory = true;
 
@@ -79,6 +82,7 @@ class SyncFilter extends CommonDBTM
      * Get the type identifier for this class (for massive actions compatibility)
      *
      * @return string
+     * @phpstan-ignore-next-line method.parentMethodFinalByPhpDoc
      */
     public static function getType(): string
     {
@@ -129,6 +133,7 @@ class SyncFilter extends CommonDBTM
      * Override to redirect to parent AuthLDAP instead of generic list
      *
      * @return void
+     * @phpstan-ignore-next-line method.parentMethodFinalByPhpDoc
      */
     public function redirectToList(): void
     {
@@ -141,7 +146,6 @@ class SyncFilter extends CommonDBTM
         // If we have a parent AuthLDAP from URL, redirect there
         if ($authldap_id) {
             Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id));
-            return;
         }
 
         // Fallback to default behavior (redirect to plugin search page)
@@ -161,7 +165,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Get search options for this class
      *
-     * @return array
+     * @return array<int|string, mixed>
      */
     public function rawSearchOptions(): array
     {
@@ -238,7 +242,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Get field mappings as array
      *
-     * @return array
+     * @return array<string, mixed>
      */
     public function getFieldMappings(): array
     {
@@ -258,7 +262,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Get associated AuthLDAP servers
      *
-     * @return array Array of AuthLDAP IDs
+     * @return array<int, int> Array of AuthLDAP IDs
      */
     public function getAssociatedAuthLDAPs(): array
     {
@@ -275,7 +279,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Set field mappings from array
      *
-     * @param array $mappings Field mappings
+     * @param array<string, mixed> $mappings Field mappings
      * @return bool
      */
     public function setFieldMappings(array $mappings): bool
@@ -290,8 +294,8 @@ class SyncFilter extends CommonDBTM
      * Prepare field mappings from input data
      * Delegates to LdapFilterParser and LdapAttributeMapper services
      *
-     * @param array $input Input data
-     * @return array Prepared input with field_mappings
+     * @param array<string, mixed> $input Input data
+     * @return array<string, mixed> Prepared input with field_mappings
      */
     private function prepareMappingsInput(array $input): array
     {
@@ -348,8 +352,8 @@ class SyncFilter extends CommonDBTM
     /**
      * Prepare input data for add operation
      *
-     * @param array $input Input data
-     * @return array|false Prepared input or false on error
+     * @param array<string, mixed> $input Input data
+     * @return array<string, mixed>|false Prepared input or false on error
      */
     public function prepareInputForAdd($input)
     {
@@ -400,8 +404,8 @@ class SyncFilter extends CommonDBTM
     /**
      * Prepare input data for update operation
      *
-     * @param array $input Input data
-     * @return array|false Prepared input or false on error
+     * @param array<string, mixed> $input Input data
+     * @return array<string, mixed>|false Prepared input or false on error
      */
     public function prepareInputForUpdate($input)
     {
@@ -411,7 +415,7 @@ class SyncFilter extends CommonDBTM
     /**
      * Get forbidden massive actions for this itemtype
      *
-     * @return array Array of forbidden massive actions
+     * @return array<int, string> Array of forbidden massive actions
      */
     public function getForbiddenStandardMassiveAction(): array
     {
@@ -427,7 +431,7 @@ class SyncFilter extends CommonDBTM
      * Get massive actions available for this itemtype
      *
      * @param object|null $checkitem link item to check right
-     * @return array Array of massive actions
+     * @return array<string, string> Array of massive actions
      */
     public function getSpecificMassiveActions($checkitem = null): array
     {
@@ -467,7 +471,7 @@ class SyncFilter extends CommonDBTM
      *
      * @param MassiveAction $ma MassiveAction instance
      * @param CommonDBTM    $item Item on which the action is performed
-     * @param array         $ids IDs of the items
+     * @param array<int, int> $ids IDs of the items
      * @return void
      */
     public static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids): void
@@ -515,8 +519,8 @@ class SyncFilter extends CommonDBTM
     /**
      * Define tabs to display on SyncFilter form
      *
-     * @param array $options Parameters
-     * @return array
+     * @param array<string, mixed> $options Parameters
+     * @return array<string, string>
      */
     public function defineTabs($options = []): array
     {
@@ -581,7 +585,7 @@ class SyncFilter extends CommonDBTM
      * Display the sync filter form
      *
      * @param int   $ID      ID of the sync filter
-     * @param array $options Options array
+     * @param array<string, mixed> $options Options array
      * @return bool
      */
     public function showForm($ID, array $options = []): bool
@@ -633,8 +637,8 @@ class SyncFilter extends CommonDBTM
      * Resolve the parent AuthLDAP from options or existing relations
      *
      * @param int $ID The sync filter ID
-     * @param array $options Options array
-     * @return array Array with 'authldap' and 'authldap_id' keys
+     * @param array<string, mixed> $options Options array
+     * @return array<string, mixed> Array with 'authldap' and 'authldap_id' keys
      */
     private function resolveParentAuthLdap(int $ID, array $options): array
     {
@@ -676,7 +680,7 @@ class SyncFilter extends CommonDBTM
      *
      * @param int $ID The sync filter ID
      * @param int|null $authldap_id Current AuthLDAP ID
-     * @return array Array with form data and services
+     * @return array<string, mixed> Array with form data and services
      */
     private function prepareFormData(int $ID, ?int $authldap_id): array
     {
@@ -713,7 +717,7 @@ class SyncFilter extends CommonDBTM
      * @param int|null $authldap_id Current AuthLDAP ID
      * @param mixed $form_helper Form helper service
      * @param mixed $config_service Configuration service
-     * @return array Array with metadata
+     * @return array<string, mixed> Array with metadata
      */
     private function collectFormMetadata(?int $authldap_id, $form_helper, $config_service): array
     {
@@ -734,8 +738,8 @@ class SyncFilter extends CommonDBTM
     /**
      * Handle test request
      *
-     * @param array $current_config
-     * @return array|null
+     * @param array<string, mixed> $current_config
+     * @return array<string, mixed>|null
      */
     private function handleTestRequest(array &$current_config): ?array
     {

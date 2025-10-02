@@ -147,7 +147,7 @@ class AdvancedLdapSync extends CommonGLPI
      * Get sync filters for this AuthLDAP instance
      *
      * @param int $authldap_id AuthLDAP ID
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
@@ -158,7 +158,7 @@ class AdvancedLdapSync extends CommonGLPI
     /**
      * Get all available sync filters
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getAvailableSyncFilters(): array
     {

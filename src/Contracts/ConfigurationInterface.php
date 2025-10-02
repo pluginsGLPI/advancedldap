@@ -50,7 +50,7 @@ interface ConfigurationInterface
     /**
      * Set configuration values
      *
-     * @param array $values Configuration values to set
+     * @param array<string, mixed> $values Configuration values to set
      * @return bool Success status
      */
     public function set(array $values): bool;

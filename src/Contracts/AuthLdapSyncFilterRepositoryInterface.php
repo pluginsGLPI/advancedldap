@@ -72,7 +72,7 @@ interface AuthLdapSyncFilterRepositoryInterface
      *
      * @param int $syncfilter_id SyncFilter ID
      * @param bool $active_only Only active relations
-     * @return array
+     * @return array<int, int>
      */
     public function getAuthLdapsForSyncFilter(int $syncfilter_id, bool $active_only = true): array;
 

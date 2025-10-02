@@ -53,13 +53,13 @@ class GlpiConfigurationService implements ConfigurationInterface
      */
     public function get(string $key, $default = null)
     {
-        return Config::getConfigurationValue(self::PLUGIN_NAMESPACE, $key, $default);
+        return Config::getConfigurationValue(self::PLUGIN_NAMESPACE, $key) ?? $default;
     }
 
     /**
      * Set configuration values
      *
-     * @param array $values Configuration values to set
+     * @param array<string, mixed> $values Configuration values to set
      * @return bool Success status
      */
     public function set(array $values): bool

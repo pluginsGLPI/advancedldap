@@ -86,7 +86,7 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
     /**
      * Format search options into field dropdown format
      *
-     * @param array $search_options Search options from searchOptions() method
+     * @param array<int|string, mixed> $search_options Search options from searchOptions() method
      * @param string $itemtype The itemtype being processed
      * @return array<string, string> Formatted fields array
      */

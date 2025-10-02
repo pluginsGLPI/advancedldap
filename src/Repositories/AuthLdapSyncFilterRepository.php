@@ -113,7 +113,7 @@ class AuthLdapSyncFilterRepository implements AuthLdapSyncFilterRepositoryInterf
      *
      * @param int $syncfilter_id SyncFilter ID
      * @param bool $active_only Only active relations
-     * @return array
+     * @return array<int, int>
      */
     public function getAuthLdapsForSyncFilter(int $syncfilter_id, bool $active_only = true): array
     {
@@ -164,6 +164,6 @@ class AuthLdapSyncFilterRepository implements AuthLdapSyncFilterRepositoryInterf
             return false;
         }
 
-        return count($results) > 0;
+        return !empty($results);
     }
 }

@@ -39,24 +39,22 @@ use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
 use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
 
+use function Safe\json_encode;
+
 /**
  * Repository for SyncFilter data operations
  */
 class SyncFilterRepository implements SyncFilterRepositoryInterface
 {
     private DatabaseInterface $database;
-    private AuthLdapSyncFilterRepositoryInterface $relation_repository;
 
     /**
      * @param DatabaseInterface $database
-     * @param AuthLdapSyncFilterRepositoryInterface $relation_repository
      */
     public function __construct(
         DatabaseInterface $database,
-        AuthLdapSyncFilterRepositoryInterface $relation_repository,
     ) {
         $this->database = $database;
-        $this->relation_repository = $relation_repository;
     }
 
     /**
@@ -137,7 +135,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
     /**
      * Create a new sync filter
      *
-     * @param array $data Filter data
+     * @param array<string, mixed> $data Filter data
      * @return int|false Created filter ID or false on failure
      */
     public function create(array $data)
@@ -152,7 +150,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      * Update a sync filter
      *
      * @param int $id Filter ID
-     * @param array $data Filter data
+     * @param array<string, mixed> $data Filter data
      * @return bool Success status
      */
     public function update(int $id, array $data): bool

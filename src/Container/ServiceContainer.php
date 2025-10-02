@@ -200,8 +200,7 @@ class ServiceContainer
 
         $this->register(SyncFilterRepositoryInterface::class, function (ServiceContainer $container) {
             return new SyncFilterRepository(
-                $container->get(DatabaseInterface::class),
-                $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+                $container->get(DatabaseInterface::class)
             );
         });
 

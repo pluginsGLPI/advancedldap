@@ -61,8 +61,8 @@ class AssetCreationService
      * Create or update a GLPI asset
      *
      * @param string $asset_type Asset class name (Computer, Printer, etc.)
-     * @param array $asset_data Asset data from LDAP
-     * @return array Creation result
+     * @param array<string, mixed> $asset_data Asset data from LDAP
+     * @return array{success: bool, action: string|null, asset_id: int|null, error: string|null} Creation result
      */
     public function createOrUpdateAsset(string $asset_type, array $asset_data): array
     {
@@ -87,6 +87,7 @@ class AssetCreationService
             }
 
             // Create asset instance
+            /** @phpstan-ignore glpi.forbidDynamicInstantiation */
             $asset = new $asset_type();
             if (!$asset instanceof CommonDBTM) {
                 $result['error'] = sprintf(__('Invalid asset type %s', 'advancedldap'), $asset_type);
@@ -133,9 +134,9 @@ class AssetCreationService
     /**
      * Prepare asset data for GLPI standards
      *
-     * @param array $asset_data Raw asset data
+     * @param array<string, mixed> $asset_data Raw asset data
      * @param string $asset_type Asset type
-     * @return array Prepared data
+     * @return array<string, mixed> Prepared data
      */
     private function prepareAssetData(array $asset_data, string $asset_type): array
     {
@@ -158,9 +159,9 @@ class AssetCreationService
     /**
      * Handle special fields based on asset type
      *
-     * @param array $data Asset data
+     * @param array<string, mixed> $data Asset data
      * @param string $asset_type Asset type
-     * @return array Modified data
+     * @return array<string, mixed> Modified data
      */
     private function handleSpecialFields(array $data, string $asset_type): array
     {
@@ -199,8 +200,8 @@ class AssetCreationService
     /**
      * Handle Computer-specific fields
      *
-     * @param array $data Asset data
-     * @return array Modified data
+     * @param array<string, mixed> $data Asset data
+     * @return array<string, mixed> Modified data
      */
     private function handleComputerFields(array $data): array
     {
@@ -220,8 +221,8 @@ class AssetCreationService
     /**
      * Handle Printer-specific fields
      *
-     * @param array $data Asset data
-     * @return array Modified data
+     * @param array<string, mixed> $data Asset data
+     * @return array<string, mixed> Modified data
      */
     private function handlePrinterFields(array $data): array
     {
@@ -236,8 +237,8 @@ class AssetCreationService
     /**
      * Handle NetworkEquipment-specific fields
      *
-     * @param array $data Asset data
-     * @return array Modified data
+     * @param array<string, mixed> $data Asset data
+     * @return array<string, mixed> Modified data
      */
     private function handleNetworkEquipmentFields(array $data): array
     {
@@ -252,8 +253,8 @@ class AssetCreationService
     /**
      * Handle User-specific fields
      *
-     * @param array $data Asset data
-     * @return array Modified data
+     * @param array<string, mixed> $data Asset data
+     * @return array<string, mixed> Modified data
      */
     private function handleUserFields(array $data): array
     {
@@ -273,9 +274,9 @@ class AssetCreationService
     /**
      * Set default values for required fields
      *
-     * @param array $data Asset data
+     * @param array<string, mixed> $data Asset data
      * @param string $asset_type Asset type
-     * @return array Data with defaults
+     * @return array<string, mixed> Data with defaults
      */
     private function setDefaultValues(array $data, string $asset_type): array
     {
@@ -310,8 +311,8 @@ class AssetCreationService
      * Find existing asset by name
      *
      * @param CommonDBTM $asset Asset instance
-     * @param array $asset_data Asset data
-     * @return array|null Existing asset data or null
+     * @param array<string, mixed> $asset_data Asset data
+     * @return array<string, mixed>|null Existing asset data or null
      */
     private function findExistingAsset(CommonDBTM $asset, array $asset_data): ?array
     {
@@ -367,9 +368,9 @@ class AssetCreationService
     /**
      * Validate asset data before creation
      *
-     * @param array $asset_data Asset data
+     * @param array<string, mixed> $asset_data Asset data
      * @param string $asset_type Asset type
-     * @return array Validation result
+     * @return array{valid: bool, errors: array<string>} Validation result
      */
     public function validateAssetData(array $asset_data, string $asset_type): array
     {

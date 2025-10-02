@@ -41,7 +41,7 @@ interface SyncFilterRepositoryInterface
     /**
      * Get all active sync filters
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getActiveSyncFilters(): array;
 
@@ -49,7 +49,7 @@ interface SyncFilterRepositoryInterface
      * Get sync filters for a specific AuthLDAP
      *
      * @param int $authldap_id AuthLDAP ID
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array;
 
@@ -57,14 +57,14 @@ interface SyncFilterRepositoryInterface
      * Find sync filter by ID
      *
      * @param int $id Filter ID
-     * @return array|null
+     * @return array<string, mixed>|null
      */
     public function findById(int $id): ?array;
 
     /**
      * Create a new sync filter
      *
-     * @param array $data Filter data
+     * @param array<string, mixed> $data Filter data
      * @return int|false Created filter ID or false on failure
      */
     public function create(array $data);
@@ -73,7 +73,7 @@ interface SyncFilterRepositoryInterface
      * Update a sync filter
      *
      * @param int $id Filter ID
-     * @param array $data Filter data
+     * @param array<string, mixed> $data Filter data
      * @return bool Success status
      */
     public function update(int $id, array $data): bool;

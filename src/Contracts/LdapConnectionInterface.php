@@ -61,7 +61,7 @@ interface LdapConnectionInterface
      *
      * @param mixed $connection LDAP connection resource
      * @param mixed $search_result Search result from ldap_search
-     * @return array LDAP entries
+     * @return array<string, mixed> LDAP entries
      */
     public function getEntries($connection, $search_result): array;
 
@@ -85,7 +85,7 @@ interface LdapConnectionInterface
      * Check LDAP connection status for warning display
      *
      * @param int|null $authldap_id AuthLDAP server ID
-     * @return array Connection status information
+     * @return array<string, mixed> Connection status information
      */
     public function checkConnection(?int $authldap_id): array;
 
@@ -95,7 +95,7 @@ interface LdapConnectionInterface
      * @param int $authldap_id AuthLDAP configuration ID
      * @param string $base_dn Base DN for search
      * @param string $filter LDAP filter
-     * @return array Returns ['entries' => array] on success or ['error' => string] on failure
+     * @return array<string, mixed> Returns ['entries' => array] on success or ['error' => string] on failure
      */
     public function searchWithErrorHandling(int $authldap_id, string $base_dn, string $filter): array;
 }

@@ -40,13 +40,19 @@ use CommonDBRelation;
  */
 class AuthLdapSyncFilter extends CommonDBRelation
 {
+    /** @var string */
     public static $rightname = 'config';
+    /** @var string */
     public static $table = 'glpi_plugin_advancedldap_authldap_syncfilters';
 
+    /** @var string */
     public static $itemtype_1 = 'AuthLDAP';
+    /** @var string */
     public static $items_id_1 = 'authldap_id';
 
+    /** @var string */
     public static $itemtype_2 = SyncFilter::class;
+    /** @var string */
     public static $items_id_2 = 'syncfilter_id';
 
     /**
@@ -74,7 +80,7 @@ class AuthLdapSyncFilter extends CommonDBRelation
     /**
      * Get search options for this class
      *
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
     public function rawSearchOptions(): array
     {
@@ -128,8 +134,8 @@ class AuthLdapSyncFilter extends CommonDBRelation
     /**
      * Define tabs to display on form
      *
-     * @param array $options Parameters
-     * @return array
+     * @param array<string, mixed> $options Parameters
+     * @return array<string, string>
      */
     public function defineTabs($options = []): array
     {
