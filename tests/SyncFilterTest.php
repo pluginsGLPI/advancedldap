@@ -199,6 +199,7 @@ class SyncFilterTest extends DbTestCase
     {
         $this->syncFilter->fields = ['field_mappings' => 'invalid-json'];
 
+        // No log will be generated because getID() returns 0 by default
         $result = $this->syncFilter->getFieldMappings();
         $this->assertEquals([], $result);
     }

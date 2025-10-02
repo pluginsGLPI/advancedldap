@@ -3,16 +3,26 @@
 namespace GlpiPlugin\Advancedldap\Tests;
 
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 
 class GlpiLdapConnectionServiceTest extends TestCase
 {
     private $service;
+    private $repositoryMock;
 
     public function setUp(): void
     {
         parent::setUp();
-        $this->service = new GlpiLdapConnectionService();
+
+        // Create a mock of SyncFilterRepositoryInterface
+        $this->repositoryMock = $this->createMock(SyncFilterRepositoryInterface::class);
+
+        // Configure the mock to return null for getFirstActiveAuthLdapId by default
+        $this->repositoryMock->method('getFirstActiveAuthLdapId')
+            ->willReturn(null);
+
+        $this->service = new GlpiLdapConnectionService($this->repositoryMock);
     }
 
     /**

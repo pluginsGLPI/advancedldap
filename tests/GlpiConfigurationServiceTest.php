@@ -46,19 +46,21 @@ class GlpiConfigurationServiceTest extends DbTestCase
     }
 
     /**
-     * Test get method with non-existing key returns zero
+     * Test get method with non-existing key returns default value or null
      */
     public function testGetWithNonExistingKeyReturnsZero()
     {
         // Arrange
         $key = 'non_existing_key';
+        $defaultValue = 'default_value';
 
         // Act
-        $result = $this->configurationService->get($key, 'default_value');
+        $result = $this->configurationService->get($key, $defaultValue);
 
         // Assert
-        // GLPI returns 0 for non-existing configuration keys
-        $this->assertEquals(0, $result);
+        // GlpiConfigurationService returns the default value when key doesn't exist
+        // The Config::getConfigurationValue returns 0 for non-existing keys, but we apply ?? $default
+        $this->assertEquals($defaultValue, $result);
     }
 
     /**

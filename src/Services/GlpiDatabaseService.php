@@ -74,7 +74,14 @@ class GlpiDatabaseService implements DatabaseInterface
     {
         global $DB;
         $result = $DB->insert($table, $data);
-        return is_int($result) ? $result : false;
+
+        if ($result) {
+            // DB->insert() returns true on success, get the last inserted ID
+            $insertedId = $DB->insertId();
+            return $insertedId > 0 ? (int) $insertedId : false;
+        }
+
+        return false;
     }
 
     /**

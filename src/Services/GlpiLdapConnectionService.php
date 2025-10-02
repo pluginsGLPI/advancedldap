@@ -35,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use function Safe\ldap_get_entries;
 
 /**
@@ -44,6 +45,12 @@ use function Safe\ldap_get_entries;
  */
 class GlpiLdapConnectionService implements LdapConnectionInterface
 {
+    private SyncFilterRepositoryInterface $repository;
+
+    public function __construct(SyncFilterRepositoryInterface $repository)
+    {
+        $this->repository = $repository;
+    }
     /**
      * Connect to LDAP server
      *
@@ -118,19 +125,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
     {
         // If no authldap_id provided, try to get the first active one
         if (!$authldap_id) {
-            global $DB;
-            $table = AuthLDAP::getTable();
-
-            $iterator = $DB->request([
-                'SELECT' => ['id', 'name', 'is_active'],
-                'FROM' => $table,
-            ]);
-
-            foreach ($iterator as $data) {
-                if ($data['is_active'] == 1 && !$authldap_id) {
-                    $authldap_id = (int) $data['id'];
-                }
-            }
+            $authldap_id = $this->repository->getFirstActiveAuthLdapId();
 
             // If still no authldap_id found, there are no active LDAP servers
             if (!$authldap_id) {

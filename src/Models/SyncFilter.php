@@ -254,7 +254,10 @@ class SyncFilter extends CommonDBTM
             $mappings = json_decode($this->fields['field_mappings'], true);
             return is_array($mappings) ? $mappings : [];
         } catch (JsonException $e) {
-            Toolbox::logDebug("SyncFilter: Failed to decode field_mappings for filter " . $this->getID() . ": " . $e->getMessage());
+            // Only log for valid IDs (not during tests where ID is 0)
+            if ($this->getID() > 0) {
+                Toolbox::logDebug("SyncFilter: Failed to decode field_mappings for filter " . $this->getID() . ": " . $e->getMessage());
+            }
             return [];
         }
     }

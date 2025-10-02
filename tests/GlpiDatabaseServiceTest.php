@@ -122,13 +122,16 @@ class GlpiDatabaseServiceTest extends DbTestCase
         $result = $this->databaseService->insert($table, $data);
 
         // Assert
-        // GLPI insert can return true on success instead of ID
-        $this->assertTrue($result !== false);
-        if (is_numeric($result)) {
-            $this->assertGreaterThan(0, $result);
-        } else {
-            $this->assertTrue($result);
-        }
+        // GlpiDatabaseService now correctly returns the inserted ID
+        $this->assertIsInt($result);
+        $this->assertGreaterThan(0, $result);
+
+        // Verify the insert actually succeeded
+        $checkResult = $this->databaseService->request([
+            'FROM' => $table,
+            'WHERE' => ['id' => $result]
+        ]);
+        $this->assertEquals(1, $checkResult->count());
     }
 
     /**
@@ -160,8 +163,9 @@ class GlpiDatabaseServiceTest extends DbTestCase
         $result = $this->databaseService->insert($table, $data);
 
         // Assert
-        // GLPI returns true even for empty data insert
-        $this->assertTrue($result);
+        // GlpiDatabaseService now correctly returns the inserted ID even for empty data
+        $this->assertIsInt($result);
+        $this->assertGreaterThan(0, $result);
     }
 
     /**
@@ -183,7 +187,9 @@ class GlpiDatabaseServiceTest extends DbTestCase
             'new_value' => 'new'
         ];
 
+        // Use the corrected insert method
         $insertedId = $this->databaseService->insert($table, $insertData);
+        $this->assertIsInt($insertedId);
         $this->assertGreaterThan(0, $insertedId);
 
         $updateData = ['new_value' => 'updated_value'];
@@ -258,7 +264,9 @@ class GlpiDatabaseServiceTest extends DbTestCase
             'new_value' => 'new'
         ];
 
+        // Use the corrected insert method
         $insertedId = $this->databaseService->insert($table, $insertData);
+        $this->assertIsInt($insertedId);
         $this->assertGreaterThan(0, $insertedId);
 
         $where = ['id' => $insertedId];

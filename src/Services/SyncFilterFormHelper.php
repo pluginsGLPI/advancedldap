@@ -173,17 +173,11 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
      */
     public function getAvailableAuthLdapServers(): array
     {
-        global $DB;
+        $servers_data = $this->repository->getActiveAuthLdapServers();
 
         $servers = [];
-        $iterator = $DB->request([
-            'FROM' => AuthLDAP::getTable(),
-            'WHERE' => ['is_active' => 1],
-            'ORDER' => ['name ASC'],
-        ]);
-
-        foreach ($iterator as $row) {
-            $servers[(int) $row['id']] = $row['name'];
+        foreach ($servers_data as $data) {
+            $servers[(int) $data['id']] = $data['name'];
         }
 
         /** @var string[] */

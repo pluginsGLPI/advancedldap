@@ -155,8 +155,10 @@ class ServiceContainer
             return new GlpiConfigurationService();
         });
 
-        $this->register(LdapConnectionInterface::class, function () {
-            return new GlpiLdapConnectionService();
+        $this->register(LdapConnectionInterface::class, function (ServiceContainer $container) {
+            return new GlpiLdapConnectionService(
+                $container->get(SyncFilterRepositoryInterface::class)
+            );
         });
 
         // LDAP utilities

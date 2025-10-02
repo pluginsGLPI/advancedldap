@@ -106,17 +106,9 @@ if (isset($_POST["add"])) {
     if ($ldap_base_dn && $ldap_connection_filter) {
         // If no authldap_id provided, try to get one from the system
         if (!$authldap_id) {
-            global $DB;
-            $iterator = $DB->request([
-                'SELECT' => ['id'],
-                'FROM' => 'glpi_authldaps',
-                'WHERE' => ['is_active' => 1],
-                'LIMIT' => 1,
-            ]);
-            foreach ($iterator as $data) {
-                $authldap_id = $data['id'];
-                break;
-            }
+            $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+            $authldap_id = $repository->getFirstActiveAuthLdapId();
         }
         // Redirect back to the form with test parameters
         $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $syncfilter_id;
