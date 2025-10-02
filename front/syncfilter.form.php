@@ -60,10 +60,10 @@ if (isset($_POST["add"])) {
             // Build correct redirect URL (not using getLinkURL which points to wrong path)
             $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
 
-            // Preserve authldap_id if it was provided
-            $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? '';
-            if (!empty($authldap_id)) {
-                $redirect_url .= "&authldap_id=" . urlencode($authldap_id);
+            // Preserve authldap_id if it was provided - use Toolbox::cleanInteger for security
+            $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+            if ($authldap_id > 0) {
+                $redirect_url .= "&authldap_id=" . $authldap_id;
             }
 
             Html::redirect($redirect_url);
@@ -73,14 +73,14 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST["purge"])) {
     $syncfilter->check($_POST['id'], PURGE);
 
-    // Get authldap_id from POST data or URL before deletion
-    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? null;
+    // Get authldap_id from POST data or URL before deletion - use Toolbox::cleanInteger for security
+    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
 
     if ($syncfilter->delete($_POST, true)) {
 
         // Redirect to parent AuthLDAP if we have the ID
-        if ($authldap_id) {
-            Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id));
+        if ($authldap_id > 0) {
+            Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . $authldap_id);
         } else {
             $syncfilter->redirectToList();
         }
@@ -94,8 +94,8 @@ if (isset($_POST["add"])) {
     Html::back();
 } elseif (isset($_POST['test_ldap_filter'])) {
     // Handle LDAP filter test
-    $syncfilter_id = $_POST['id'] ?? 0;
-    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0;
+    $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);
+    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
     $ldap_base_dn = trim($_POST['base_dn'] ?? '');
     $ldap_connection_filter = trim($_POST['ldap_filter'] ?? '');
     $asset_type = $_POST['asset_type'] ?? '';
@@ -126,11 +126,11 @@ if (isset($_POST["add"])) {
     }
 } elseif (isset($_POST['sync_from_ldap'])) {
     // Handle LDAP synchronization
-    $syncfilter_id = $_POST['id'] ?? 0;
-    $authldap_id = $_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0;
+    $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);
+    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
 
     // Validate required parameters
-    if (!$syncfilter_id || !$authldap_id) {
+    if ($syncfilter_id <= 0 || $authldap_id <= 0) {
         Session::addMessageAfterRedirect(__('Sync filter ID and AuthLDAP ID are required for synchronization', 'advancedldap'), false, ERROR);
         Html::back();
         exit;

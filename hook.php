@@ -118,23 +118,25 @@ function plugin_advancedldap_uninstall(): bool
  * Filters SyncFilters by AuthLDAP when authldap_id parameter is present
  *
  * @param string $itemtype Item type being searched
- * @return string Additional WHERE clause
+ * @return array<string, mixed>|string Additional WHERE clause in iterator format or empty string
  */
-function plugin_advancedldap_addDefaultWhere($itemtype): string
+function plugin_advancedldap_addDefaultWhere($itemtype)
 {
     // Handle both legacy and namespaced class names
     if ($itemtype === 'PluginAdvancedldapSyncFilter' || $itemtype === 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter') {
 
-        // Check if we have an authldap_id parameter in GET
-        if (isset($_GET['authldap_id']) && intval($_GET['authldap_id']) > 0) {
-            $authldap_id = intval($_GET['authldap_id']);
+        // Clean and validate authldap_id parameter using GLPI native function
+        $authldap_id = Toolbox::cleanInteger($_GET['authldap_id'] ?? 0);
 
-            // Return WHERE clause to filter sync filters by AuthLDAP
-            return " `glpi_plugin_advancedldap_syncfilters`.`id` IN (
-                SELECT `syncfilter_id`
-                FROM `glpi_plugin_advancedldap_authldap_syncfilters`
-                WHERE `authldap_id` = $authldap_id
-            ) ";
+        if ($authldap_id > 0) {
+            // Return WHERE clause in iterator format with QuerySubQuery for SQL injection protection
+            return [
+                'glpi_plugin_advancedldap_syncfilters.id' => new QuerySubQuery([
+                    'SELECT' => 'syncfilter_id',
+                    'FROM'   => 'glpi_plugin_advancedldap_authldap_syncfilters',
+                    'WHERE'  => ['authldap_id' => $authldap_id]
+                ])
+            ];
         }
     }
 
