@@ -629,6 +629,7 @@ class SyncFilter extends CommonDBTM
             'inventory_enabled' => $metadata['inventory_enabled'],
             'inventory_config_url' => $metadata['inventory_config_url'],
             'ldap_connection_status' => $metadata['ldap_connection_status'],
+            'authldap_active_status' => $metadata['authldap_active_status'],
         ]);
 
         return true;
@@ -731,10 +732,14 @@ class SyncFilter extends CommonDBTM
         // Check LDAP connection status
         $ldap_connection_status = $form_helper->checkLdapConnectionStatus($authldap_id);
 
+        // Check AuthLDAP active status
+        $authldap_active_status = $form_helper->checkAuthLdapActiveStatus($authldap_id);
+
         return [
             'inventory_enabled' => $inventory_enabled,
             'inventory_config_url' => $inventory_config_url,
             'ldap_connection_status' => $ldap_connection_status,
+            'authldap_active_status' => $authldap_active_status,
         ];
     }
 

@@ -195,4 +195,27 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
 
         return $first_id;
     }
+
+    /**
+     * Check if an AuthLDAP server is active
+     *
+     * @param int|null $authldap_id AuthLDAP server ID
+     * @return array<string, mixed> Status information with 'is_active' and 'server_name' keys
+     */
+    public function checkAuthLdapActiveStatus(?int $authldap_id): array
+    {
+        if (!$authldap_id) {
+            return ['is_active' => true, 'server_name' => null];
+        }
+
+        $authldap = new AuthLDAP();
+        if (!$authldap->getFromDB($authldap_id)) {
+            return ['is_active' => true, 'server_name' => null];
+        }
+
+        return [
+            'is_active' => (bool) ($authldap->fields['is_active'] ?? true),
+            'server_name' => $authldap->fields['name'] ?? null,
+        ];
+    }
 }
