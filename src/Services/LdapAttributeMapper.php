@@ -34,7 +34,6 @@
 namespace GlpiPlugin\Advancedldap\Services;
 
 use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
-use Toolbox;
 
 /**
  * Service for mapping GLPI fields to LDAP attributes

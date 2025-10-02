@@ -31,6 +31,7 @@
  * -------------------------------------------------------------------------
  */
 
+use Glpi\DBAL\QuerySubQuery;
 
 /**
  * Plugin install process

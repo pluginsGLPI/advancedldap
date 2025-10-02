@@ -24,12 +24,14 @@ use DbTestCase;
  *
  * Tested methods:
  * - checkLdapConnectionStatus() - delegates to LdapConnectionInterface without logging
+ * - checkAuthLdapActiveStatus() - checks if AuthLDAP server is active
  */
 class SyncFilterFormHelperTest extends DbTestCase
 {
     private $formHelper;
     private $repository;
     private $ldapConnectionService;
+    private $authldap;
 
     public function setUp(): void
     {
@@ -44,6 +46,9 @@ class SyncFilterFormHelperTest extends DbTestCase
             $this->repository,
             $this->ldapConnectionService,
         );
+
+        // Create AuthLDAP instance for tests
+        $this->authldap = new \AuthLDAP();
     }
 
 
@@ -95,6 +100,81 @@ class SyncFilterFormHelperTest extends DbTestCase
 
         // Assert
         $this->assertEquals($expectedStatus, $result);
+    }
+
+    /**
+     * Test checkAuthLdapActiveStatus with null authldap_id
+     * Should return is_active=true and server_name=null when no ID provided
+     */
+    public function testCheckAuthLdapActiveStatusWithNullId()
+    {
+        // Act
+        $result = $this->formHelper->checkAuthLdapActiveStatus(null);
+
+        // Assert
+        $this->assertTrue($result['is_active']);
+        $this->assertNull($result['server_name']);
+    }
+
+    /**
+     * Test checkAuthLdapActiveStatus with active AuthLDAP server
+     * Should return is_active=true with server name
+     */
+    public function testCheckAuthLdapActiveStatusWithActiveServer()
+    {
+        // Arrange - Create an active AuthLDAP server
+        $authldap_id = $this->authldap->add([
+            'name' => 'Test Active Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+
+        // Act
+        $result = $this->formHelper->checkAuthLdapActiveStatus($authldap_id);
+
+        // Assert
+        $this->assertTrue($result['is_active']);
+        $this->assertEquals('Test Active Server', $result['server_name']);
+    }
+
+    /**
+     * Test checkAuthLdapActiveStatus with inactive AuthLDAP server
+     * Should return is_active=false with server name
+     */
+    public function testCheckAuthLdapActiveStatusWithInactiveServer()
+    {
+        // Arrange - Create an inactive AuthLDAP server
+        $authldap_id = $this->authldap->add([
+            'name' => 'Test Inactive Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 0,
+        ]);
+
+        // Act
+        $result = $this->formHelper->checkAuthLdapActiveStatus($authldap_id);
+
+        // Assert
+        $this->assertFalse($result['is_active']);
+        $this->assertEquals('Test Inactive Server', $result['server_name']);
+    }
+
+    /**
+     * Test checkAuthLdapActiveStatus with non-existent AuthLDAP ID
+     * Should return is_active=true and server_name=null when server doesn't exist
+     */
+    public function testCheckAuthLdapActiveStatusWithNonExistentId()
+    {
+        // Arrange - Use a non-existent ID
+        $nonExistentId = 99999;
+
+        // Act
+        $result = $this->formHelper->checkAuthLdapActiveStatus($nonExistentId);
+
+        // Assert
+        $this->assertTrue($result['is_active']);
+        $this->assertNull($result['server_name']);
     }
 
 }

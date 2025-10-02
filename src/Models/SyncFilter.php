@@ -461,7 +461,7 @@ class SyncFilter extends CommonDBTM
         switch ($ma->getAction()) {
             case 'duplicate':
                 echo "&nbsp;" . Html::submit(_x('button', 'Duplicate'), ['name' => 'massiveaction'])
-                     . "&nbsp;" . __('Create duplicates of selected filters', 'advancedldap');
+                     . "&nbsp;" . htmlspecialchars(__('Create duplicates of selected filters', 'advancedldap'), ENT_QUOTES, 'UTF-8');
                 return true;
 
             default:
@@ -595,13 +595,13 @@ class SyncFilter extends CommonDBTM
     {
         $this->initForm($ID, $options);
 
-        // 1. Resolve parent AuthLDAP from options or existing relations
+        // Resolve parent AuthLDAP from options or existing relations
         $authldap_context = $this->resolveParentAuthLdap($ID, $options);
 
-        // 2. Prepare form data (services, dropdowns, configuration)
+        // Prepare form data (services, dropdowns, configuration)
         $form_data = $this->prepareFormData($ID, $authldap_context['current_authldap_id']);
 
-        // 3. Handle test request if present
+        // Handle test request if present
         $test_results = $this->handleTestRequest($form_data['current_config']);
 
         // Update authldap_id if test request changed it
@@ -609,14 +609,14 @@ class SyncFilter extends CommonDBTM
             $authldap_context['current_authldap_id'] = intval($_GET['test_authldap_id']);
         }
 
-        // 4. Collect form metadata (inventory status, LDAP connection)
+        // Collect form metadata (inventory status, LDAP connection)
         $metadata = $this->collectFormMetadata(
             $authldap_context['current_authldap_id'],
             $form_data['form_helper'],
             $form_data['config_service']
         );
 
-        // 5. Render template with all collected data
+        // Render template with all collected data
         \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
             'item' => $this,
             'params' => $options,

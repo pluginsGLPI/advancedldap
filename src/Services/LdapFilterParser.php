@@ -34,7 +34,6 @@
 namespace GlpiPlugin\Advancedldap\Services;
 
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
-use Toolbox;
 
 use function Safe\preg_match;
 use function Safe\preg_match_all;

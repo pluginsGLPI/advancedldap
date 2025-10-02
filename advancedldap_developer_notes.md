@@ -2,7 +2,7 @@
 
 Ce document présente l'architecture technique du plugin Advanced LDAP et les bonnes pratiques pour le développer.
 
-**Dernière mise à jour : 30 septembre 2025**
+**Dernière mise à jour : 2 octobre 2025**
 
 ## Vue d'Ensemble
 
@@ -148,7 +148,7 @@ Modèle principal des filtres de synchronisation LDAP :
   - URLs personnalisées (`getSearchURL()`, `getFormURL()`)
   - Redirection intelligente vers AuthLDAP parent après suppression
   - Massive action "duplicate" avec duplication des relations
-  - Formulaire complexe en 5 étapes (voir méthode `showForm()`)
+  - Formulaire principal (voir méthode `showForm()`)
 
 **Champs principaux** :
 ```php
@@ -206,7 +206,7 @@ Tests et validation des filtres LDAP en temps réel :
 - **Validation** : Test before save pour éviter erreurs de synchronisation
 
 ##### **LdapInventoryService** (`src/Services/LdapInventoryService.php`)
-Intégration avec le système d'inventaire natif GLPI (nouveau) :
+Intégration avec le système d'inventaire natif GLPI :
 - **Conversion** : Utilise `LdapToInventoryConverter` pour transformer LDAP → JSON
 - **Envoi** : Appelle `Inventory::sendInventory()` avec JSON formaté
 - **Workflow** : Respecte le cycle complet inventaire GLPI (règles, fusion, etc.)
@@ -215,7 +215,7 @@ Intégration avec le système d'inventaire natif GLPI (nouveau) :
 Conversion données LDAP vers format JSON attendu par `Inventory::sendInventory()` :
 - **Format** : Respect spec JSON inventaire GLPI
 - **Mapping** : Attributs LDAP → Sections inventaire
-- **Types supportés** : Computer, NetworkEquipment, Printer, etc.
+- **Types supportés** : Computer, NetworkEquipment, Printer, cf : https://github.com/glpi-project/glpi/blob/11.0/bugfixes/src/autoload/CFG_GLPI.php#L443-L448
 
 ##### **LdapFilterParser** (`src/Services/LdapFilterParser.php`)
 Parsing et validation des filtres LDAP selon RFC 4515 :
@@ -432,22 +432,31 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 
 ## Fichiers Clés
 
-### **Configuration**
-- `setup.php` : Déclaration du plugin, hooks, métadonnées
-- `hook.php` : Installation, désinstallation, mise à jour
+### **Configuration & Hooks**
+- `setup.php` : Déclaration du plugin, enregistrement hooks et classes
+  - `plugin_init_advancedldap()` : Initialisation hooks, tabs, massive actions
+  - `plugin_version_advancedldap()` : Métadonnées (nom, version, compatibilité GLPI)
+  - `plugin_advancedldap_check_prerequisites()` : Vérification prérequis installation
+  - Enregistrement des alias legacy pour compatibilité Search GLPI 11
+- `hook.php` : Installation, désinstallation, hooks
+  - `plugin_advancedldap_install()` : Création tables BDD
+  - `plugin_advancedldap_uninstall()` : Suppression tables BDD
+  - `plugin_advancedldap_addDefaultWhere()` : Filtrage contextuel (AuthLDAP → SyncFilters)
+  - `plugin_advancedldap_MassiveActions()` : Déclaration massive action "duplicate"
 
 ### **Interface Utilisateur**
-- `front/config.form.php` : Configuration et test des filtres LDAP
-- `front/syncfilter.php` : Liste des filtres (Search::show)
-- `front/syncfilter.form.php` : CRUD complet des filtres
-- `templates/` : Templates Twig pour l'affichage
-- `ajax/getAssetFields.php` : Récupération dynamique des champs
+- `front/syncfilter.php` : Page liste des filtres (utilise Search::show)
+- `front/syncfilter.form.php` : Page CRUD complète (add, update, delete, test, sync)
+- `templates/syncfilter_form.html.twig` : Formulaire édition SyncFilter
+- `templates/syncfilters_list.html.twig` : Liste filtres dans onglet AuthLDAP
+- `ajax/getAssetFields.php` : Endpoint AJAX pour chargement dynamique champs d'assets
 
 ### **Points d'Entrée**
-- `Bootstrap::createAdvancedLdapSync()` : Création d'instance complète
-- `ServiceContainer::getInstance()` : Accès direct aux services
-- `AdvancedLdapSync::displayTabContentForItem()` : Affichage onglet principal synchronisation
-- `AdvancedLdapSync::getTabNameForItem()` : Déclaration d'un seul onglet "Items to synchronize"
+- `Bootstrap::getContainer()` : Accès au conteneur de services (singleton)
+- `Bootstrap::createAdvancedLdapSync()` : Factory pour contrôleur principal avec DI
+- `ServiceContainer::getInstance()` : Accès direct au conteneur de services
+- `AdvancedLdapSync::displayTabContentForItem()` : Affichage onglet "Advanced sync" dans AuthLDAP
+- `AdvancedLdapSync::getTabNameForItem()` : Déclaration onglet avec icône et badge compteur
 
 ## Sécurité et Performance
 
@@ -473,16 +482,23 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 ## Dépendances
 
 ### **GLPI Core Uniquement**
-- Classes natives : `AuthLDAP`, `Config`, `CommonGLPI`, etc.
-- Base de données : via `$DB` global encapsulé
-- Configuration : via `$CFG_GLPI` global encapsulé
-- Templates : Système Twig de GLPI
+- Classes natives : `AuthLDAP`, `Config`, `CommonGLPI`, `CommonDBTM`, `CommonDBRelation`, `MassiveAction`, `Search`, etc.
+- Base de données : via `$DB` global encapsulé dans `GlpiDatabaseService`
+- Configuration : via `$CFG_GLPI` global encapsulé dans `GlpiConfigurationService`
+- Templates : Système Twig de GLPI (`TemplateRenderer`)
+- Inventaire : API `Inventory::sendInventory()` pour workflow natif
 
 ### **PHP 8.2+**
-- Types de propriétés
-- Promotion de constructeur
-- Expressions match
-- Attributs de méthode
+- Types de propriétés stricts (`private ServiceContainer $container`)
+- Promotion de constructeur (`public function __construct(private readonly string $field)`)
+- Expressions match (pour classification des assets)
+- Attributs de méthode et classes
+- Readonly properties pour immutabilité
+
+### **Composer**
+- Fichier `composer.json` minimaliste
+- Dépendances dev : `glpi-project/tools` (pour analyse statique et tests)
+- Pas de dépendances runtime (seulement GLPI core)
 
 Le plugin est **autonome** et ne nécessite aucune dépendance externe hormis GLPI.
 
@@ -491,25 +507,35 @@ Le plugin est **autonome** et ne nécessite aucune dépendance externe hormis GL
 
 #### **glpi_plugin_advancedldap_syncfilters**
 Stockage des filtres de synchronisation LDAP :
-- `id` : Identifiant unique
-- `name` : Nom du filtre  
-- `ldap_filter` : Filtre LDAP (ex: (&(objectClass=device)(serialNumber=*)))
-- `base_dn` : DN de base pour la recherche
-- `asset_type` : Type d'asset GLPI ciblé
-- `field_mappings` : Mappages champ LDAP → champ GLPI (JSON)
-- `is_active` : Statut actif/inactif
-- `date_creation`, `date_mod` : Horodatage
+- `id` (int unsigned) : Identifiant unique, PRIMARY KEY
+- `name` (varchar 255) : Nom du filtre
+- `ldap_filter` (text) : Filtre LDAP (ex: (&(objectClass=device)(serialNumber=*)))
+- `base_dn` (varchar 255) : DN de base pour la recherche
+- `asset_type` (varchar 255) : Type d'asset GLPI ciblé (Computer, Monitor, etc.)
+- `field_mappings` (longtext) : Mappages champ LDAP → champ GLPI (format JSON)
+- `is_active` (tinyint) : Statut actif/inactif (défaut 1)
+- `date_creation` (timestamp) : Date de création
+- `date_mod` (timestamp) : Date de dernière modification
 
-#### **glpi_plugin_advancedldap_authldap_syncfilters** 
+**Index** : name, is_active, asset_type, date_creation, date_mod
+**Engine** : InnoDB, CHARSET utf8mb4_unicode_ci
+
+#### **glpi_plugin_advancedldap_authldap_syncfilters**
 Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
-- `id` : Identifiant unique
-- `authldap_id` : Référence vers glpi_authldaps
-- `syncfilter_id` : Référence vers les filtres
-- `is_active` : Statut de la relation
-- `date_creation` : Horodatage
+- `id` (int unsigned) : Identifiant unique, PRIMARY KEY
+- `authldap_id` (int unsigned) : Référence vers glpi_authldaps (défaut 0)
+- `syncfilter_id` (int unsigned) : Référence vers les filtres (défaut 0)
+- `is_active` (tinyint) : Statut de la relation (défaut 1)
+- `date_creation` (timestamp) : Date de création de la liaison
+
+**Contraintes** :
+- UNIQUE KEY `unicity` (authldap_id, syncfilter_id) : Empêche les doublons
+- KEY authldap_id, syncfilter_id, is_active, date_creation
+
+**Engine** : InnoDB, CHARSET utf8mb4_unicode_ci
 
 
-## État Actuel du Plugin (30 Septembre 2025)
+## État Actuel du Plugin (2 Octobre 2025)
 
 ### ✅ **Architecture Complète et Opérationnelle**
 
@@ -524,73 +550,78 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 - ✅ **Legacy compatibility** : Alias automatiques pour Search GLPI 11
 
 #### **Frontend (100% fonctionnel)**
-- ✅ **Onglet AuthLDAP** : "Advanced sync" avec badge comptage intégré
-- ✅ **2 Templates Twig** : Liste, formulaire CRUD
-- ✅ **2 Pages front** : Liste (syncfilter.php), CRUD (syncfilter.form.php)
+- ✅ **Onglet AuthLDAP** : "Advanced sync" avec badge comptage intégré (icône `ti ti-filter`)
+- ✅ **2 Templates Twig** :
+  - `syncfilters_list.html.twig` : Liste filtres dans onglet AuthLDAP
+  - `syncfilter_form.html.twig` : Formulaire édition avec 5 étapes
+- ✅ **2 Pages front** :
+  - `front/syncfilter.php` : Liste via Search::show
+  - `front/syncfilter.form.php` : CRUD complet avec actions multiples
 - ✅ **1 Endpoint AJAX** : Chargement dynamique champs assets (`ajax/getAssetFields.php`)
-- ✅ **Actions supportées** : add, update, delete, test_ldap, sync_from_ldap, duplicate (massive)
+- ✅ **Actions supportées** : add, update, delete, test_ldap, sync_from_ldap, duplicate (massive action)
+- ✅ **Filtrage contextuel** : Hook `addDefaultWhere` pour filtrer par AuthLDAP
 
 #### **Base de Données**
-- ✅ **Table principale** : `glpi_plugin_advancedldap_syncfilters` (10 colonnes)
-- ✅ **Table relation** : `glpi_plugin_advancedldap_authldap_syncfilters` (5 colonnes)
+- ✅ **Table principale** : `glpi_plugin_advancedldap_syncfilters` (9 colonnes + id)
+  - Champs : id, name, ldap_filter, base_dn, asset_type, field_mappings, is_active, date_creation, date_mod
+- ✅ **Table relation** : `glpi_plugin_advancedldap_authldap_syncfilters` (4 colonnes + id)
+  - Champs : id, authldap_id, syncfilter_id, is_active, date_creation
 - ✅ **Contrainte unicité** : UNIQUE KEY `unicity` (authldap_id, syncfilter_id)
-- ✅ **Indexes** : Optimisation requêtes (name, is_active, asset_type, dates)
-- ✅ **Installation/Désinstallation** : Gestion automatique via `hook.php`
+- ✅ **Indexes** : Optimisation requêtes (name, is_active, asset_type, dates, foreign keys)
+- ✅ **Installation/Désinstallation** : Gestion automatique via `plugin_advancedldap_install()` et `plugin_advancedldap_uninstall()`
+- ✅ **Engine** : InnoDB avec charset utf8mb4_unicode_ci pour support Unicode complet
 
 #### **Qualité de Code**
-- ✅ **PHP 8.2+** : Types stricts, promotion constructeur, readonly, match
+- ✅ **PHP 8.2+** : Types stricts, promotion constructeur, readonly properties, expressions match
 - ✅ **PSR-12** : Code style via `.php-cs-fixer.php`
 - ✅ **Analyse statique** : Psalm configuré (`psalm.xml`)
-- ✅ **Tests unitaires** : 18 fichiers de tests, bootstrap configuré
-- ✅ **Documentation** : PHPDoc complet avec types, @param, @return
-- ✅ **Logs** : `Toolbox::logDebug()` dans tous les services critiques
+- ✅ **Tests unitaires** : 24 fichiers de tests (23 tests + 1 bootstrap)
+  - Tests pour tous les services, modèles, repositories, providers
+  - Bootstrap configuré avec autoload GLPI
+- ✅ **Documentation** : PHPDoc complet avec types, @param, @return, @throws
+- ✅ **Logs** : `Toolbox::logDebug()` dans tous les services critiques pour traçabilité
+- ✅ **Namespaces** : Organisation moderne `GlpiPlugin\Advancedldap\*` avec alias legacy
 
 #### **Fonctionnalités Avancées**
-- ✅ **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels
-- ✅ **Test LDAP temps réel** : Validation avant sauvegarde, aperçu résultats
+- ✅ **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels via `AssetTypeClassifier`
+- ✅ **Test LDAP temps réel** : Validation avant sauvegarde, aperçu résultats (action `test_ldap`)
 - ✅ **Mapping automatique** : Suggestion attributs LDAP via `LdapAttributeMapper` (RFC 4519)
-- ✅ **Parsing filtres** : Extraction attributs via `LdapFilterParser` (RFC 4515)
-- ✅ **Massive actions** : Duplication filtres avec relations associées
-- ✅ **Gestion erreurs** : Messages explicites, logs détaillés, fallbacks
+- ✅ **Parsing filtres** : Extraction et validation attributs via `LdapFilterParser` (RFC 4515)
+- ✅ **Massive actions** : Duplication filtres avec relations associées (action `duplicate`)
+- ✅ **Gestion erreurs** : Messages explicites, logs détaillés, fallbacks gracieux
+- ✅ **Injection de dépendances** : ServiceContainer avec lazy loading et factory pattern
+- ✅ **Conversion inventaire** : `LdapToInventoryConverter` pour format JSON natif GLPI
+- ✅ **Workflows hybrides** : Support simultané CommonDBTM (legacy) et Inventory API (moderne)
 
----
 
-### 📊 **Statistiques du Plugin**
-
-| Catégorie | Détails |
-|-----------|---------|
-| **Fichiers PHP** | 34 fichiers (src/ + front/ + tests/) |
-| **Lignes de code** | ~8 500 lignes (hors vendor, tests) |
-| **Services métier** | 16 services organisés |
-| **Interfaces** | 9 contrats |
-| **Modèles** | 2 classes (SyncFilter, AuthLdapSyncFilter) |
-| **Templates Twig** | 2 templates |
-| **Tests unitaires** | 18 fichiers de tests |
-| **Dépendances externes** | 0 (uniquement GLPI core) |
-
----
 
 ### 🔍 **Code Mort & Fichiers Deprecated**
+
+#### **État actuel (02/10/2025)**
+- ✅ **Aucun code mort détecté**
+- ✅ Tous les services sont enregistrés et utilisés dans ServiceContainer
+- ✅ Tous les contrats ont une implémentation active
+- ✅ Toutes les méthodes publiques sont utilisées
+- ✅ Architecture cohérente sans redondance
 
 #### **Fichiers deprecated supprimés (30/09/2025)**
 - ✅ ~~`front/config.form.php`~~ : Remplacé par `syncfilter.form.php` → **SUPPRIMÉ**
 - ✅ ~~`templates/ldap_sync.html.twig`~~ : Remplacé par `syncfilter_form.html.twig` → **SUPPRIMÉ**
 
-#### **Services inutilisés (potentiellement)**
-- ⚠️ `LdapDataExtractor` : Utilisé uniquement dans LdapTestService et LdapToInventoryConverter
-- ⚠️ `LdapParameterValidator` : Utilisé uniquement dans LdapSyncService et LdapTestService
-
-**Note** : Ces services centralisent la logique et évitent la duplication → À CONSERVER
-
-#### **Aucun code mort détecté**
-- ✅ Tous les services sont enregistrés dans ServiceContainer
-- ✅ Tous les contrats ont une implémentation active
-- ✅ Toutes les méthodes publiques sont utilisées
-- ✅ Architecture cohérente sans redondance
+#### **Services utilitaires centralisés (à conserver)**
+- ✅ `LdapDataExtractor` : Centralise l'extraction de données LDAP (utilisé par LdapTestService et LdapToInventoryConverter)
+- ✅ `LdapParameterValidator` : Centralise la validation paramètres (utilisé par LdapSyncService et LdapTestService)
+- **Justification** : Ces services évitent la duplication de code et suivent le principe DRY (Don't Repeat Yourself)
 
 ---
 
 ### 📈 **Évolutions Récentes**
+
+#### **02/10/2025 - Mise à jour documentation**
+- ✅ Actualisation statistiques : 24 tests unitaires (au lieu de 18)
+- ✅ Décompte précis des fichiers : 35 fichiers src/ + 2 front/ + 1 ajax/
+- ✅ Ajout informations manquantes (repositories, providers, factory)
+- ✅ Vérification cohérence de l'architecture
 
 #### **30/09/2025 - Documentation complète + Nettoyage**
 - ✅ Analyse exhaustive de l'architecture (35 fichiers)
@@ -598,7 +629,7 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 - ✅ Cartographie complète : modèles, services, repositories, providers, infra
 - ✅ Identification et suppression fichiers deprecated (2 fichiers)
 - ✅ Statistiques détaillées du plugin
-- ✅ Code base nettoyée : 34 fichiers PHP actifs (hors tests)
+- ✅ Code base nettoyée : 35 fichiers PHP actifs (hors tests)
 
 #### **Refactorisation SRP - SyncFilter (septembre 2025)**
 - ✅ Extraction 3 services spécialisés (LdapFilterParser, LdapAttributeMapper, SyncFilterFormHelper)
