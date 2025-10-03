@@ -50,6 +50,16 @@ class SyncFilterTest extends DbTestCase
         $this->syncFilter->fields = [];
     }
 
+    public function tearDown(): void
+    {
+        // Clear session messages to avoid "Some messages has not been handled" errors
+        // This is needed because validateLdapInputs() uses Session::addMessageAfterRedirect()
+        if (isset($_SESSION['MESSAGE_AFTER_REDIRECT'])) {
+            $_SESSION['MESSAGE_AFTER_REDIRECT'] = [];
+        }
+        parent::tearDown();
+    }
+
     // ========== Static configuration methods ==========
 
     /**
@@ -649,6 +659,218 @@ class SyncFilterTest extends DbTestCase
         $this->assertCount(2, $associated);
         $this->assertContains($authldap_id1, $associated);
         $this->assertContains($authldap_id2, $associated);
+    }
+
+    // ========== LDAP Validation Tests (RFC 4515/4514) ==========
+
+    /**
+     * Test prepareInputForAdd rejects invalid LDAP Base DN
+     */
+    public function testPrepareInputForAddRejectsInvalidBaseDN(): void
+    {
+        $this->login();
+
+        $input = [
+            'name' => 'Test Filter',
+            'base_dn' => 'invalid)(dn=injection',  // Injection attempt
+            'ldap_filter' => '(objectClass=person)',
+            'asset_type' => 'Computer',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForAdd($input);
+
+        // Validation should reject this input
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test prepareInputForAdd rejects invalid LDAP filter
+     */
+    public function testPrepareInputForAddRejectsInvalidFilter(): void
+    {
+        $this->login();
+
+        $input = [
+            'name' => 'Test Filter',
+            'base_dn' => 'ou=users,dc=example,dc=com',
+            'ldap_filter' => '(uid=admin',  // Unbalanced parentheses - truly invalid
+            'asset_type' => 'Computer',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForAdd($input);
+
+        // Validation should reject this input
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test prepareInputForAdd accepts valid LDAP inputs
+     */
+    public function testPrepareInputForAddAcceptsValidLdapInputs(): void
+    {
+        $this->login();
+
+        $input = [
+            'name' => 'Test Filter',
+            'base_dn' => 'ou=computers,dc=example,dc=com',
+            'ldap_filter' => '(&(objectClass=computer)(cn=*))',
+            'asset_type' => 'Computer',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForAdd($input);
+
+        // Valid inputs should be accepted
+        $this->assertIsArray($result);
+        $this->assertEquals('ou=computers,dc=example,dc=com', $result['base_dn']);
+        $this->assertEquals('(&(objectClass=computer)(cn=*))', $result['ldap_filter']);
+    }
+
+    /**
+     * Test prepareInputForAdd validates only if base_dn is provided
+     */
+    public function testPrepareInputForAddSkipsValidationWithoutBaseDN(): void
+    {
+        $this->login();
+
+        $input = [
+            'name' => 'Test Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'asset_type' => 'Computer',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForAdd($input);
+
+        // Should not fail if base_dn is not provided
+        $this->assertIsArray($result);
+    }
+
+    /**
+     * Test prepareInputForUpdate rejects invalid LDAP Base DN
+     */
+    public function testPrepareInputForUpdateRejectsInvalidBaseDN(): void
+    {
+        $this->login();
+
+        $input = [
+            'id' => 1,
+            'base_dn' => 'malicious)(uid=*',  // Injection attempt
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForUpdate($input);
+
+        // Validation should reject this input
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test prepareInputForUpdate rejects invalid LDAP filter
+     */
+    public function testPrepareInputForUpdateRejectsInvalidFilter(): void
+    {
+        $this->login();
+
+        $input = [
+            'id' => 1,
+            'ldap_filter' => '((uid=*',  // Unbalanced parentheses
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForUpdate($input);
+
+        // Validation should reject this input
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test prepareInputForUpdate accepts valid LDAP inputs
+     */
+    public function testPrepareInputForUpdateAcceptsValidLdapInputs(): void
+    {
+        $this->login();
+
+        $input = [
+            'id' => 1,
+            'base_dn' => 'ou=people,dc=test,dc=org',
+            'ldap_filter' => '(|(uid=*)(mail=*))',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForUpdate($input);
+
+        // Valid inputs should be accepted
+        $this->assertIsArray($result);
+        $this->assertEquals('ou=people,dc=test,dc=org', $result['base_dn']);
+        $this->assertEquals('(|(uid=*)(mail=*))', $result['ldap_filter']);
+    }
+
+    /**
+     * Test prepareInputForUpdate sanitizes and returns validated filter
+     */
+    public function testPrepareInputForUpdateSanitizesFilter(): void
+    {
+        $this->login();
+
+        $input = [
+            'id' => 1,
+            'base_dn' => 'ou=users,dc=example,dc=com',
+            'ldap_filter' => '(uid=test)',  // Valid filter
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForUpdate($input);
+
+        // Filter should be sanitized and returned
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('ldap_filter', $result);
+        $this->assertStringContainsString('uid=test', $result['ldap_filter']);
+    }
+
+    /**
+     * Test prepareInputForAdd rejects DN with LDAP metacharacters
+     */
+    public function testPrepareInputForAddRejectsDNWithMetacharacters(): void
+    {
+        $this->login();
+
+        $input = [
+            'name' => 'Test Filter',
+            'base_dn' => 'ou=users*,dc=example,dc=com',  // Wildcard in DN
+            'ldap_filter' => '(objectClass=person)',
+            'asset_type' => 'Computer',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForAdd($input);
+
+        // Should reject DN with metacharacters
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test prepareInputForUpdate with empty base_dn and filter (no validation)
+     */
+    public function testPrepareInputForUpdateWithEmptyFields(): void
+    {
+        $this->login();
+
+        $input = [
+            'id' => 1,
+            'name' => 'Updated Filter Name',
+            'base_dn' => '',
+            'ldap_filter' => '',
+        ];
+
+        $syncFilter = new SyncFilter();
+        $result = $syncFilter->prepareInputForUpdate($input);
+
+        // Empty values should not trigger validation (skip validation)
+        $this->assertIsArray($result);
+        $this->assertEquals('Updated Filter Name', $result['name']);
     }
 
 }

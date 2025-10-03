@@ -1,0 +1,10 @@
+# Ignore vendor directory in tests (use GLPI's vendor instead)
+vendor/
+
+# Ignore PHPUnit cache
+.phpunit.result.cache
+.phpunit.cache/
+
+# Ignore coverage reports
+coverage/
+*.coverage

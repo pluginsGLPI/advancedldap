@@ -2,7 +2,7 @@
 
 Ce document présente l'architecture technique du plugin Advanced LDAP et les bonnes pratiques pour le développer.
 
-**Dernière mise à jour : 2 octobre 2025**
+**Dernière mise à jour : 3 octobre 2025**
 
 ## Vue d'Ensemble
 
@@ -212,12 +212,45 @@ Intégration avec le système d'inventaire natif GLPI :
 - **Conversion** : Utilise `LdapToInventoryConverter` pour transformer LDAP → JSON
 - **Envoi** : Appelle `Inventory::sendInventory()` avec JSON formaté
 - **Workflow** : Respecte le cycle complet inventaire GLPI (règles, fusion, etc.)
+- **Détection d'échec silencieux** : Vérifie `$assetId = $item->getID()` après inventaire
+  - Si `$assetId <= 0` → Échec de création
+  - Appel à `getMinimumFieldRequirements($itemtype)` pour obtenir les exigences
+  - Message explicite : "Inventory system could not create/update asset. Insufficient field mappings. For {itemtype}, you need at least: {requirements}"
+
+**Exigences minimales par type d'asset** :
+- **Computer** : Name (requis pour identification)
+- **NetworkEquipment** : Name + Serial Number OU MAC Address (identification unique)
+- **Printer** : Name (requis)
+- **Phone** : Name + Serial Number (recommandé pour identification unique)
+- **Défaut** : Name + unique identifier (Serial Number, MAC Address, etc.)
 
 ##### **LdapToInventoryConverter** (`src/Services/LdapToInventoryConverter.php`)
 Conversion données LDAP vers format JSON attendu par `Inventory::sendInventory()` :
 - **Format** : Respect spec JSON inventaire GLPI
 - **Mapping** : Attributs LDAP → Sections inventaire
 - **Types supportés** : Computer, NetworkEquipment, Printer, cf : https://github.com/glpi-project/glpi/blob/11.0/bugfixes/src/autoload/CFG_GLPI.php#L443-L448
+- **Respect strict des Field Mappings** : Seuls les champs LDAP configurés dans les field mappings sont utilisés
+
+**Nouvelle méthode** : `isFieldAllowed(string $ldapField, array $fieldMappings): bool`
+
+**Logique de filtrage** :
+1. Si `$fieldMappings` est vide → Tous les champs LDAP autorisés (backward compatibility)
+2. Champs critiques TOUJOURS autorisés : `cn`, `name`, `displayname`, `samaccountname` (requis pour création assets)
+3. Pour les autres champs → Vérification dans `$fieldMappings`
+
+**Application dans toutes les méthodes de conversion** :
+- `buildHardwareSection()` : UUID, chassis_type, memory
+- `buildNetworkDeviceSection()` : Serial, manufacturer, model, firmware, MAC, IP, location, contact
+- `buildComputerSpecificSections()` : Operating system, memory
+- `buildNetworkEquipmentSections()` : Firmware
+- `buildPrinterSections()` : Driver, serial, description
+- `buildBiosSection()` : Manufacturer, version, date, model, serial, motherboard
+- `buildNetworkSection()` : IP, MAC, description
+
+**Impact** :
+- Les assets créés via inventaire contiennent UNIQUEMENT les champs configurés
+- Évite la création d'assets avec des données non souhaitées
+- Respect de la configuration utilisateur
 
 ##### **LdapFilterParser** (`src/Services/LdapFilterParser.php`)
 Parsing et validation des filtres LDAP selon RFC 4515 :
@@ -249,6 +282,35 @@ Extraction et normalisation des données depuis entrées LDAP :
   - `src/Services/GlpiLdapConnectionService.php:187-196` - Validation avant recherche LDAP
 
 **Tests** : 66 tests unitaires couvrant tous les cas d'injection et RFC compliance
+
+##### **Workflow de Test LDAP Sécurisé**
+
+**Règle fondamentale** : Le filtre doit être sauvegardé avant test
+
+Le workflow de test a été modifié pour des raisons de sécurité :
+
+**AVANT (vulnérable)** :
+- Les paramètres de test étaient passés via `$_GET` (authldap_id, base_dn, filter)
+- Possibilité de tester des filtres non validés
+
+**APRÈS (sécurisé)** :
+- Le filtre DOIT être sauvegardé en base (`$this->getID() > 0`)
+- TOUTES les données proviennent de la base de données
+- Validation stricte avant test :
+  - Base DN : récupéré depuis `$this->fields['base_dn']`
+  - Filtre LDAP : récupéré depuis `$this->fields['ldap_filter']`
+  - AuthLDAP : récupéré via `getParentAuthLdapId()`
+- Triple validation de sécurité appliquée (voir section Sécurité)
+
+**Impact utilisateur** :
+- Message explicite si tentative de test sur un filtre non sauvegardé
+- Bouton "Test LDAP Filter" désactivé pour les nouveaux filtres (ID = 0)
+- Texte d'aide : "Save your changes before testing to ensure accurate results"
+
+**Fichiers modifiés** :
+- `src/Models/SyncFilter.php` : Méthode `handleTestRequest()` complètement refactorisée (lignes 804-838)
+- `templates/syncfilter_form.html.twig` : Bouton POST → Lien GET, ajout texte d'aide (lignes 204-216)
+- `front/syncfilter.form.php` : Suppression de la gestion POST `test_ldap_filter` (lignes 272-304 supprimées)
 
 ---
 
@@ -339,6 +401,27 @@ Accès aux relations AuthLDAP ↔ SyncFilter :
   - `getSyncFiltersForAuthLdap()` : Filtres liés à un AuthLDAP
   - `createRelation()` : Création relation avec gestion unicity
   - `deleteRelation()` : Suppression relation
+
+**Correctif important** : Gestion correcte des itérateurs GLPI
+
+**Problème** : Utilisation incorrecte de `is_array()` sur des itérateurs GLPI retournés par `$this->database->request()`
+
+**Méthodes corrigées** :
+
+1. **getAuthLdapsForSyncFilter()** (lignes 649-669)
+   - **AVANT** : `if (!is_array($results))` + `array_column($results, 'authldap_id')`
+   - **APRÈS** : `if (!is_iterable($iterator))` + boucle `foreach` pour construire le tableau
+   - Respect des best practices GLPI (identique à `SyncFilterRepository`)
+
+2. **hasSyncFiltersForAuthLdap()** (lignes 676-696)
+   - **AVANT** : `if (!is_array($results))` + `!empty($results)`
+   - **APRÈS** : `if (!is_iterable($iterator))` + `foreach` avec `return true` au premier résultat
+   - Optimisation : arrêt dès qu'un résultat existe
+
+**Impact** :
+- Correction de bugs potentiels liés à la manipulation incorrecte des itérateurs
+- Cohérence avec `SyncFilterRepository`
+- Respect des conventions GLPI
 
 ---
 
@@ -466,6 +549,92 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 - `templates/syncfilter_form.html.twig` : Formulaire édition SyncFilter
 - `templates/syncfilters_list.html.twig` : Liste filtres dans onglet AuthLDAP
 - `ajax/getAssetFields.php` : Endpoint AJAX pour chargement dynamique champs d'assets
+
+#### **Améliorations de l'interface utilisateur**
+
+##### **1. Pré-sélection des champs obligatoires**
+
+**Template** : `syncfilter_form.html.twig`
+
+**Nouvelle fonctionnalité** : Pré-sélection automatique des champs obligatoires lors du changement de type d'asset
+
+**Objet JavaScript** : `minimumRequiredFields` (lignes 308-322)
+```javascript
+var minimumRequiredFields = {
+    'Computer': ['name'],
+    'NetworkEquipment': ['name', 'serial'],
+    'Printer': ['name'],
+    'Phone': ['name', 'serial']
+};
+```
+
+**Fonction JavaScript** : `getMinimumRequiredFields(itemtype)` (lignes 334-344)
+- Extrait le nom de classe depuis le namespace complet
+- Retourne les champs obligatoires pour le type donné
+
+**Workflow** :
+1. L'utilisateur sélectionne un type d'asset (Computer, NetworkEquipment, etc.)
+2. La fonction `loadAssetFields()` est appelée (ligne 346)
+3. Les champs obligatoires sont fusionnés avec les champs déjà sélectionnés (lignes 354-360)
+4. Appel AJAX pour charger les champs avec pré-sélection (ligne 362)
+5. Message d'information affiché : "Minimum required fields for {itemtype}: {fields}" (lignes 371-378)
+
+**Impact utilisateur** :
+- Guidage automatique pour éviter les erreurs de configuration
+- Message clair sur les champs requis
+- Gain de temps lors de la configuration
+
+##### **2. Simplification du workflow de test**
+
+**Template** : `syncfilter_form.html.twig`
+
+**AVANT** (lignes 204-208 supprimées) :
+```html
+<button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
+    <i class="ti ti-test-pipe"></i>
+    <span>{{ __('Test and Sync LDAP Filter', 'advancedldap') }}</span>
+</button>
+```
+
+**APRÈS** (lignes 204-216) :
+```twig
+{% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
+{% if current_authldap_id %}
+    {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
+{% endif %}
+<a href="{{ test_url }}" class="btn btn-info me-2">
+    <i class="ti ti-test-pipe"></i>
+    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+</a>
+<div class="form-text text-info mb-2">
+    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
+</div>
+```
+
+**Changements** :
+- Bouton POST → Lien GET (pas de soumission de formulaire)
+- Texte simplifié : "Test and Sync" → "Test LDAP Filter"
+- Ajout texte d'aide : "Save your changes before testing"
+- Construction URL avec paramètres `id` et `authldap_id`
+
+**Impact** :
+- Workflow plus clair et intuitif
+- Évite les soumissions de formulaire accidentelles
+- Message explicite sur la nécessité de sauvegarder avant test
+
+##### **3. Nettoyage des templates**
+
+**Template** : `syncfilters_list.html.twig`
+
+**Suppression** : Colonne "Actions" inutilisée (lignes 934-942 supprimées)
+- Suppression de la colonne `<th>{{ __('Actions') }}</th>`
+- Suppression des boutons "Test Filter" dans chaque ligne
+- Raison : Redondance avec le formulaire d'édition
+
+**Impact** :
+- Interface plus épurée
+- Moins de confusion pour l'utilisateur
+- Tests disponibles uniquement dans le formulaire d'édition (cohérence)
 
 ### **Points d'Entrée**
 - `Bootstrap::getContainer()` : Accès au conteneur de services (singleton)
@@ -714,6 +883,31 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 ---
 
 ### 📈 **Évolutions Récentes**
+
+#### **03/10/2025 - Correctifs & Améliorations UX**
+- ✅ **Workflow de Test LDAP Sécurisé** : Le filtre doit être sauvegardé avant test
+  - Refactorisation complète de `SyncFilter::handleTestRequest()` (lignes 804-838)
+  - Données lues uniquement depuis la base de données (plus de paramètres `$_GET`)
+  - Bouton POST → Lien GET avec message d'aide explicite
+  - Suppression de la gestion POST `test_ldap_filter` dans `front/syncfilter.form.php`
+- ✅ **Gestion intelligente des Field Mappings** :
+  - Respect strict de la configuration utilisateur dans `LdapToInventoryConverter`
+  - Nouvelle méthode `isFieldAllowed()` pour filtrage des champs LDAP
+  - Application dans 11 méthodes de conversion (hardware, network, bios, etc.)
+  - Champs critiques toujours autorisés : `cn`, `name`, `displayname`, `samaccountname`
+- ✅ **Détection d'échec silencieux de l'inventaire** :
+  - Vérification `$assetId = $item->getID()` après `doInventory()`
+  - Nouvelle méthode `getMinimumFieldRequirements()` avec exigences par type d'asset
+  - Messages d'erreur explicites guidant l'utilisateur
+- ✅ **Correctif Repository AuthLdapSyncFilterRepository** :
+  - Gestion correcte des itérateurs GLPI : `is_array()` → `is_iterable()`
+  - Méthodes corrigées : `getAuthLdapsForSyncFilter()` et `hasSyncFiltersForAuthLdap()`
+  - Respect des conventions GLPI et cohérence avec `SyncFilterRepository`
+- ✅ **Améliorations Interface Utilisateur** :
+  - Pré-sélection automatique des champs obligatoires (objet JavaScript `minimumRequiredFields`)
+  - Simplification workflow de test (bouton → lien, texte d'aide)
+  - Nettoyage colonne "Actions" redondante dans `syncfilters_list.html.twig`
+- ✅ **Fichiers modifiés** : 11 fichiers (services, models, templates, repositories)
 
 #### **02/10/2025 - Sécurité : Protection XSS dans Templates Twig**
 - ✅ **Templates sécurisés** : Échappement systématique de toutes les données externes (11 corrections)

@@ -18,6 +18,12 @@ use DbTestCase;
  *
  * The other public methods (canHandleItemtype, getSupportedItemtypes, validateLdapData)
  * are thoroughly tested as they don't generate logs.
+ *
+ * Recent additions (03/10/2025):
+ * - Silent failure detection: syncInventoriableAsset() now checks if assetId <= 0 after doInventory()
+ * - getMinimumFieldRequirements(): Returns minimum field requirements per itemtype (private method)
+ * - Field mappings support: syncInventoriableAsset() now accepts $fieldMappings parameter
+ * These features are tested indirectly through integration tests (see tests/INTEGRATION_TESTS.md)
  */
 class LdapInventoryServiceTest extends DbTestCase
 {

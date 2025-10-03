@@ -146,7 +146,8 @@ class LdapInventoryService
 
             // Determine if this was a creation or update based on MainAsset status
             $mainAsset = $inventory->getMainAsset();
-            $isNew = $mainAsset ? $mainAsset->isNew() : true;
+            // PHPStan: getMainAsset() always returns an object (never null) after successful doInventory()
+            $isNew = $mainAsset->isNew();
             $action = $isNew ? 'created' : 'updated';
 
             Toolbox::logDebug("LdapInventoryService: MainAsset isNew: " . ($isNew ? 'true' : 'false') . ", action: $action");

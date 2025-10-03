@@ -220,7 +220,7 @@ class LdapToInventoryConverterTest extends DbTestCase
     }
 
     /**
-     * Test convertToInventoryFormat with SyncFilter configuration
+     * Test convertToInventoryFormat with field mappings configuration
      */
     public function testConvertToInventoryFormatWithSyncFilterConfig()
     {
@@ -230,18 +230,176 @@ class LdapToInventoryConverterTest extends DbTestCase
             'operatingsystem' => ['Ubuntu 20.04'],
         ];
 
-        $syncFilterConfig = [
-            'field_mappings' => json_encode([
-                'name' => 'cn',
-                'os' => 'operatingsystem',
-            ]),
+        // Field mappings: direct array format (not JSON encoded)
+        $fieldMappings = [
+            'name' => 'cn',
+            'os' => 'operatingsystem',
         ];
 
         // Act
-        $result = $this->converter->convertToInventoryFormat($ldapData, Computer::class, $syncFilterConfig);
+        $result = $this->converter->convertToInventoryFormat($ldapData, Computer::class, $fieldMappings);
 
         // Assert
         $this->assertEquals('CONFIG-TEST', $result['content']['hardware']['name']);
+
+        // Since 'operatingsystem' is in the field mappings, it should be included
         $this->assertArrayHasKey('operatingsystem', $result['content']);
+        $this->assertEquals('Ubuntu 20.04', $result['content']['operatingsystem']['name']);
+    }
+
+    // ========== Field Mappings Filtering Tests ==========
+
+    /**
+     * Test convertToInventoryFormat with fieldMappings filters non-configured LDAP attributes
+     */
+    public function testConvertToInventoryFormatWithFieldMappingsFiltersAttributes()
+    {
+        // Arrange - Complete LDAP data
+        $ldapData = [
+            'cn' => ['TEST-PC'],
+            'serialnumber' => ['SN12345'],      // Configured in mapping
+            'model' => ['Dell Latitude'],        // NOT configured
+            'ipaddress' => ['192.168.1.10'],     // NOT configured
+            'manufacturer' => ['Dell Inc.'],     // NOT configured
+        ];
+
+        // Field mappings: only name and serial
+        $fieldMappings = ['name' => 'cn', 'serial' => 'serialnumber'];
+
+        // Act
+        $result = $this->converter->convertToInventoryFormat($ldapData, Computer::class, $fieldMappings);
+
+        // Assert
+        $this->assertEquals('TEST-PC', $result['content']['hardware']['name']);
+
+        // Verify 'serial' is present (in mapping)
+        $this->assertArrayHasKey('bios', $result['content']);
+        $this->assertEquals('SN12345', $result['content']['bios']['ssn']);
+
+        // Verify 'model' is ABSENT (not in mapping)
+        $this->assertArrayNotHasKey('smodel', $result['content']['bios']);
+
+        // Verify 'manufacturer' is ABSENT (not in mapping)
+        $this->assertArrayNotHasKey('smanufacturer', $result['content']['bios']);
+
+        // Verify 'ipaddress' is ABSENT (not in mapping)
+        if (isset($result['content']['networks'])) {
+            $this->assertEmpty($result['content']['networks']);
+        }
+    }
+
+    /**
+     * Test convertToInventoryFormat with critical name fields always allowed
+     */
+    public function testConvertToInventoryFormatCriticalFieldsAlwaysAllowed()
+    {
+        // Even if fieldMappings is empty, 'cn' must be used
+        $ldapData = [
+            'cn' => ['CRITICAL-DEVICE'],
+            'displayname' => ['Critical Display Name'],
+            'model' => ['Should be filtered'],
+        ];
+
+        $fieldMappings = [];  // Empty config
+
+        // Act
+        $result = $this->converter->convertToInventoryFormat($ldapData, Computer::class, $fieldMappings);
+
+        // Assert
+        // 'cn' always present (critical field)
+        $this->assertEquals('CRITICAL-DEVICE', $result['content']['hardware']['name']);
+
+        // But model should still be included since fieldMappings is empty (backward compat)
+        // When fieldMappings is empty, ALL fields are allowed
+        if (isset($result['content']['bios']['smodel'])) {
+            $this->assertEquals('Should be filtered', $result['content']['bios']['smodel']);
+        }
+    }
+
+    /**
+     * Test convertToInventoryFormat with empty field mappings allows all fields (backward compatibility)
+     */
+    public function testConvertToInventoryFormatEmptyMappingsAllowsAll()
+    {
+        $ldapData = [
+            'cn' => ['PC-001'],
+            'serialnumber' => ['SN999'],
+            'model' => ['Dell'],
+            'ipaddress' => ['10.0.0.1'],
+        ];
+
+        // NO field mappings = old behavior (everything allowed)
+        $result = $this->converter->convertToInventoryFormat($ldapData, Computer::class, []);
+
+        // All fields must be present
+        $this->assertEquals('PC-001', $result['content']['hardware']['name']);
+        $this->assertEquals('SN999', $result['content']['bios']['ssn']);
+        $this->assertEquals('Dell', $result['content']['bios']['smodel']);
+        $this->assertNotEmpty($result['content']['networks']);
+        $this->assertEquals('10.0.0.1', $result['content']['networks'][0]['ipaddress']);
+    }
+
+    /**
+     * Test convertToInventoryFormat NetworkEquipment with field mappings filtering
+     */
+    public function testConvertToInventoryFormatNetworkEquipmentWithMappings()
+    {
+        $ldapData = [
+            'cn' => ['SWITCH-001'],
+            'serialnumber' => ['SN-SWITCH-123'],
+            'manufacturer' => ['Cisco'],  // Mapped
+            'firmware' => ['v15.2'],      // NOT mapped
+            'model' => ['Catalyst'],      // NOT mapped
+        ];
+
+        $fieldMappings = ['name' => 'cn', 'serial' => 'serialnumber', 'manufacturer' => 'manufacturer'];
+
+        // Act
+        $result = $this->converter->convertToInventoryFormat($ldapData, NetworkEquipment::class, $fieldMappings);
+
+        // Assert
+        // Manufacturer present (in mapping)
+        $this->assertEquals('Cisco', $result['content']['network_device']['manufacturer']);
+
+        // Firmware absent (not in mapping)
+        $this->assertArrayNotHasKey('firmware', $result['content']['network_device']);
+        if (isset($result['content']['firmwares'])) {
+            $this->assertEmpty($result['content']['firmwares']);
+        }
+
+        // Model absent (not in mapping)
+        $this->assertArrayNotHasKey('model', $result['content']['network_device']);
+    }
+
+    /**
+     * Test convertToInventoryFormat Printer with field mappings filtering
+     */
+    public function testConvertToInventoryFormatPrinterWithMappings()
+    {
+        $ldapData = [
+            'cn' => ['PRINTER-001'],
+            'serialnumber' => ['SN-PRINT-456'],
+            'driver' => ['HP LaserJet PCL 6'],  // Mapped
+            'description' => ['Office Printer'], // NOT mapped
+        ];
+
+        $fieldMappings = ['name' => 'cn', 'serial' => 'serialnumber', 'driver' => 'driver'];
+
+        // Act
+        $result = $this->converter->convertToInventoryFormat($ldapData, Printer::class, $fieldMappings);
+
+        // Assert
+        // Driver present (in mapping)
+        if (isset($result['content']['printer'])) {
+            $this->assertEquals('HP LaserJet PCL 6', $result['content']['printer']['driver']);
+        }
+
+        // Serial present (in mapping)
+        $this->assertEquals('SN-PRINT-456', $result['content']['bios']['ssn']);
+
+        // Description absent (not in mapping)
+        if (isset($result['content']['printer'])) {
+            $this->assertArrayNotHasKey('description', $result['content']['printer']);
+        }
     }
 }

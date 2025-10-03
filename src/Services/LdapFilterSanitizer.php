@@ -34,6 +34,7 @@
 namespace GlpiPlugin\Advancedldap\Services;
 
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
+use function Safe\preg_match;
 
 /**
  * LDAP Filter Sanitization Service
