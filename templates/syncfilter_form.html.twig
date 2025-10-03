@@ -212,15 +212,18 @@
                     <i class="ti ti-test-pipe"></i>
                     <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
                 </a>
-                <div class="form-text text-info mb-2">
-                    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
-                </div>
             {% endif %}
-            
-            <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary">
+
+            <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary me-2">
                 <i class="fas fa-save"></i>
                 <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
             </button>
+
+            {% if item.fields['id'] > 0 %}
+                <div class="form-text text-info mt-2">
+                    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -401,5 +404,83 @@ $(document).ready(function() {
         var itemtype = $(this).val();
         loadAssetFields(itemtype, []);
     });
+
+    // Disable Test LDAP Filter button when form fields are modified
+    var testLdapButton = $('a.btn.btn-info[href*="test_ldap"]');
+    if (testLdapButton.length > 0) {
+        var watchedFields = [
+            'input[name="base_dn"]',
+            'input[name="ldap_filter"]',
+            'select[name="asset_type"]'
+        ];
+
+        // Store initial values
+        var initialValues = {};
+        watchedFields.forEach(function(selector) {
+            var field = $(selector);
+            if (field.length > 0) {
+                initialValues[selector] = field.val();
+            }
+        });
+
+        // Function to check if any field has been modified
+        function checkFieldsModified() {
+            var isModified = false;
+            watchedFields.forEach(function(selector) {
+                var field = $(selector);
+                if (field.length > 0 && field.val() !== initialValues[selector]) {
+                    isModified = true;
+                }
+            });
+
+            // Check asset fields (dynamic field)
+            var assetFieldsSelect = $('select[name="asset_fields[]"]');
+            if (assetFieldsSelect.length > 0) {
+                var currentAssetFields = assetFieldsSelect.val() || [];
+                var initialAssetFields = selectedAssetFields || [];
+
+                // Compare arrays
+                if (JSON.stringify(currentAssetFields.sort()) !== JSON.stringify(initialAssetFields.sort())) {
+                    isModified = true;
+                }
+            }
+
+            if (isModified) {
+                testLdapButton.css({
+                    'opacity': '0.5',
+                    'cursor': 'not-allowed',
+                    'pointer-events': 'none'
+                });
+            } else {
+                testLdapButton.css({
+                    'opacity': '1',
+                    'cursor': 'pointer',
+                    'pointer-events': 'auto'
+                });
+            }
+        }
+
+        // Watch for changes on static fields
+        watchedFields.forEach(function(selector) {
+            $(document).on('change', selector, checkFieldsModified);
+        });
+
+        // Watch for changes on dynamic asset fields select
+        // Use delegated event since the element is dynamically loaded
+        $(document).on('change', 'select[name="asset_fields[]"]', checkFieldsModified);
+
+        // Prevent click on disabled button
+        testLdapButton.on('click', function(e) {
+            if ($(this).hasClass('disabled')) {
+                e.preventDefault();
+                displayAjaxMessageAfterRedirect({
+                    message: '{{ __("Please save your changes before testing the LDAP filter", "advancedldap")|e('js') }}',
+                    type: 'warning',
+                    timeout: 3000
+                });
+                return false;
+            }
+        });
+    }
 });
 </script>
