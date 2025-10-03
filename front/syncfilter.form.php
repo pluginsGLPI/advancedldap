@@ -38,6 +38,10 @@ use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 
 $configService = new GlpiConfigurationService();
 
+// Get security service for LDAP filter sanitization
+$container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+$ldapSanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface::class);
+
 Session::checkRight(SyncFilter::$rightname, READ);
 
 if (!isset($_GET['id'])) {
@@ -92,38 +96,6 @@ if (isset($_POST["add"])) {
 
     $syncfilter->update($_POST);
     Html::back();
-} elseif (isset($_POST['test_ldap_filter'])) {
-    // Handle LDAP filter test
-    $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);
-    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
-    $ldap_base_dn = trim($_POST['base_dn'] ?? '');
-    $ldap_connection_filter = trim($_POST['ldap_filter'] ?? '');
-    $asset_type = $_POST['asset_type'] ?? '';
-    $asset_field = $_POST['asset_field'] ?? '';
-
-    // For testing, we need at least base DN and filter
-    // AuthLDAP ID can be optional (we'll use the first available one if not specified)
-    if ($ldap_base_dn && $ldap_connection_filter) {
-        // If no authldap_id provided, try to get one from the system
-        if (!$authldap_id) {
-            $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
-            $authldap_id = $repository->getFirstActiveAuthLdapId();
-        }
-        // Redirect back to the form with test parameters
-        $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $syncfilter_id;
-        $redirect_url .= "&test_ldap=1";
-        $redirect_url .= "&test_authldap_id=" . urlencode($authldap_id);
-        $redirect_url .= "&test_base_dn=" . urlencode($ldap_base_dn);
-        $redirect_url .= "&test_filter=" . urlencode($ldap_connection_filter);
-        $redirect_url .= "&test_asset_type=" . urlencode($asset_type);
-        $redirect_url .= "&test_asset_field=" . urlencode($asset_field);
-
-        Html::redirect($redirect_url);
-    } else {
-        Session::addMessageAfterRedirect(__('Please select an AuthLDAP server and provide Base DN and Filter', 'advancedldap'), false, ERROR);
-        Html::back();
-    }
 } elseif (isset($_POST['sync_from_ldap'])) {
     // Handle LDAP synchronization
     $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);

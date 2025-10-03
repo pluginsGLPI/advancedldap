@@ -294,6 +294,47 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
+     * Validate LDAP inputs (Base DN and filter) before saving
+     *
+     * @param array<string, mixed> $input Input data
+     * @return array<string, mixed>|false Validated input or false on validation error
+     */
+    private function validateLdapInputs(array $input)
+    {
+        $container = Bootstrap::getContainer();
+        $sanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface::class);
+
+        // Validate Base DN if present
+        if (isset($input['base_dn']) && !empty($input['base_dn'])) {
+            if (!$sanitizer->isValidDN($input['base_dn'])) {
+                Session::addMessageAfterRedirect(
+                    __('Invalid LDAP Base DN syntax. Please check the format (example: ou=users,dc=example,dc=com)', 'advancedldap'),
+                    false,
+                    ERROR
+                );
+                return false;
+            }
+        }
+
+        // Validate LDAP filter if present
+        if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
+            $validatedFilter = $sanitizer->sanitizeFilter($input['ldap_filter']);
+            if ($validatedFilter === null) {
+                Session::addMessageAfterRedirect(
+                    __('Invalid LDAP filter syntax. Please check your filter format (example: (objectClass=person))', 'advancedldap'),
+                    false,
+                    ERROR
+                );
+                return false;
+            }
+            // Replace with validated filter
+            $input['ldap_filter'] = $validatedFilter;
+        }
+
+        return $input;
+    }
+
+    /**
      * Prepare field mappings from input data
      * Delegates to LdapFilterParser and LdapAttributeMapper services
      *
@@ -360,6 +401,12 @@ class SyncFilter extends CommonDBTM
      */
     public function prepareInputForAdd($input)
     {
+        // Validate LDAP inputs before saving
+        $input = $this->validateLdapInputs($input);
+        if ($input === false) {
+            return false;
+        }
+
         return $this->prepareMappingsInput($input);
     }
 
@@ -412,6 +459,12 @@ class SyncFilter extends CommonDBTM
      */
     public function prepareInputForUpdate($input)
     {
+        // Validate LDAP inputs before saving
+        $input = $this->validateLdapInputs($input);
+        if ($input === false) {
+            return false;
+        }
+
         return $this->prepareMappingsInput($input);
     }
 
@@ -604,11 +657,6 @@ class SyncFilter extends CommonDBTM
         // Handle test request if present
         $test_results = $this->handleTestRequest($form_data['current_config']);
 
-        // Update authldap_id if test request changed it
-        if (isset($_GET['test_ldap']) && $_GET['test_ldap'] === '1' && isset($_GET['test_authldap_id'])) {
-            $authldap_context['current_authldap_id'] = intval($_GET['test_authldap_id']);
-        }
-
         // Collect form metadata (inventory status, LDAP connection)
         $metadata = $this->collectFormMetadata(
             $authldap_context['current_authldap_id'],
@@ -745,6 +793,7 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Handle test request
+     * Uses only data from database (filter must be saved before testing)
      *
      * @param array<string, mixed> $current_config
      * @return array<string, mixed>|null
@@ -755,48 +804,47 @@ class SyncFilter extends CommonDBTM
             return null;
         }
 
-        $test_authldap_id = intval($_GET['test_authldap_id'] ?? 0);
-        $test_base_dn = $_GET['test_base_dn'] ?? '';
-        $test_filter = $_GET['test_filter'] ?? '';
-        $test_asset_type = $_GET['test_asset_type'] ?? '';
-        $test_asset_field = $_GET['test_asset_field'] ?? '';
-
-        if (empty($test_base_dn) || empty($test_filter)) {
+        // Filter must be saved (ID > 0) to run tests
+        if ($this->getID() <= 0) {
+            Toolbox::logDebug("SyncFilter: Cannot test unsaved filter");
+            Session::addMessageAfterRedirect(__('Please save the filter before testing', 'advancedldap'), false, WARNING);
             return null;
         }
 
-        // If no authldap_id provided, use the first available one
-        if (!$test_authldap_id) {
-            $container = Bootstrap::getContainer();
-            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
-            $test_authldap_id = $repository->getFirstActiveAuthLdapId();
+        // Get all data from database
+        $test_base_dn = $this->fields['base_dn'] ?? '';
+        $test_filter = $this->fields['ldap_filter'] ?? '';
+        $test_asset_type = $this->fields['asset_type'] ?? '';
+        $test_authldap_id = $this->getParentAuthLdapId();
 
-            if (!$test_authldap_id) {
-                return null;
-            }
+        // Validate required fields
+        if (empty($test_base_dn) || empty($test_filter)) {
+            Toolbox::logDebug("SyncFilter: Missing base_dn or ldap_filter in database");
+            Session::addMessageAfterRedirect(__('Base DN and LDAP filter are required for testing', 'advancedldap'), false, ERROR);
+            return null;
         }
 
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+        if (!$test_authldap_id) {
+            Toolbox::logDebug("SyncFilter: No AuthLDAP server associated with this filter");
+            Session::addMessageAfterRedirect(__('No LDAP server associated with this filter', 'advancedldap'), false, ERROR);
+            return null;
+        }
+
+        $container = Bootstrap::getContainer();
         $ldap_test_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapTestService::class);
 
-        // Get field mappings from the current filter if available
-        $field_mappings = [];
-        if ($this->getID() > 0) {
-            $field_mappings = $this->getFieldMappings();
-        }
+        // Get field mappings from database
+        $field_mappings = $this->getFieldMappings();
 
+        // Run test with database values
         $test_results = $ldap_test_service->testLdapFilter(
             $test_authldap_id,
             $test_base_dn,
             $test_filter,
             $test_asset_type,
-            $test_asset_field,
+            '', // asset_field deprecated, using field_mappings instead
             $field_mappings,
         );
-
-        $current_config['ldap_base_dn'] = $test_base_dn;
-        $current_config['ldap_connection_filter'] = $test_filter;
-        $current_config['authldap_id'] = $test_authldap_id;
 
         return $test_results;
     }

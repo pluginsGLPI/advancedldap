@@ -31,22 +31,21 @@
                             <th>{{ __('LDAP Filter', 'advancedldap') }}</th>
                             <th>{{ __('Asset Type', 'advancedldap') }}</th>
                             <th>{{ __('Status', 'advancedldap') }}</th>
-                            <th>{{ __('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for filter in sync_filters %}
                             <tr>
                                 <td>
-                                    <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&authldap_id={{ authldap.getID() }}" 
+                                    <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&authldap_id={{ authldap.getID() }}"
                                     title="{{ __('Edit') }}">{{ filter.name }}
                                     </a>
                                 </td>
                                 <td>
-                                    <code class="small">{{ filter.base_dn }}</code>
+                                    <code class="small">{{ filter.base_dn|e('html') }}</code>
                                 </td>
                                 <td>
-                                    <code class="small">{{ filter.ldap_filter|length > 50 ? filter.ldap_filter|slice(0, 50) ~ '...' : filter.ldap_filter }}</code>
+                                    <code class="small">{{ (filter.ldap_filter|length > 50 ? filter.ldap_filter|slice(0, 50) ~ '...' : filter.ldap_filter)|e('html') }}</code>
                                 </td>
                                 <td>
                                     <span class="badge bg-azure-lt">{{ filter.asset_type }}</span>
@@ -57,14 +56,6 @@
                                     {% else %}
                                         <span class="badge bg-orange-lt">{{ __('Inactive') }}</span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ filter.id }}&test_ldap=1&test_authldap_id={{ authldap.getID() }}&test_base_dn={{ filter.base_dn|url_encode }}&test_filter={{ filter.ldap_filter|url_encode }}&test_asset_type={{ filter.asset_type|url_encode }}" 
-                                            class="btn btn-sm btn-outline-info" title="{{ __('Test Filter', 'advancedldap') }}">
-                                            <i class="ti ti-test-pipe"></i>
-                                        </a>
-                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}

@@ -35,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use function Safe\ldap_get_entries;
 
@@ -46,10 +47,14 @@ use function Safe\ldap_get_entries;
 class GlpiLdapConnectionService implements LdapConnectionInterface
 {
     private SyncFilterRepositoryInterface $repository;
+    private LdapFilterSanitizerInterface $sanitizer;
 
-    public function __construct(SyncFilterRepositoryInterface $repository)
-    {
+    public function __construct(
+        SyncFilterRepositoryInterface $repository,
+        LdapFilterSanitizerInterface $sanitizer
+    ) {
         $this->repository = $repository;
+        $this->sanitizer = $sanitizer;
     }
     /**
      * Connect to LDAP server
@@ -179,12 +184,23 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
      */
     public function searchWithErrorHandling(int $authldap_id, string $base_dn, string $filter): array
     {
+        // SECURITY: Validate LDAP inputs to prevent LDAP injection attacks (RFC 4515)
+        // For complete DN strings, validate structure but don't escape
+        if (!$this->sanitizer->isValidDN($base_dn)) {
+            return ['error' => __('Invalid LDAP Base DN syntax', 'advancedldap')];
+        }
+
+        $sanitized_filter = $this->sanitizer->sanitizeFilter($filter);
+        if (!$sanitized_filter) {
+            return ['error' => __('Invalid LDAP filter syntax', 'advancedldap')];
+        }
+
         $connection = $this->connect($authldap_id);
         if (!$connection) {
             return ['error' => __('Cannot connect to LDAP server', 'advancedldap')];
         }
 
-        $search = $this->search($connection, $base_dn, $filter);
+        $search = $this->search($connection, $base_dn, $sanitized_filter);
         if (!$search) {
             $error = sprintf(
                 __('LDAP search failed: %s', 'advancedldap'),

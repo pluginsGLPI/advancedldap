@@ -122,17 +122,23 @@ class AuthLdapSyncFilterRepository implements AuthLdapSyncFilterRepositoryInterf
             $where['is_active'] = 1;
         }
 
-        $results = $this->database->request([
+        $iterator = $this->database->request([
             'SELECT' => ['authldap_id'],
             'FROM'   => AuthLdapSyncFilter::$table,
             'WHERE'  => $where,
         ]);
 
-        if (!is_array($results)) {
+        // Use iterator like in SyncFilterRepository (GLPI best practice)
+        if (!is_iterable($iterator)) {
             return [];
         }
 
-        return array_column($results, 'authldap_id');
+        $authldap_ids = [];
+        foreach ($iterator as $data) {
+            $authldap_ids[] = (int) $data['authldap_id'];
+        }
+
+        return $authldap_ids;
     }
 
     /**
@@ -154,16 +160,22 @@ class AuthLdapSyncFilterRepository implements AuthLdapSyncFilterRepositoryInterf
             $where['is_active'] = 1;
         }
 
-        $results = $this->database->request([
+        $iterator = $this->database->request([
             'FROM'  => AuthLdapSyncFilter::$table,
             'WHERE' => $where,
             'LIMIT' => 1,
         ]);
 
-        if (!is_array($results)) {
+        // Use iterator like in SyncFilterRepository (GLPI best practice)
+        if (!is_iterable($iterator)) {
             return false;
         }
 
-        return !empty($results);
+        // Check if we have at least one result
+        foreach ($iterator as $data) {
+            return true;
+        }
+
+        return false;
     }
 }

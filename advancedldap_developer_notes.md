@@ -43,17 +43,18 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │           • extends CommonDBRelation     # → AuthLDAP ↔ SyncFilter
   │           • Gestion unicity constraint   # → (authldap_id, syncfilter_id)
   │
-  ├── 🔧 SERVICES MÉTIER (16 services)
+  ├── 🔧 SERVICES MÉTIER (17 services)
   │   └── src/Services/
   │       │
-  │       ├── 📋 SERVICES LDAP (7)
+  │       ├── 📋 SERVICES LDAP (8)
   │       │   ├── LdapSyncService.php                # Orchestration synchronisation complète
   │       │   ├── LdapTestService.php                # Tests et validation filtres LDAP
   │       │   ├── LdapInventoryService.php           # Intégration inventaire natif GLPI
   │       │   ├── LdapToInventoryConverter.php       # Conversion LDAP → format JSON Inventory
   │       │   ├── LdapFilterParser.php               # Parsing filtres LDAP (RFC 4515)
   │       │   ├── LdapAttributeMapper.php            # Mapping GLPI ↔ LDAP (RFC 4519)
-  │       │   └── LdapDataExtractor.php              # Extraction/normalisation données LDAP
+  │       │   ├── LdapDataExtractor.php              # Extraction/normalisation données LDAP
+  │       │   └── LdapFilterSanitizer.php            # 🔒 Sanitization anti-injection LDAP (RFC 4515/4514)
   │       │
   │       ├── 🎯 SERVICES ASSETS (3)
   │       │   ├── AssetFieldService.php              # Gestion unifiée champs d'assets
@@ -85,7 +86,7 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │   └── src/Factories/
   │       └── AssetFieldProviderFactory.php         # Factory création providers dynamiques
   │
-  ├── 🔌 CONTRATS (9 interfaces)
+  ├── 🔌 CONTRATS (10 interfaces)
   │   └── src/Contracts/
   │       ├── AssetFieldProviderInterface.php       # Contrat providers de champs
   │       ├── SyncFilterRepositoryInterface.php     # Contrat repository filtres
@@ -93,6 +94,7 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │       ├── SyncFilterFormHelperInterface.php     # Contrat helpers formulaire
   │       ├── LdapFilterParserInterface.php         # Contrat parser filtres
   │       ├── LdapAttributeMapperInterface.php      # Contrat mapper attributs
+  │       ├── LdapFilterSanitizerInterface.php      # 🔒 Contrat sanitization LDAP
   │       ├── DatabaseInterface.php                 # Contrat accès BDD
   │       ├── ConfigurationInterface.php            # Contrat configuration
   │       └── LdapConnectionInterface.php           # Contrat connexions LDAP
@@ -178,9 +180,9 @@ Modèle de relation many-to-many AuthLDAP ↔ SyncFilter :
 
 ---
 
-### 3. Services Métier (16 services organisés)
+### 3. Services Métier (17 services organisés)
 
-#### 📋 **Services LDAP (7 services)**
+#### 📋 **Services LDAP (8 services)**
 
 ##### **LdapSyncService** (`src/Services/LdapSyncService.php`)
 Orchestration complète de la synchronisation LDAP → GLPI :
@@ -234,6 +236,19 @@ Extraction et normalisation des données depuis entrées LDAP :
 - **Constantes** : Listes d'attributs prioritaires (NAME_ATTRIBUTES, etc.)
 - **Méthodes utilitaires** : Extraction robuste avec fallbacks
 - **Centralisation** : Évite duplication logique d'extraction
+
+##### **LdapFilterSanitizer** 🔒 (`src/Services/LdapFilterSanitizer.php`)
+**Service de sécurité critique** - Protection contre les injections LDAP (RFC 4515/4514) :
+- **Échappement filtres** : `escapeFilterValue()` - Échappe `\`, `*`, `(`, `)`, `\x00` selon RFC 4515
+- **Échappement DN** : `sanitizeDN()` - Échappe caractères spéciaux DN (`,`, `+`, `"`, etc.) selon RFC 4514
+- **Validation filtres** : `isValidFilter()` - Vérifie structure (parenthèses équilibrées, syntaxe valide)
+- **Validation DN** : `isValidDN()` - Vérifie structure DN (composants valides, pas de métacaractères)
+- **Points protégés** :
+  - `front/syncfilter.form.php:108-122` - Validation avant test
+  - `src/Models/SyncFilter.php:302-335` - Validation avant sauvegarde (add/update)
+  - `src/Services/GlpiLdapConnectionService.php:187-196` - Validation avant recherche LDAP
+
+**Tests** : 66 tests unitaires couvrant tous les cas d'injection et RFC compliance
 
 ---
 
@@ -366,6 +381,7 @@ ConfigurationInterface::class                 → GlpiConfigurationService
 LdapConnectionInterface::class                → GlpiLdapConnectionService
 LdapFilterParserInterface::class              → LdapFilterParser
 LdapAttributeMapperInterface::class           → LdapAttributeMapper
+LdapFilterSanitizerInterface::class           → LdapFilterSanitizer 🔒
 AssetFieldProviderInterface::class            → AssetFieldService
 SyncFilterRepositoryInterface::class          → SyncFilterRepository
 AuthLdapSyncFilterRepositoryInterface::class  → AuthLdapSyncFilterRepository
@@ -460,11 +476,90 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 
 ## Sécurité et Performance
 
-### **Sécurité**
+### **Sécurité** 🔒
+
+#### **Protection Injections LDAP (RFC 4515/4514)**
+Le plugin implémente une protection complète contre les injections LDAP via le service `LdapFilterSanitizer` :
+
+**Métacaractères échappés dans les filtres LDAP** (RFC 4515) :
+- `\` (backslash) → `\5c`
+- `*` (asterisk) → `\2a`
+- `(` (parenthèse ouvrante) → `\28`
+- `)` (parenthèse fermante) → `\29`
+- `\x00` (null byte) → `\00`
+
+**Métacaractères échappés dans les DN** (RFC 4514) :
+- Tous les métacaractères de filtre ci-dessus
+- `,` (virgule) → `\,`
+- `+` (plus) → `\+`
+- `"` (guillemets) → `\"`
+- `<` `>` → `\<` `\>`
+- `;` (point-virgule) → `\;`
+- `=` (égal) → `\=`
+- `#` (dièse) → `\#`
+- Espaces de début/fin → `\ `
+
+**Points de protection** :
+1. **Validation avant test** (`front/syncfilter.form.php:108-122`)
+   - Base DN : `isValidDN()` - Rejet si métacaractères ou structure invalide
+   - Filtre : `sanitizeFilter()` - Rejet si syntaxe invalide
+
+2. **Validation avant sauvegarde** (`src/Models/SyncFilter.php:302-335`)
+   - Méthode `validateLdapInputs()` appelée dans `prepareInputForAdd()` et `prepareInputForUpdate()`
+   - Empêche la sauvegarde de données malveillantes en base
+
+3. **Validation avant recherche LDAP** (`src/Services/GlpiLdapConnectionService.php:187-196`)
+   - Double validation DN + filtre avant `ldap_search()`
+   - Retourne erreur si validation échoue (pas d'exécution)
+
+**Tests de sécurité** :
+- 66 tests unitaires dans `tests/LdapFilterSanitizerTest.php`
+- Cas d'injection testés : `*))(|(objectClass=*`, `admin)(uid=*)`, backslash bypass, etc.
+- Conformité RFC vérifiée : RFC 4515 (filtres) et RFC 4514 (DN)
+
+#### **Protection XSS dans les Templates Twig** 🔒
+Le plugin protège contre les injections XSS via un échappement systématique dans tous les templates :
+
+**Templates sécurisés** :
+1. **syncfilter_form.html.twig** (9 corrections)
+   - Ligne 56 : `server_name` → échappement HTML explicite `|e('html')`
+   - Ligne 75 : `server_name` → échappement HTML explicite `|e('html')`
+   - Ligne 77 : `error` (message LDAP) → échappement HTML `|e('html')`
+   - Ligne 231 : `test_results.error` → échappement HTML `|e('html')`
+   - Ligne 266 : `entry.dn` (DN LDAP) → échappement HTML `|e('html')`
+   - Ligne 269-273 : Attributs LDAP (`attr`, `values`) → échappement HTML `|e('html')`
+   - Ligne 285 : `entry.glpi_impact.message` → échappement HTML `|e('html')`
+   - Ligne 306 : **CRITIQUE** - `field_mappings` → `|json_encode|raw` au lieu de `|raw` seul
+   - Lignes 327, 331, 344 : Chaînes JavaScript → échappement JS `|e('js')`
+   - Suppression commentaires DEBUG (lignes 194, 197, 199) - Exposition logique interne
+
+2. **syncfilters_list.html.twig** (2 corrections)
+   - Ligne 46 : `filter.base_dn` → échappement HTML `|e('html')`
+   - Ligne 49 : `filter.ldap_filter` → échappement HTML `|e('html')`
+
+**Principes appliqués** :
+- Toutes les données provenant de sources externes (LDAP, DB user input) sont échappées explicitement
+- Contexte HTML : `|e('html')` pour empêcher injection de tags HTML/scripts
+- Contexte JavaScript : `|e('js')` pour empêcher injection dans code JS inline
+- JSON dans JavaScript : `|json_encode|raw` pour sérialisation sécurisée
+- Commentaires de debug retirés pour éviter exposition de la logique applicative
+
+**Vulnérabilité critique corrigée** :
+```twig
+# AVANT (Vulnérable XSS)
+var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|raw }};
+
+# APRÈS (Sécurisé)
+var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encode|raw }};
+```
+
+#### **Autres mesures de sécurité**
 - Validation stricte des paramètres d'entrée
-- Échappement HTML dans tous les templates
+- Échappement HTML dans tous les templates Twig (explicite pour données externes)
 - Pas d'exposition des variables globales
 - Gestion centralisée des erreurs avec logs
+- Droits GLPI respectés (READ, UPDATE requis)
+- Suppression de tous les commentaires DEBUG en production
 
 ### **Performance**
 - Services instanciés une seule fois (singleton)
@@ -541,13 +636,14 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 #### **Backend (100% fonctionnel)**
 - ✅ **2 Modèles** : `SyncFilter` (804 lignes) + `AuthLdapSyncFilter` (142 lignes)
-- ✅ **16 Services métier** : Organisation par domaine (LDAP, Assets, SyncFilter, Validation, Wrappers)
+- ✅ **17 Services métier** : Organisation par domaine (LDAP, Assets, SyncFilter, Validation, Wrappers)
 - ✅ **2 Repositories** : Pattern Data Access avec gestion erreurs et validation
 - ✅ **3 Providers** : Native, Generic + Factory dynamique
-- ✅ **9 Contrats (Interfaces)** : Respect principes SOLID (DIP, ISP)
-- ✅ **Conteneur DI** : ServiceContainer avec 16 services enregistrés, lazy loading
+- ✅ **10 Contrats (Interfaces)** : Respect principes SOLID (DIP, ISP)
+- ✅ **Conteneur DI** : ServiceContainer avec 17 services enregistrés, lazy loading
 - ✅ **Workflows doubles** : Traditionnel (CommonDBTM) + Inventaire natif GLPI
 - ✅ **Legacy compatibility** : Alias automatiques pour Search GLPI 11
+- ✅ **🔒 Sécurité LDAP** : Protection injections RFC 4515/4514, validation triple couche
 
 #### **Frontend (100% fonctionnel)**
 - ✅ **Onglet AuthLDAP** : "Advanced sync" avec badge comptage intégré (icône `ti ti-filter`)
@@ -575,12 +671,14 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 - ✅ **PHP 8.2+** : Types stricts, promotion constructeur, readonly properties, expressions match
 - ✅ **PSR-12** : Code style via `.php-cs-fixer.php`
 - ✅ **Analyse statique** : Psalm configuré (`psalm.xml`)
-- ✅ **Tests unitaires** : 24 fichiers de tests (23 tests + 1 bootstrap)
+- ✅ **Tests unitaires** : 25 fichiers de tests (24 tests + 1 bootstrap)
   - Tests pour tous les services, modèles, repositories, providers
+  - 66 tests dédiés à la sécurité LDAP (`LdapFilterSanitizerTest.php`)
   - Bootstrap configuré avec autoload GLPI
 - ✅ **Documentation** : PHPDoc complet avec types, @param, @return, @throws
 - ✅ **Logs** : `Toolbox::logDebug()` dans tous les services critiques pour traçabilité
 - ✅ **Namespaces** : Organisation moderne `GlpiPlugin\Advancedldap\*` avec alias legacy
+- ✅ **🔒 Audit sécurité** : `SECURITY_AUDIT.md` + cas de test documentés
 
 #### **Fonctionnalités Avancées**
 - ✅ **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels via `AssetTypeClassifier`
@@ -617,8 +715,31 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 ### 📈 **Évolutions Récentes**
 
-#### **02/10/2025 - Mise à jour documentation**
-- ✅ Actualisation statistiques : 24 tests unitaires (au lieu de 18)
+#### **02/10/2025 - Sécurité : Protection XSS dans Templates Twig**
+- ✅ **Templates sécurisés** : Échappement systématique de toutes les données externes (11 corrections)
+- ✅ **Vulnérabilité critique corrigée** : `field_mappings|raw` → `field_mappings|json_encode|raw`
+- ✅ **Contexte HTML** : Ajout `|e('html')` pour données LDAP (DN, attributs, messages erreur)
+- ✅ **Contexte JavaScript** : Ajout `|e('js')` pour chaînes insérées dans code JS inline
+- ✅ **Nettoyage** : Suppression de tous les commentaires DEBUG exposant la logique interne
+- ✅ **Fichiers modifiés** :
+  - `templates/syncfilter_form.html.twig` (9 corrections)
+  - `templates/syncfilters_list.html.twig` (2 corrections)
+- ✅ **Protection complète** : Prévention XSS sur toutes les données user-provided et LDAP
+- ✅ **Documentation** : Section "Protection XSS dans les Templates Twig" ajoutée
+- ✅ **Respect SECURITY_AUDIT.md** : Partie 2 (XSS Templates) complétée
+
+#### **02/10/2025 - Sécurité : Protection Injections LDAP (RFC 4515/4514)**
+- ✅ **Nouveau service** : `LdapFilterSanitizer` - Protection complète anti-injection LDAP
+- ✅ **Nouveau contrat** : `LdapFilterSanitizerInterface` - 4 méthodes (escape, validate DN/filter)
+- ✅ **66 tests unitaires** : `tests/LdapFilterSanitizerTest.php` - Couverture complète injections
+- ✅ **3 points de protection** :
+  - Validation avant test LDAP (`front/syncfilter.form.php`)
+  - Validation avant sauvegarde BDD (`src/Models/SyncFilter.php`)
+  - Validation avant recherche LDAP (`src/Services/GlpiLdapConnectionService.php`)
+- ✅ **Conformité RFC** : RFC 4515 (filtres) + RFC 4514 (Distinguished Names)
+- ✅ **Cas bloqués** : Injection parenthèses, wildcards, DN malformés, métacaractères
+- ✅ **Documentation sécurité** : `tests/SECURITY_TEST_CASES.md` avec 19 cas de test
+- ✅ Actualisation statistiques : 17 services (au lieu de 16), 10 contrats (au lieu de 9)
 - ✅ Décompte précis des fichiers : 35 fichiers src/ + 2 front/ + 1 ajax/
 - ✅ Ajout informations manquantes (repositories, providers, factory)
 - ✅ Vérification cohérence de l'architecture

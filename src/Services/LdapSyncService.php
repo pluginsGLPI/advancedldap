@@ -249,7 +249,7 @@ class LdapSyncService
 
             if ($sync_method === 'inventory') {
                 Toolbox::logDebug("LdapSyncService: Processing inventoriable asset '{$result['asset_name']}' of type '$asset_type'");
-                $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry);
+                $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry, $field_mappings);
             } else {
                 Toolbox::logDebug("LdapSyncService: Processing traditional asset '{$result['asset_name']}' of type '$asset_type'");
                 $creation_result = $this->processTraditionalAsset($asset_type, $asset_data);
@@ -285,9 +285,10 @@ class LdapSyncService
      * @param string $asset_type Asset type class name
      * @param array<string, mixed> $asset_data Extracted asset data
      * @param array<string, mixed> $ldap_entry Original LDAP entry
+     * @param array<string, string> $field_mappings Field mappings from sync filter
      * @return array<string, mixed> Processing result
      */
-    private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry): array
+    private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry, array $field_mappings): array
     {
         $asset_name = $asset_data['name'] ?? 'Unknown';
 
@@ -295,11 +296,11 @@ class LdapSyncService
         if ($this->ldap_inventory_service !== null) {
             Toolbox::logDebug("LdapSyncService: Using INVENTORY workflow for asset '$asset_name' (type: $asset_type)");
 
-            // Use the full LDAP entry for inventory processing (more complete than extracted asset_data)
+            // Pass field mappings to respect user configuration
             return $this->ldap_inventory_service->syncInventoriableAsset(
                 $ldap_entry,
                 $asset_type,
-                [],
+                $field_mappings,
             );
         }
 

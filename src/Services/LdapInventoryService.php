@@ -63,16 +63,18 @@ class LdapInventoryService
      *
      * @param array<string, mixed> $ldapData LDAP attributes
      * @param string $itemtype GLPI itemtype (Computer, NetworkEquipment, etc.)
-     * @param array<string, mixed> $syncFilterConfig SyncFilter configuration
+     * @param array<string, string> $fieldMappings Field mappings from sync filter (GLPI field => LDAP attribute)
      * @return array<string, mixed> Result with success status and details
      */
-    public function syncInventoriableAsset(array $ldapData, string $itemtype, array $syncFilterConfig = []): array
+    public function syncInventoriableAsset(array $ldapData, string $itemtype, array $fieldMappings = []): array
     {
         $assetName = $ldapData['name'][0] ?? $ldapData['cn'][0] ?? 'Unknown';
         Toolbox::logDebug("LdapInventoryService: Starting inventory sync for asset '$assetName' (type: $itemtype)");
 
         try {
-            $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $syncFilterConfig);
+            $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $fieldMappings);
+
+            Toolbox::logDebug("LdapInventoryService: Inventory data for '$assetName': " . json_encode($inventoryData, JSON_PRETTY_PRINT));
 
             // Convert array to object for GLPI schema validation
             try {
@@ -121,10 +123,33 @@ class LdapInventoryService
             $item = $inventory->getItem();
             $assetId = $item->getID();
 
+            Toolbox::logDebug("LdapInventoryService: Inventory item class: " . get_class($item) . ", ID: $assetId");
+
+            // Check if inventory failed silently (ID = -1 or 0 means failure)
+            if ($assetId <= 0) {
+                // Provide specific minimum requirements based on itemtype
+                $requirements = $this->getMinimumFieldRequirements($itemtype);
+                $errorMsg = sprintf(
+                    __('Inventory system could not create/update asset. Insufficient field mappings. For %s, you need at least: %s', 'advancedldap'),
+                    basename(str_replace('\\', '/', $itemtype)),
+                    $requirements
+                );
+                Toolbox::logDebug("LdapInventoryService: FAILED - Asset '$assetName' not created (ID: $assetId). Insufficient data. Required: $requirements");
+                return [
+                    'success' => false,
+                    'action' => 'inventory',
+                    'asset_id' => null,
+                    'error' => $errorMsg,
+                    'message' => 'Insufficient field mappings for inventory creation',
+                ];
+            }
+
             // Determine if this was a creation or update based on MainAsset status
             $mainAsset = $inventory->getMainAsset();
-            $action = $mainAsset->isNew() ? 'created' : 'updated';
+            $isNew = $mainAsset ? $mainAsset->isNew() : true;
+            $action = $isNew ? 'created' : 'updated';
 
+            Toolbox::logDebug("LdapInventoryService: MainAsset isNew: " . ($isNew ? 'true' : 'false') . ", action: $action");
             Toolbox::logDebug("LdapInventoryService: SUCCESS - Asset '$assetName' $action via inventory system (ID: $assetId)");
 
             return [
@@ -177,6 +202,33 @@ class LdapInventoryService
     public function getSupportedItemtypes(): array
     {
         return $this->converter->getSupportedItemtypes();
+    }
+
+    /**
+     * Get minimum field requirements for a given itemtype
+     *
+     * @param string $itemtype GLPI itemtype
+     * @return string Human-readable requirements
+     */
+    private function getMinimumFieldRequirements(string $itemtype): string
+    {
+        // Based on GLPI inventory schema and practical requirements
+        switch ($itemtype) {
+            case \Computer::class:
+                return __('Name (required for identification)', 'advancedldap');
+
+            case \NetworkEquipment::class:
+                return __('Name + Serial Number OR MAC Address (required for unique identification)', 'advancedldap');
+
+            case \Printer::class:
+                return __('Name (required)', 'advancedldap');
+
+            case \Phone::class:
+                return __('Name + Serial Number (recommended for unique identification)', 'advancedldap');
+
+            default:
+                return __('Name + unique identifier (Serial Number, MAC Address, etc.)', 'advancedldap');
+        }
     }
 
     /**

@@ -39,6 +39,7 @@ use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
@@ -51,6 +52,7 @@ use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Services\LdapFilterParser;
 use GlpiPlugin\Advancedldap\Services\LdapAttributeMapper;
+use GlpiPlugin\Advancedldap\Services\LdapFilterSanitizer;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
@@ -157,7 +159,8 @@ class ServiceContainer
 
         $this->register(LdapConnectionInterface::class, function (ServiceContainer $container) {
             return new GlpiLdapConnectionService(
-                $container->get(SyncFilterRepositoryInterface::class)
+                $container->get(SyncFilterRepositoryInterface::class),
+                $container->get(LdapFilterSanitizerInterface::class)
             );
         });
 
@@ -168,6 +171,11 @@ class ServiceContainer
 
         $this->register(LdapAttributeMapperInterface::class, function () {
             return new LdapAttributeMapper();
+        });
+
+        // LDAP security - RFC 4515 filter sanitization
+        $this->register(LdapFilterSanitizerInterface::class, function () {
+            return new LdapFilterSanitizer();
         });
 
         // Factory

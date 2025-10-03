@@ -53,7 +53,7 @@
             <strong>{{ __('Warning', 'advancedldap') }}:</strong>
             {{ __('The LDAP server', 'advancedldap') }}
             {% if authldap_active_status.server_name %}
-                "<strong>{{ authldap_active_status.server_name }}</strong>"
+                "<strong>{{ authldap_active_status.server_name|e('html') }}</strong>"
             {% endif %}
             {{ __('is currently inactive. Synchronization will not work until the server is activated.', 'advancedldap') }}
             {% if current_authldap_id %}
@@ -72,9 +72,9 @@
         <div>
             <strong>{{ __('LDAP Connection Error', 'advancedldap') }}:</strong>
             {% if ldap_connection_status.server_name %}
-                {{ __('Server', 'advancedldap') }} "<strong>{{ ldap_connection_status.server_name }}</strong>":
+                {{ __('Server', 'advancedldap') }} "<strong>{{ ldap_connection_status.server_name|e('html') }}</strong>":
             {% endif %}
-            {{ ldap_connection_status.error }}
+            {{ ldap_connection_status.error|e('html') }}
             {% if current_authldap_id %}
                 <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ current_authldap_id }}" class="alert-link ms-2" target="_blank">
                     <i class="ti ti-settings me-1"></i>{{ __('Check LDAP server configuration', 'advancedldap') }}
@@ -180,7 +180,7 @@
                     <div id="asset_field_dropdown_{{ asset_field_rand }}">
                         <!-- This will be populated by AJAX using GLPI's Dropdown::showFromArray() -->
                     </div>
-                    <div class="form-text">{{ __('Select which asset fields to synchronize from LDAP (multiple selection)', 'advancedldap') }}</div>
+                    <div class="form-text">{{ __('Select which asset fields to synchronize from LDAP (multiple selection). Mandatory fields for sync are pre-selected', 'advancedldap') }}</div>
                 </div>
             </div>
         </div>
@@ -191,12 +191,8 @@
             <input type="hidden" name="id" value="{{ item.fields['id'] }}">
             {% if current_authldap_id %}
                 <input type="hidden" name="authldap_id" value="{{ current_authldap_id }}">
-                <!-- DEBUG: using current_authldap_id = {{ current_authldap_id }} -->
             {% elseif current_config.authldap_id is defined and current_config.authldap_id %}
                 <input type="hidden" name="authldap_id" value="{{ current_config.authldap_id }}">
-                <!-- DEBUG: using current_config.authldap_id = {{ current_config.authldap_id }} -->
-            {% else %}
-                <!-- DEBUG: NO authldap_id found - current_authldap_id={{ current_authldap_id ?? 'null' }}, current_config.authldap_id={{ current_config.authldap_id ?? 'null' }} -->
             {% endif %}
             
             {% if item.fields['id'] > 0 and item.canPurge() %}
@@ -208,10 +204,17 @@
             {% endif %}
 
             {% if item.fields['id'] > 0 %}
-                <button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
+                {% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
+                {% if current_authldap_id %}
+                    {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
+                {% endif %}
+                <a href="{{ test_url }}" class="btn btn-info me-2">
                     <i class="ti ti-test-pipe"></i>
-                    <span>{{ __('Test and Sync LDAP Filter', 'advancedldap') }}</span>
-                </button>
+                    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+                </a>
+                <div class="form-text text-info mb-2">
+                    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
+                </div>
             {% endif %}
             
             <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary">
@@ -232,7 +235,7 @@
         {% if test_results.error %}
             <div class="alert alert-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                <strong>{{ __('Error:', 'advancedldap') }}</strong> {{ test_results.error }}
+                <strong>{{ __('Error:', 'advancedldap') }}</strong> {{ test_results.error|e('html') }}
             </div>
         {% else %}
             
@@ -267,14 +270,14 @@
                         <tbody>
                             {% for entry in test_results.entries %}
                                 <tr>
-                                    <td><code>{{ entry.dn }}</code></td>
+                                    <td><code>{{ entry.dn|e('html') }}</code></td>
                                     <td>
                                         {% for attr, values in entry.attributes %}
-                                            <div><strong>{{ attr }}:</strong> 
+                                            <div><strong>{{ attr|e('html') }}:</strong>
                                                 {% if values is iterable %}
-                                                    {{ values|join(', ') }}
+                                                    {{ values|join(', ')|e('html') }}
                                                 {% else %}
-                                                    {{ values }}
+                                                    {{ values|e('html') }}
                                                 {% endif %}
                                             </div>
                                         {% endfor %}
@@ -286,7 +289,7 @@
                                             <span class="badge bg-info">{{ __('Create new', 'advancedldap') }}</span>
                                         {% endif %}
                                         <div class="mt-1">
-                                            {{ entry.glpi_impact.message }}
+                                            {{ entry.glpi_impact.message|e('html') }}
                                         </div>
                                     </td>
                                 </tr>
@@ -302,8 +305,16 @@
 
 <script type="text/javascript">
 $(document).ready(function() {
+    // Minimum required fields by asset type (based on GLPI inventory requirements)
+    var minimumRequiredFields = {
+        'Computer': ['name'],
+        'NetworkEquipment': ['name', 'serial'],
+        'Printer': ['name'],
+        'Phone': ['name', 'serial']
+    };
+
     // Extract selected fields from existing field_mappings JSON
-    var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|raw }};
+    var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encode|raw }};
     var fieldMappings = {};
     var selectedAssetFields = [];
 
@@ -323,32 +334,62 @@ $(document).ready(function() {
         selectedAssetFields = [];
     }
 
+    /**
+     * Get minimum required fields for a given asset type
+     */
+    function getMinimumRequiredFields(itemtype) {
+        // Extract the class name from the full namespace (e.g., "Computer" from "Computer" or "\\Computer")
+        var className = itemtype.split('\\').pop();
+        return minimumRequiredFields[className] || [];
+    }
 
     function loadAssetFields(itemtype, selectedFields) {
         var container = $('#asset_field_dropdown_{{ asset_field_rand }}');
 
         if (!itemtype || itemtype === '0' || itemtype === '') {
-            container.html('{{ __("Select an asset type first", "advancedldap") }}');
+            container.html('{{ __("Select an asset type first", "advancedldap")|e('js') }}');
             return;
         }
 
-        container.html('{{ __("Loading fields...", "advancedldap") }}');
+        container.html('{{ __("Loading fields...", "advancedldap")|e('js') }}');
+
+        // Get minimum required fields for this asset type
+        var requiredFields = getMinimumRequiredFields(itemtype);
+
+        // Merge required fields with already selected fields (avoid duplicates)
+        var fieldsToSelect = selectedFields.slice(); // Copy array
+        requiredFields.forEach(function(field) {
+            if (fieldsToSelect.indexOf(field) === -1) {
+                fieldsToSelect.push(field);
+            }
+        });
 
         $.post('{{ config('root_doc') }}/plugins/advancedldap/ajax/getAssetFields.php', {
             itemtype: itemtype,
             name: 'asset_fields[]',
             rand: {{ asset_field_rand }},
-            selected: selectedFields,
+            selected: fieldsToSelect,
             multiple: true
         })
         .done(function(data) {
             container.html(data);
+
+            // Show info message if minimum fields were pre-selected
+            if (requiredFields.length > 0 && selectedFields.length === 0) {
+                var className = itemtype.split('\\').pop();
+                var message = '{{ __("Minimum required fields for", "advancedldap")|e('js') }} ' + className + ': ' + requiredFields.join(', ');
+                displayAjaxMessageAfterRedirect({
+                    message: message,
+                    type: 'info',
+                    timeout: 5000
+                });
+            }
         })
         .fail(function(xhr, status, error) {
-            container.html('{{ __("Error loading fields", "advancedldap") }}');
+            container.html('{{ __("Error loading fields", "advancedldap")|e('js') }}');
         });
     }
-    
+
     // Load fields on page load if asset type is already selected
     var initialAssetType = $('#dropdown_asset_type{{ asset_type_rand }}').val();
     if (initialAssetType && initialAssetType !== '') {
