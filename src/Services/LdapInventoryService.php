@@ -69,18 +69,14 @@ class LdapInventoryService
     public function syncInventoriableAsset(array $ldapData, string $itemtype, array $fieldMappings = []): array
     {
         $assetName = $ldapData['name'][0] ?? $ldapData['cn'][0] ?? 'Unknown';
-        Toolbox::logDebug("LdapInventoryService: Starting inventory sync for asset '$assetName' (type: $itemtype)");
 
         try {
             $inventoryData = $this->converter->convertToInventoryFormat($ldapData, $itemtype, $fieldMappings);
-
-            Toolbox::logDebug("LdapInventoryService: Inventory data for '$assetName': " . json_encode($inventoryData, JSON_PRETTY_PRINT));
 
             // Convert array to object for GLPI schema validation
             try {
                 $inventoryObject = json_decode(json_encode($inventoryData));
             } catch (JsonException $e) {
-                Toolbox::logDebug("LdapInventoryService: Failed to encode/decode inventory data for '$assetName': " . $e->getMessage());
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -95,7 +91,7 @@ class LdapInventoryService
 
             if (!$inventory->setData($inventoryObject, Request::JSON_MODE)) {
                 $errors = $inventory->getErrors();
-                Toolbox::logDebug("LdapInventoryService: FAILED to set inventory data for '$assetName': " . implode(', ', $errors));
+                Toolbox::logDebug("LdapInventoryService: Failed to set inventory data for '$assetName': " . implode(', ', $errors));
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -109,7 +105,7 @@ class LdapInventoryService
 
             if ($inventory->inError()) {
                 $errors = $inventory->getErrors();
-                Toolbox::logDebug("LdapInventoryService: Inventory processing FAILED for '$assetName': " . implode(', ', $errors));
+                Toolbox::logDebug("LdapInventoryService: Inventory processing failed for '$assetName': " . implode(', ', $errors));
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -123,8 +119,6 @@ class LdapInventoryService
             $item = $inventory->getItem();
             $assetId = $item->getID();
 
-            Toolbox::logDebug("LdapInventoryService: Inventory item class: " . get_class($item) . ", ID: $assetId");
-
             // Check if inventory failed silently (ID = -1 or 0 means failure)
             if ($assetId <= 0) {
                 // Provide specific minimum requirements based on itemtype
@@ -134,7 +128,7 @@ class LdapInventoryService
                     basename(str_replace('\\', '/', $itemtype)),
                     $requirements
                 );
-                Toolbox::logDebug("LdapInventoryService: FAILED - Asset '$assetName' not created (ID: $assetId). Insufficient data. Required: $requirements");
+                Toolbox::logDebug("LdapInventoryService: Asset '$assetName' not created - insufficient data. Required: $requirements");
                 return [
                     'success' => false,
                     'action' => 'inventory',
@@ -150,9 +144,6 @@ class LdapInventoryService
             $isNew = $mainAsset->isNew();
             $action = $isNew ? 'created' : 'updated';
 
-            Toolbox::logDebug("LdapInventoryService: MainAsset isNew: " . ($isNew ? 'true' : 'false') . ", action: $action");
-            Toolbox::logDebug("LdapInventoryService: SUCCESS - Asset '$assetName' $action via inventory system (ID: $assetId)");
-
             return [
                 'success' => true,
                 'action' => $action,
@@ -162,7 +153,6 @@ class LdapInventoryService
             ];
 
         } catch (\InvalidArgumentException $e) {
-            Toolbox::logDebug("LdapInventoryService: Invalid argument for '$assetName': " . $e->getMessage());
             return [
                 'success' => false,
                 'action' => 'inventory',

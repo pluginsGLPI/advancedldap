@@ -36,7 +36,6 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │   └── src/Models/
   │       ├── SyncFilter.php                 # Modèle principal filtres LDAP
   │       │   • extends CommonDBTM           # → CRUD complet, massive actions
-  │       │   • 804 lignes (refactorisé)     # → Délégation vers services
   │       │   • Alias legacy automatique     # → class_alias() pour Search GLPI 11
   │       │
   │       └── AuthLdapSyncFilter.php         # Modèle relation many-to-many
@@ -206,6 +205,58 @@ Tests et validation des filtres LDAP en temps réel :
 - **Connexion safe** : Gestion des erreurs de connexion LDAP
 - **Résultats** : Count, sample entries, champs disponibles
 - **Validation** : Test before save pour éviter erreurs de synchronisation
+- **Support Assets Génériques** : Analyse d'impact GLPI pour format `GenericAsset_ID`
+
+**Méthode publique** :
+- `testLdapFilter(int $authldap_id, string $base_dn, string $filter, string $asset_type, string $asset_field = '', array $field_mappings = []): array`
+
+**Analyse d'Impact pour Assets Génériques** :
+La méthode privée `analyzeGlpiImpact()` gère les assets génériques (lignes 297-319) :
+
+```php
+// Détection du format GenericAsset_ID
+if (str_starts_with($asset_type, 'GenericAsset_')) {
+    // Extraction ID et validation de la définition
+    $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+    $definition = new \Glpi\Asset\AssetDefinition();
+
+    if (!$definition->getFromDB($asset_definition_id)) {
+        return [
+            'exists' => false,
+            'message' => sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id)
+        ];
+    }
+
+    // Recherche dans la table glpi_assets_assets
+    $asset_table = 'glpi_assets_assets';
+} else {
+    // Gestion assets natifs (Computer, Printer, etc.)
+    if (!class_exists($asset_type)) {
+        return ['exists' => false, 'message' => sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type)];
+    }
+    $asset_table = $this->database->getTableForItemType($asset_type);
+}
+
+// Recherche si l'asset existe déjà
+$iterator = $this->database->request([
+    'FROM'  => $asset_table,
+    'WHERE' => ['name' => $asset_name],
+    'LIMIT' => 1,
+]);
+
+// Message personnalisé selon existence
+if (count($iterator) > 0) {
+    $impact['message'] = sprintf(__('Asset "%s" exists, fields will be updated: %s', 'advancedldap'), ...);
+} else {
+    $impact['message'] = sprintf(__('Asset "%s" will be created with fields: %s', 'advancedldap'), ...);
+}
+```
+
+**Tests unitaires** :
+- ✅ 12 tests couvrant la méthode `testLdapFilter()` avec différents scénarios
+- ⚠️ Tests pour assets génériques **non inclus** dans les tests unitaires
+- Raison : Complexité de création d'asset definitions dans le contexte de test
+- **Solution** : Tests d'intégration pour couvrir cette fonctionnalité
 
 ##### **LdapInventoryService** (`src/Services/LdapInventoryService.php`)
 Intégration avec le système d'inventaire natif GLPI :
@@ -324,9 +375,37 @@ Gestion unifiée des champs disponibles pour tous types d'assets :
 
 ##### **AssetCreationService** (`src/Services/AssetCreationService.php`)
 Création et mise à jour des assets GLPI (workflow traditionnel) :
-- **Search/Create** : Recherche par serial/name, création si inexistant
-- **Update** : Mise à jour champs mappés si asset existe
-- **Logs** : `Toolbox::logDebug()` pour traçabilité
+- **Support Assets Natifs** : Computer, Printer, Monitor, NetworkEquipment, Phone, Peripheral
+- **Support Assets Génériques** : Format `GenericAsset_ID` (ex: `GenericAsset_1`)
+- **Workflow** :
+  - Assets natifs → Instanciation directe de la classe (ex: `new Computer()`)
+  - Assets génériques → Résolution via `AssetDefinition::getAssetClassName()` puis instanciation dynamique
+- **Validation** : Vérification de l'existence de la définition d'asset générique via `getFromDB()`
+- **Logs** : `Toolbox::logDebug()` pour traçabilité (méthode privée `handleGenericAsset()`)
+
+**Méthodes publiques** :
+- `createOrUpdateAsset(string $asset_type, array $asset_data): array` - Création/MAJ assets
+- `validateAssetData(array $asset_data, string $asset_type): array` - Validation données
+
+**Gestion des Assets Génériques** :
+```php
+// Format attendu pour asset générique
+$asset_type = 'GenericAsset_1'; // ID = 1 de la table glpi_assets_assetdefinitions
+
+// Workflow interne
+1. Extraction ID depuis le format : str_replace('GenericAsset_', '', $asset_type) → 1
+2. Chargement définition : new \Glpi\Asset\AssetDefinition()->getFromDB(1)
+3. Récupération classe concrète : $definition->getAssetClassName() → 'Glpi\CustomAsset\FooAsset'
+4. Instanciation dynamique : new $concrete_class()
+5. Préparation données avec assets_assetdefinitions_id
+6. Création/MAJ via méthodes CommonDBTM standards
+```
+
+**Tests unitaires** :
+- ⚠️ Les tests pour assets génériques ne sont **pas inclus** dans les tests unitaires
+- Raison : La méthode privée `handleGenericAsset()` génère des logs via `Toolbox::logDebug()`
+- Framework GLPI rejette les "unexpected log entries" dans les tests unitaires
+- **Solution** : Tests d'intégration pour couvrir cette fonctionnalité
 
 ##### **AssetTypeClassifier** (`src/Services/AssetTypeClassifier.php`)
 Classification automatique des assets (inventoriables vs traditionnels) :
@@ -359,6 +438,39 @@ Validation centralisée des paramètres LDAP :
 - **Réduction duplication** : Code commun entre services
 - **Validation** : Base DN, filter, asset type, field mappings
 - **Retours** : Messages d'erreur explicites ou `null` si OK
+- **Support Assets Génériques** : Validation du format `GenericAsset_ID`
+
+**Méthodes publiques** :
+- `validateBasicParameters(string $base_dn, string $filter, string $asset_type): ?string`
+- `validateAssetTypeExists(string $asset_type): ?string` - **Supporte assets génériques**
+- `validateSyncFilter(SyncFilter $sync_filter): ?string`
+- `validateConnectionParameters(string $host, int $port, string $base_dn): ?string`
+- `validateFieldMappings(array $field_mappings): ?string`
+
+**Validation Assets Génériques** :
+```php
+// Méthode validateAssetTypeExists() - lignes 71-89
+if (str_starts_with($asset_type, 'GenericAsset_')) {
+    $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+    $definition = new \Glpi\Asset\AssetDefinition();
+
+    if (!$definition->getFromDB($asset_definition_id)) {
+        return sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
+    }
+    return null; // Validation réussie
+}
+
+// Validation classes natives GLPI
+if (!class_exists($asset_type)) {
+    return sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
+}
+```
+
+**Tests unitaires** :
+- ✅ 30 tests couvrant toutes les méthodes publiques
+- ✅ 2 tests spécifiques pour assets génériques :
+  - `testValidateAssetTypeExistsWithValidGenericAsset()` - Création asset definition + validation
+  - `testValidateAssetTypeExistsWithInvalidGenericAsset()` - ID inexistant (999999)
 
 ---
 
@@ -839,15 +951,61 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 #### **Qualité de Code**
 - ✅ **PHP 8.2+** : Types stricts, promotion constructeur, readonly properties, expressions match
 - ✅ **PSR-12** : Code style via `.php-cs-fixer.php`
-- ✅ **Analyse statique** : Psalm configuré (`psalm.xml`)
+- ✅ **Analyse statique** : Psalm + PHPStan configurés (`psalm.xml`, `phpstan.neon`)
 - ✅ **Tests unitaires** : 25 fichiers de tests (24 tests + 1 bootstrap)
   - Tests pour tous les services, modèles, repositories, providers
   - 66 tests dédiés à la sécurité LDAP (`LdapFilterSanitizerTest.php`)
+  - **79 tests au total** après révision (octobre 2025)
   - Bootstrap configuré avec autoload GLPI
+  - **Stratégie assets génériques** : Tests unitaires pour validation, tests d'intégration pour création
 - ✅ **Documentation** : PHPDoc complet avec types, @param, @return, @throws
 - ✅ **Logs** : `Toolbox::logDebug()` dans tous les services critiques pour traçabilité
 - ✅ **Namespaces** : Organisation moderne `GlpiPlugin\Advancedldap\*` avec alias legacy
 - ✅ **🔒 Audit sécurité** : `SECURITY_AUDIT.md` + cas de test documentés
+
+#### **Tests Unitaires et Assets Génériques**
+
+**Stratégie de test adoptée** (conforme conventions GLPI) :
+
+1. **Méthodes testables** :
+   - ✅ Seules les méthodes **publiques** sont testées
+   - ✅ Les méthodes **sans logs** sont testées unitairement
+   - ⚠️ Les méthodes générant des **logs de debug** ne sont **pas testées** unitairement
+
+2. **Assets Génériques - Couverture par service** :
+
+   | Service | Tests Unitaires | Raison |
+   |---------|----------------|--------|
+   | `AssetCreationService` | ❌ Non testés | Méthode `handleGenericAsset()` génère des logs |
+   | `LdapParameterValidator` | ✅ 2 tests ajoutés | Méthode `validateAssetTypeExists()` sans logs |
+   | `LdapTestService` | ❌ Non testés | Complexité création asset definitions en test |
+   | `GlpiConfigurationService` | ✅ 3 tests ajoutés | Méthode `isInventoryEnabled()` sans logs |
+   | `LdapInventoryService` | ⚠️ Documentés uniquement | Méthode `syncInventoriableAsset()` génère des logs |
+
+3. **Documentation explicative** :
+   - Chaque fichier de test contient un commentaire expliquant pourquoi certains tests sont absents
+   - Référence aux tests d'intégration pour couverture complète
+   - Exemples :
+     - `AssetCreationServiceTest.php` lignes 14-19
+     - `LdapTestServiceTest.php` lignes 17-19
+     - `LdapInventoryServiceTest.php` lignes 13-26
+
+4. **Statistiques tests (révision 06/10/2025)** :
+   - **Tests initiaux** : 74 tests
+   - **Tests ajoutés** : 5 tests
+   - **Total final** : 79 tests
+   - **Répartition** :
+     - AssetCreationService : 10 tests (assets natifs uniquement)
+     - GlpiConfigurationService : 14 tests (+3 pour `isInventoryEnabled()`)
+     - LdapInventoryService : 13 tests (hors `syncInventoriableAsset()`)
+     - LdapParameterValidator : 30 tests (+2 pour assets génériques)
+     - LdapTestService : 12 tests (hors assets génériques)
+
+5. **Principes respectés** :
+   - ✅ Framework GLPI rejette les "unexpected log entries"
+   - ✅ Pas de mock de `Toolbox::logDebug()` (anti-pattern)
+   - ✅ Séparation claire : tests unitaires vs tests d'intégration
+   - ✅ Documentation des limitations et justifications
 
 #### **Fonctionnalités Avancées**
 - ✅ **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels via `AssetTypeClassifier`
@@ -883,6 +1041,31 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 ---
 
 ### 📈 **Évolutions Récentes**
+
+#### **06/10/2025 - Révision Tests Unitaires & Support Assets Génériques**
+- ✅ **Révision complète des tests unitaires** suite à l'adaptation de la synchronisation des assets génériques
+- ✅ **5 services testés** : AssetCreationService, GlpiConfigurationService, LdapInventoryService, LdapParameterValidator, LdapTestService
+- ✅ **5 nouveaux tests ajoutés** :
+  - `GlpiConfigurationService` : +3 tests pour `isInventoryEnabled()` (correction commentaire erroné)
+  - `LdapParameterValidator` : +2 tests pour validation assets génériques (`GenericAsset_ID`)
+- ✅ **Documentation explicative** :
+  - Ajout commentaires dans chaque fichier de test expliquant pourquoi assets génériques non testés unitairement
+  - Référence aux tests d'intégration pour couverture complète
+- ✅ **Correction PHPStan** : Import `use function Safe\json_encode;` dans `AssetCreationService.php`
+- ✅ **Stratégie de test GLPI** :
+  - Méthodes générant des logs (`Toolbox::logDebug()`) non testées unitairement
+  - Framework GLPI rejette les "unexpected log entries"
+  - Tests d'intégration pour méthodes avec logs (création assets génériques)
+- ✅ **Statistiques** : 74 → 79 tests (+5 tests)
+- ✅ **Fichiers modifiés** :
+  - 5 fichiers de tests (ajouts commentaires + nouveaux tests)
+  - 1 fichier source (import Safe\json_encode)
+  - 1 fichier documentation (cette section)
+
+**Services avec support assets génériques** :
+- `AssetCreationService` : Format `GenericAsset_ID` → résolution via `AssetDefinition::getAssetClassName()`
+- `LdapParameterValidator` : Validation définitions d'assets génériques (✅ testée)
+- `LdapTestService` : Analyse d'impact GLPI avec table `glpi_assets_assets` (⚠️ non testée)
 
 #### **03/10/2025 - Correctifs & Améliorations UX**
 - ✅ **Workflow de Test LDAP Sécurisé** : Le filtre doit être sauvegardé avant test

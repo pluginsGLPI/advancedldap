@@ -65,11 +65,22 @@ class LdapParameterValidator
     /**
      * Validate asset type class exists
      *
-     * @param string $asset_type Asset type class name
+     * @param string $asset_type Asset type class name or GenericAsset_ID
      * @return string|null Error message or null if valid
      */
     public function validateAssetTypeExists(string $asset_type): ?string
     {
+        // Handle generic assets (format: GenericAsset_ID)
+        if (str_starts_with($asset_type, 'GenericAsset_')) {
+            $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+            $definition = new \Glpi\Asset\AssetDefinition();
+            if (!$definition->getFromDB($asset_definition_id)) {
+                return sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
+            }
+            return null;
+        }
+
+        // Validate native asset type
         if (!class_exists($asset_type)) {
             return sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
         }

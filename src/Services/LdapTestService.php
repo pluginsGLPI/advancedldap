@@ -293,17 +293,29 @@ class LdapTestService
                 return $impact;
             }
 
-            // Check if asset class exists
-            if (!class_exists($asset_type)) {
-                $impact['message'] = sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
-                return $impact;
-            }
+            // Check if asset type exists (native or generic)
+            if (str_starts_with($asset_type, 'GenericAsset_')) {
+                // Validate generic asset definition
+                $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+                $definition = new \Glpi\Asset\AssetDefinition();
+                if (!$definition->getFromDB($asset_definition_id)) {
+                    $impact['message'] = sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
+                    return $impact;
+                }
+                $asset_table = 'glpi_assets_assets';
+            } else {
+                // Check if native asset class exists
+                if (!class_exists($asset_type)) {
+                    $impact['message'] = sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
+                    return $impact;
+                }
 
-            // Get asset table
-            $asset_table = $this->database->getTableForItemType($asset_type);
-            if (!$asset_table) {
-                $impact['message'] = sprintf(__('No table found for asset type %s', 'advancedldap'), $asset_type);
-                return $impact;
+                // Get asset table
+                $asset_table = $this->database->getTableForItemType($asset_type);
+                if (!$asset_table) {
+                    $impact['message'] = sprintf(__('No table found for asset type %s', 'advancedldap'), $asset_type);
+                    return $impact;
+                }
             }
 
             // Check if asset exists
