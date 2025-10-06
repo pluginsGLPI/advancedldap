@@ -35,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use AuthLDAP;
 use Exception;
+use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
@@ -297,7 +298,7 @@ class LdapTestService
             if (str_starts_with($asset_type, 'GenericAsset_')) {
                 // Validate generic asset definition
                 $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
-                $definition = new \Glpi\Asset\AssetDefinition();
+                $definition = new AssetDefinition();
                 if (!$definition->getFromDB($asset_definition_id)) {
                     $impact['message'] = sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
                     return $impact;

@@ -35,6 +35,7 @@ namespace GlpiPlugin\Advancedldap\Services;
 
 use CommonDBTM;
 use Exception;
+use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use Location;
 use Session;
@@ -422,19 +423,15 @@ class AssetCreationService
             // Extract asset definition ID from asset_type (GenericAsset_1 => 1)
             $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
 
-            Toolbox::logDebug("AssetCreationService: Handling generic asset with definition ID: $asset_definition_id");
-
             // Load the asset definition directly from database
-            $definition = new \Glpi\Asset\AssetDefinition();
+            $definition = new AssetDefinition();
             if (!$definition->getFromDB($asset_definition_id)) {
                 $result['error'] = sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
-                Toolbox::logDebug("AssetCreationService: Asset definition $asset_definition_id not found");
                 return $result;
             }
 
             // Get the concrete asset class name
             $concrete_class = $definition->getAssetClassName();
-            Toolbox::logDebug("AssetCreationService: Using concrete class: $concrete_class");
 
             // Create asset instance using the concrete class
             /** @phpstan-ignore glpi.forbidDynamicInstantiation */
@@ -455,8 +452,6 @@ class AssetCreationService
                 $update_data = $prepared_data;
                 $update_data['id'] = $existing_asset['id'];
 
-                Toolbox::logDebug("AssetCreationService: Updating existing generic asset ID: {$existing_asset['id']}");
-
                 if ($asset->update($update_data)) {
                     $result['success'] = true;
                     $result['action'] = 'updated';
@@ -466,14 +461,11 @@ class AssetCreationService
                 }
             } else {
                 // Create new asset
-                Toolbox::logDebug("AssetCreationService: Creating new generic asset");
-
                 $asset_id = $asset->add($prepared_data);
                 if ($asset_id) {
                     $result['success'] = true;
                     $result['action'] = 'created';
                     $result['asset_id'] = $asset_id;
-                    Toolbox::logDebug("AssetCreationService: Created generic asset with ID: $asset_id");
                 } else {
                     $result['error'] = __('Failed to create asset', 'advancedldap');
                 }
@@ -481,7 +473,6 @@ class AssetCreationService
 
         } catch (Exception $e) {
             $result['error'] = sprintf(__('Generic asset error: %s', 'advancedldap'), $e->getMessage());
-            Toolbox::logDebug("AssetCreationService: Exception - " . $e->getMessage());
         }
 
         return $result;
@@ -520,8 +511,6 @@ class AssetCreationService
         if (empty($prepared['name'])) {
             $prepared['name'] = __('Unnamed Asset', 'advancedldap');
         }
-
-        Toolbox::logDebug("AssetCreationService: Prepared generic asset data: " . json_encode($prepared));
 
         return $prepared;
     }
