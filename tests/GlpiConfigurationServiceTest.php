@@ -8,11 +8,6 @@ use DbTestCase;
 /**
  * Unit tests for GlpiConfigurationService
  * Tests only public methods as per GLPI testing conventions
- *
- * Note: isInventoryEnabled() is not unit tested because:
- * - This method generates debug logs via Toolbox::logDebug() at line 98
- * - The GLPI test framework rejects "unexpected log entries" causing test failures
- * - This method should be tested via integration tests instead
  */
 class GlpiConfigurationServiceTest extends DbTestCase
 {
@@ -153,6 +148,52 @@ class GlpiConfigurationServiceTest extends DbTestCase
 
         // Assert
         $this->assertNull($result);
+    }
+
+    /**
+     * Test isInventoryEnabled method when inventory is enabled
+     */
+    public function testIsInventoryEnabledWhenEnabled()
+    {
+        // Arrange
+        \Config::setConfigurationValues('inventory', ['enabled_inventory' => 1]);
+
+        // Act
+        $result = $this->configurationService->isInventoryEnabled();
+
+        // Assert
+        $this->assertTrue($result);
+    }
+
+    /**
+     * Test isInventoryEnabled method when inventory is disabled
+     */
+    public function testIsInventoryEnabledWhenDisabled()
+    {
+        // Arrange
+        \Config::setConfigurationValues('inventory', ['enabled_inventory' => 0]);
+
+        // Act
+        $result = $this->configurationService->isInventoryEnabled();
+
+        // Assert
+        $this->assertFalse($result);
+    }
+
+    /**
+     * Test isInventoryEnabled method when configuration is missing
+     */
+    public function testIsInventoryEnabledWhenConfigMissing()
+    {
+        // Arrange
+        global $DB;
+        $DB->delete('glpi_configs', ['context' => 'inventory']);
+
+        // Act
+        $result = $this->configurationService->isInventoryEnabled();
+
+        // Assert
+        $this->assertFalse($result);
     }
 
     /**

@@ -10,6 +10,14 @@ use AuthLDAP;
 use Exception;
 use DbTestCase;
 
+/**
+ * Unit tests for LdapTestService
+ * Tests only public methods as per GLPI testing conventions
+ *
+ * Note: Generic asset types (GenericAsset_ID) are not extensively tested in unit tests.
+ * These should be covered by integration tests to ensure proper interaction with GLPI's
+ * asset definition system.
+ */
 class LdapTestServiceTest extends DbTestCase
 {
     private $ldapTestService;

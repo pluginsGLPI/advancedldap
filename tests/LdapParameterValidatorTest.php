@@ -151,6 +151,49 @@ class LdapParameterValidatorTest extends DbTestCase
     }
 
     /**
+     * Test validateAssetTypeExists with valid generic asset definition ID
+     */
+    public function testValidateAssetTypeExistsWithValidGenericAsset()
+    {
+        // Arrange - Create a test asset definition
+        $definition = new \Glpi\Asset\AssetDefinition();
+        $definitionId = $definition->add([
+            'name' => 'Test Generic Asset',
+            'system_name' => 'testgenericasset',
+        ]);
+
+        $this->assertGreaterThan(0, $definitionId);
+
+        $assetType = 'GenericAsset_' . $definitionId;
+
+        // Act
+        $result = $this->validator->validateAssetTypeExists($assetType);
+
+        // Assert
+        $this->assertNull($result);
+
+        // Cleanup
+        $definition->delete(['id' => $definitionId], true);
+    }
+
+    /**
+     * Test validateAssetTypeExists with invalid generic asset definition ID
+     */
+    public function testValidateAssetTypeExistsWithInvalidGenericAsset()
+    {
+        // Arrange
+        $assetType = 'GenericAsset_999999'; // Non-existent definition ID
+
+        // Act
+        $result = $this->validator->validateAssetTypeExists($assetType);
+
+        // Assert
+        $this->assertNotNull($result);
+        $this->assertIsString($result);
+        $this->assertStringContainsString('999999', $result);
+    }
+
+    /**
      * Test validateSyncFilter with valid SyncFilter object
      */
     public function testValidateSyncFilterWithValidData()

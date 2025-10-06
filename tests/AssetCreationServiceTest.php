@@ -7,6 +7,17 @@ use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use Computer;
 use DbTestCase;
 
+/**
+ * Unit tests for AssetCreationService
+ * Tests only public methods as per GLPI testing conventions
+ *
+ * Note: createOrUpdateAsset() with GenericAsset types is not unit tested because:
+ * - The handleGenericAsset() private method generates debug logs via Toolbox::logDebug()
+ * - The GLPI test framework rejects "unexpected log entries" causing test failures
+ * - Generic asset creation should be tested via integration tests instead
+ *
+ * Native asset types (Computer, Printer, etc.) are fully tested as they don't generate logs.
+ */
 class AssetCreationServiceTest extends DbTestCase
 {
     private $assetCreationService;
