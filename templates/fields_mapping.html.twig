@@ -1,0 +1,361 @@
+{#
+ # -------------------------------------------------------------------------
+ # advancedldap plugin for GLPI
+ # -------------------------------------------------------------------------
+ #
+ # MIT License
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy
+ # of this software and associated documentation files (the "Software"), to deal
+ # in the Software without restriction, including without limitation the rights
+ # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ # copies of the Software, and to permit persons to whom the Software is
+ # furnished to do so, subject to the following conditions:
+ #
+ # The above copyright notice and this permission notice shall be included in all
+ # copies or substantial portions of the Software.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ # SOFTWARE.
+ # -------------------------------------------------------------------------
+ # @copyright Copyright (C) 2025 by the advancedldap plugin team.
+ # @license   MIT https://opensource.org/licenses/mit-license.php
+ # @link      https://github.com/pluginsGLPI/advancedldap
+ # -------------------------------------------------------------------------
+#}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="ti ti-link me-2"></i>{{ __('Fields Mapping', 'advancedldap') }}
+        </h3>
+        <div class="text-muted">{{ __('Map GLPI asset fields to LDAP attributes', 'advancedldap') }}</div>
+    </div>
+
+    <div class="card-body">
+        {% if not asset_type %}
+            <div class="alert alert-warning">
+                <i class="ti ti-alert-triangle me-2"></i>
+                {{ __('Please select an asset type in the main form first', 'advancedldap') }}
+            </div>
+        {% else %}
+            <div class="alert alert-info mb-3">
+                <i class="ti ti-info-circle me-2"></i>
+                {{ __('Configure the mapping between GLPI asset fields and LDAP attributes. These mappings will be saved when you save the filter in the main form.', 'advancedldap') }}
+            </div>
+
+            <div id="field-mappings-container">
+                {% set index = 0 %}
+                {% for glpi_field, ldap_attribute in current_mappings %}
+                    <div class="field-mapping-row mb-3" data-index="{{ index }}">
+                        <div class="row align-items-center">
+                            {# GLPI field select #}
+                            <div class="col-md-5">
+                                <div id="glpi-field-dropdown-{{ index }}" data-selected="{{ glpi_field }}">
+                                    {# Will be populated by AJAX #}
+                                </div>
+                            </div>
+
+                            {# Arrow icon #}
+                            <div class="col-md-1 text-center">
+                                <i class="ti ti-arrow-right"></i>
+                            </div>
+
+                            {# LDAP attribute input #}
+                            <div class="col-md-5">
+                                <input type="text"
+                                       class="form-control ldap-attribute-input"
+                                       placeholder="{{ __('LDAP attribute (e.g., cn, serialNumber)', 'advancedldap') }}"
+                                       value="{{ ldap_attribute|e('html_attr') }}"
+                                       data-index="{{ index }}">
+                            </div>
+
+                            {# Remove button #}
+                            <div class="col-md-1">
+                                <button type="button"
+                                        class="btn btn-sm btn-ghost-danger remove-mapping-row"
+                                        data-index="{{ index }}"
+                                        title="{{ __('Remove mapping', 'advancedldap') }}">
+                                    <i class="ti ti-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% set index = index + 1 %}
+                {% endfor %}
+
+                {# Add one empty row for new mapping #}
+                <div class="field-mapping-row mb-3" data-index="{{ index }}">
+                    <div class="row align-items-center">
+                        {# GLPI field select #}
+                        <div class="col-md-5">
+                            <div id="glpi-field-dropdown-{{ index }}" data-selected="">
+                                {# Will be populated by AJAX #}
+                            </div>
+                        </div>
+
+                        {# Arrow icon #}
+                        <div class="col-md-1 text-center">
+                            <i class="ti ti-arrow-right"></i>
+                        </div>
+
+                        {# LDAP attribute input #}
+                        <div class="col-md-5">
+                            <input type="text"
+                                   class="form-control ldap-attribute-input"
+                                   placeholder="{{ __('LDAP attribute (e.g., cn, serialNumber)', 'advancedldap') }}"
+                                   value=""
+                                   data-index="{{ index }}"
+                                   style="display: none;">
+                        </div>
+
+                        {# Remove button #}
+                        <div class="col-md-1">
+                            <button type="button"
+                                    class="btn btn-sm btn-ghost-danger remove-mapping-row"
+                                    data-index="{{ index }}"
+                                    title="{{ __('Remove mapping', 'advancedldap') }}"
+                                    style="display: none;">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Hidden input that will be updated by JavaScript and included in the main form #}
+            <input type="hidden" id="field_mappings_json" name="field_mappings" value="{{ current_mappings|json_encode|e('html_attr') }}">
+        {% endif %}
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    var currentMappings = {{ current_mappings|json_encode|raw }};
+    var rowIndex = {{ current_mappings|length }};
+    var assetType = '{{ asset_type|e('js') }}';
+    var rootDoc = '{{ config('root_doc')|e('js') }}';
+
+    // Function to update the hidden JSON input
+    function updateMappingsJson() {
+        var mappings = {};
+        $('.field-mapping-row').each(function() {
+            var glpiField = $(this).find('select[name^="glpi_field_"]').val();
+            var ldapAttr = $(this).find('.ldap-attribute-input').val();
+
+            if (glpiField && ldapAttr) {
+                mappings[glpiField] = ldapAttr;
+            }
+        });
+        $('#field_mappings_json').val(JSON.stringify(mappings));
+
+        // Also update the field_mappings field in the main form if it exists
+        if (window.parent && window.parent.document) {
+            var mainForm = $(window.parent.document).find('form[name="asset-1"]');
+            if (mainForm.length) {
+                var hiddenField = mainForm.find('input[name="field_mappings"]');
+                if (hiddenField.length === 0) {
+                    hiddenField = $('<input>').attr({
+                        type: 'hidden',
+                        name: 'field_mappings',
+                        value: JSON.stringify(mappings)
+                    });
+                    mainForm.append(hiddenField);
+                } else {
+                    hiddenField.val(JSON.stringify(mappings));
+                }
+            }
+        }
+    }
+
+    // Function to get all currently selected fields
+    function getSelectedFields() {
+        var fields = [];
+        $('.field-mapping-row select[name^="glpi_field_"]').each(function() {
+            var value = $(this).val();
+            if (value) {
+                fields.push(value);
+            }
+        });
+        return fields;
+    }
+
+    // Function to load field dropdown for a row
+    function loadFieldDropdown(index, selectedField) {
+        var container = $('#glpi-field-dropdown-' + index);
+        var allSelectedFields = getSelectedFields();
+
+        $.post(rootDoc + '/plugins/advancedldap/ajax/getAssetFields.php', {
+            itemtype: assetType,
+            name: 'glpi_field_' + index,
+            selected: selectedField ? [selectedField] : [],
+            multiple: false
+        })
+        .done(function(data) {
+            container.html(data);
+
+            // Disable already selected options in other dropdowns
+            var select = container.find('select');
+            allSelectedFields.forEach(function(field) {
+                if (field !== selectedField) {
+                    select.find('option[value="' + field + '"]').prop('disabled', true);
+                }
+            });
+
+            // Add change handler to show/hide LDAP attribute input
+            select.on('change', function() {
+                var row = container.closest('.field-mapping-row');
+                var ldapInput = row.find('.ldap-attribute-input');
+                var removeBtn = row.find('.remove-mapping-row');
+                var previousValue = $(this).data('previous-value');
+
+                if ($(this).val()) {
+                    ldapInput.show();
+                    removeBtn.show();
+
+                    // Update all other dropdowns to disable this newly selected option
+                    var newValue = $(this).val();
+                    $('.field-mapping-row').each(function() {
+                        if ($(this).data('index') !== index) {
+                            var otherSelect = $(this).find('select[name^="glpi_field_"]');
+                            otherSelect.find('option[value="' + newValue + '"]').prop('disabled', true);
+                        }
+                    });
+
+                    // Enable the previously selected option in other dropdowns if it exists
+                    if (previousValue) {
+                        $('.field-mapping-row').each(function() {
+                            if ($(this).data('index') !== index) {
+                                var otherSelect = $(this).find('select[name^="glpi_field_"]');
+                                otherSelect.find('option[value="' + previousValue + '"]').prop('disabled', false);
+                            }
+                        });
+                    }
+
+                    // Store the current value as previous for next change
+                    $(this).data('previous-value', $(this).val());
+
+                    // Add a new empty row if this was the last empty row
+                    if (row.is('#field-mappings-container .field-mapping-row:last-child')) {
+                        addNewRow();
+                    }
+                } else {
+                    ldapInput.hide().val('');
+                    removeBtn.hide();
+
+                    // Enable the previously selected option in other dropdowns
+                    if (previousValue) {
+                        $('.field-mapping-row').each(function() {
+                            if ($(this).data('index') !== index) {
+                                var otherSelect = $(this).find('select[name^="glpi_field_"]');
+                                otherSelect.find('option[value="' + previousValue + '"]').prop('disabled', false);
+                            }
+                        });
+                    }
+
+                    $(this).data('previous-value', '');
+                }
+
+                // Update the JSON whenever a field changes
+                updateMappingsJson();
+            });
+
+            // Also update JSON when LDAP attribute changes
+            container.closest('.field-mapping-row').find('.ldap-attribute-input').on('input', function() {
+                updateMappingsJson();
+            });
+        })
+        .fail(function(xhr, status, error) {
+            container.html('<div class="alert alert-danger">' +
+                         '{{ __("Error loading fields", "advancedldap")|e('js') }}' +
+                         '</div>');
+        });
+    }
+
+    // Function to create a new row HTML
+    function getNewRowHtml(index) {
+        return `
+            <div class="field-mapping-row mb-3" data-index="${index}">
+                <div class="row align-items-center">
+                    <div class="col-md-5">
+                        <div id="glpi-field-dropdown-${index}" data-selected="">
+                        </div>
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <i class="ti ti-arrow-right"></i>
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text"
+                               class="form-control ldap-attribute-input"
+                               placeholder="{{ __('LDAP attribute (e.g., cn, serialNumber)', 'advancedldap')|e('js') }}"
+                               value=""
+                               data-index="${index}"
+                               style="display: none;">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button"
+                                class="btn btn-sm btn-ghost-danger remove-mapping-row"
+                                data-index="${index}"
+                                title="{{ __('Remove mapping', 'advancedldap')|e('js') }}"
+                                style="display: none;">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Function to add a new mapping row
+    function addNewRow() {
+        rowIndex++;
+        var newRow = $(getNewRowHtml(rowIndex));
+        $('#field-mappings-container').append(newRow);
+        loadFieldDropdown(rowIndex, '');
+    }
+
+    // Load all existing field dropdowns on page load
+    $('.field-mapping-row').each(function() {
+        var index = $(this).data('index');
+        var selectedField = $(this).find('[id^="glpi-field-dropdown-"]').data('selected');
+
+        // For existing mappings, find the GLPI field from current mappings
+        if (!selectedField && Object.keys(currentMappings).length > 0) {
+            var ldapAttr = $(this).find('.ldap-attribute-input').val();
+            for (var field in currentMappings) {
+                if (currentMappings[field] === ldapAttr) {
+                    selectedField = field;
+                    break;
+                }
+            }
+        }
+
+        loadFieldDropdown(index, selectedField);
+    });
+
+    // Handle remove button click
+    $(document).on('click', '.remove-mapping-row', function() {
+        var row = $(this).closest('.field-mapping-row');
+        var select = row.find('select[name^="glpi_field_"]');
+        var fieldValue = select.val();
+
+        // Enable this field in other dropdowns before removing
+        if (fieldValue) {
+            $('.field-mapping-row').each(function() {
+                if ($(this).data('index') !== row.data('index')) {
+                    var otherSelect = $(this).find('select[name^="glpi_field_"]');
+                    otherSelect.find('option[value="' + fieldValue + '"]').prop('disabled', false);
+                }
+            });
+        }
+
+        row.remove();
+        updateMappingsJson();
+    });
+});
+</script>

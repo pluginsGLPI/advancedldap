@@ -34,9 +34,11 @@
 namespace GlpiPlugin\Advancedldap\Models;
 
 use CommonDBTM;
+use CommonGLPI;
 use Html;
 use MassiveAction;
 use Session;
+use Glpi\Application\View\TemplateRenderer;
 use GlpiPlugin\Advancedldap\Bootstrap;
 use Safe\Exceptions\JsonException;
 use Toolbox;
@@ -582,8 +584,76 @@ class SyncFilter extends CommonDBTM
     {
         $ong = [];
         $this->addDefaultFormTab($ong);
+        $this->addStandardTab(self::class, $ong, $options);
         $this->addStandardTab('Log', $ong, $options);
         return $ong;
+    }
+
+    /**
+     * Get tab name for this item
+     *
+     * @param CommonGLPI $item Item for which the tab is displayed
+     * @param int $withtemplate Template mode
+     * @return string|array Tab name
+     */
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+    {
+        if ($item instanceof self) {
+            return self::createTabEntry(
+                text: __('Fields mapping', 'advancedldap'),
+                icon: 'ti ti-line'
+            );
+        }
+        return '';
+    }
+
+    /**
+     * Display tab content for this item
+     *
+     * @param CommonGLPI $item Item for which the tab is displayed
+     * @param int $tabnum Tab number
+     * @param int $withtemplate Template mode
+     * @return bool
+     */
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0): bool
+    {
+        if ($item instanceof self) {
+            $item->showFieldsMappingForm();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Show fields mapping form
+     *
+     * @return void
+     */
+    private function showFieldsMappingForm(): void
+    {
+        // Get current asset type from the filter
+        $asset_type = $this->fields['asset_type'] ?? '';
+
+        // Get current mappings (decode JSON if exists)
+        $current_mappings = [];
+        if (!empty($this->fields['field_mappings'])) {
+            try {
+                $current_mappings = json_decode($this->fields['field_mappings'], true) ?? [];
+            } catch (\Exception $e) {
+                $current_mappings = [];
+            }
+        }
+
+        // Render the template using GLPI's TemplateRenderer
+        TemplateRenderer::getInstance()->display('@advancedldap/fields_mapping.html.twig', [
+            'item'             => $this,
+            'asset_type'       => $asset_type,
+            'current_mappings' => $current_mappings,
+            'params'          => [
+                'candel'  => false,
+                'canedit' => $this->canUpdateItem(),
+            ],
+        ]);
     }
 
     /**
