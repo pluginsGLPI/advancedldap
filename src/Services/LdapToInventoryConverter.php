@@ -219,6 +219,28 @@ class LdapToInventoryConverter
     }
 
     /**
+     * Find and return the first available LDAP field value from a list of fields
+     * This method replaces the repetitive foreach pattern throughout the codebase
+     *
+     * @param array<string, mixed> $ldapData LDAP data array
+     * @param array<string> $fields List of field names to check in priority order
+     * @param array<string, string> $fieldMappings Field mappings configuration
+     * @return array{value: string|null, field: string|null} Array with the value and the field name that was found
+     */
+    private function findFirstAllowedField(array $ldapData, array $fields, array $fieldMappings): array
+    {
+        foreach ($fields as $field) {
+            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
+                return [
+                    'value' => $ldapData[$field][0],
+                    'field' => $field,
+                ];
+            }
+        }
+        return ['value' => null, 'field' => null];
+    }
+
+    /**
      * Generate unique device ID from LDAP data
      *
      * @param array<string, mixed> $ldapData
@@ -265,11 +287,9 @@ class LdapToInventoryConverter
 
         // Name mapping (required for most inventory)
         $nameFields = ['cn', 'name', 'displayname', 'samaccountname'];
-        foreach ($nameFields as $field) {
-            if (!empty($ldapData[$field][0])) {
-                $hardware['name'] = $ldapData[$field][0];
-                break;
-            }
+        $nameResult = $this->findFirstAllowedField($ldapData, $nameFields, $fieldMappings);
+        if ($nameResult['value'] !== null) {
+            $hardware['name'] = $nameResult['value'];
         }
 
         // UUID mapping - Check field_mappings first, then defaults
@@ -286,25 +306,20 @@ class LdapToInventoryConverter
         // Chassis type (for computers) - only if allowed
         if ($itemtype === Computer::class) {
             $chassisFields = ['chassistype', 'chassis_type'];
-            foreach ($chassisFields as $field) {
-                if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                    $hardware['chassis_type'] = $ldapData[$field][0];
-                    break;
-                }
-            }
-            // Default chassis type if not specified
-            if (empty($hardware['chassis_type'])) {
+            $chassisResult = $this->findFirstAllowedField($ldapData, $chassisFields, $fieldMappings);
+            if ($chassisResult['value'] !== null) {
+                $hardware['chassis_type'] = $chassisResult['value'];
+            } else {
+                // Default chassis type if not specified
                 $hardware['chassis_type'] = 'Desktop'; // Default value
             }
         }
 
         // Memory (total system memory) - only if allowed
         $memoryFields = ['totalmemory', 'physicalmemory', 'memory'];
-        foreach ($memoryFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0]) && is_numeric($ldapData[$field][0])) {
-                $hardware['memory'] = (int) $ldapData[$field][0];
-                break;
-            }
+        $memoryResult = $this->findFirstAllowedField($ldapData, $memoryFields, $fieldMappings);
+        if ($memoryResult['value'] !== null && is_numeric($memoryResult['value'])) {
+            $hardware['memory'] = (int) $memoryResult['value'];
         }
 
         // Virtual machine system indicator
@@ -397,47 +412,37 @@ class LdapToInventoryConverter
 
         // Add serial number if available and allowed
         $serialFields = ['serialnumber', 'serial', 'hardwareserial'];
-        foreach ($serialFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['serial'] = $ldapData[$field][0];
-                break;
-            }
+        $serialResult = $this->findFirstAllowedField($ldapData, $serialFields, $fieldMappings);
+        if ($serialResult['value'] !== null) {
+            $networkDevice['serial'] = $serialResult['value'];
         }
 
         // Add manufacturer if available and allowed
         $manufacturerFields = ['manufacturer', 'vendor', 'company'];
-        foreach ($manufacturerFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['manufacturer'] = $ldapData[$field][0];
-                break;
-            }
+        $manufacturerResult = $this->findFirstAllowedField($ldapData, $manufacturerFields, $fieldMappings);
+        if ($manufacturerResult['value'] !== null) {
+            $networkDevice['manufacturer'] = $manufacturerResult['value'];
         }
 
         // Add model if available and allowed
         $modelFields = ['model', 'hardwaremodel', 'description'];
-        foreach ($modelFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['model'] = $ldapData[$field][0];
-                break;
-            }
+        $modelResult = $this->findFirstAllowedField($ldapData, $modelFields, $fieldMappings);
+        if ($modelResult['value'] !== null) {
+            $networkDevice['model'] = $modelResult['value'];
         }
 
         // Add firmware/version if available and allowed
         $firmwareFields = ['firmware', 'version', 'softwareversion'];
-        foreach ($firmwareFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['firmware'] = $ldapData[$field][0];
-                break;
-            }
+        $firmwareResult = $this->findFirstAllowedField($ldapData, $firmwareFields, $fieldMappings);
+        if ($firmwareResult['value'] !== null) {
+            $networkDevice['firmware'] = $firmwareResult['value'];
         }
 
         // Add MAC address if available and allowed
         $macFields = ['macaddress', 'mac', 'physicaladdress'];
-        foreach ($macFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['mac'] = $ldapData[$field][0];
-                break;
-            }
+        $macResult = $this->findFirstAllowedField($ldapData, $macFields, $fieldMappings);
+        if ($macResult['value'] !== null) {
+            $networkDevice['mac'] = $macResult['value'];
         }
 
         // Add IP addresses if available and allowed
@@ -454,20 +459,16 @@ class LdapToInventoryConverter
 
         // Add location if available and allowed
         $locationFields = ['location', 'site', 'office'];
-        foreach ($locationFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['location'] = $ldapData[$field][0];
-                break;
-            }
+        $locationResult = $this->findFirstAllowedField($ldapData, $locationFields, $fieldMappings);
+        if ($locationResult['value'] !== null) {
+            $networkDevice['location'] = $locationResult['value'];
         }
 
         // Add contact if available and allowed
         $contactFields = ['contact', 'owner', 'admin'];
-        foreach ($contactFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $networkDevice['contact'] = $ldapData[$field][0];
-                break;
-            }
+        $contactResult = $this->findFirstAllowedField($ldapData, $contactFields, $fieldMappings);
+        if ($contactResult['value'] !== null) {
+            $networkDevice['contact'] = $contactResult['value'];
         }
 
         return $networkDevice;
@@ -490,14 +491,12 @@ class LdapToInventoryConverter
 
         // Firmware section - only if allowed
         $firmwareFields = ['firmware', 'version', 'softwareversion'];
-        foreach ($firmwareFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $sections['firmwares'] = [[
-                    'version' => $ldapData[$field][0],
-                    'type' => 'system',
-                ]];
-                break;
-            }
+        $firmwareResult = $this->findFirstAllowedField($ldapData, $firmwareFields, $fieldMappings);
+        if ($firmwareResult['value'] !== null) {
+            $sections['firmwares'] = [[
+                'version' => $firmwareResult['value'],
+                'type' => 'system',
+            ]];
         }
 
         return $sections;
@@ -577,53 +576,43 @@ class LdapToInventoryConverter
 
         // BIOS manufacturer - only if allowed
         $biosManufacturerFields = ['manufacturer', 'company', 'organizationname'];
-        foreach ($biosManufacturerFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $bios['bmanufacturer'] = $ldapData[$field][0];
-                $bios['smanufacturer'] = $ldapData[$field][0]; // Same for system
-                $hasData = true;
-                break;
-            }
+        $manufacturerResult = $this->findFirstAllowedField($ldapData, $biosManufacturerFields, $fieldMappings);
+        if ($manufacturerResult['value'] !== null) {
+            $bios['bmanufacturer'] = $manufacturerResult['value'];
+            $bios['smanufacturer'] = $manufacturerResult['value']; // Same for system
+            $hasData = true;
         }
 
         // BIOS version - only if allowed
         $biosVersionFields = ['biosversion', 'bversion', 'firmware', 'version'];
-        foreach ($biosVersionFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $bios['bversion'] = $ldapData[$field][0];
-                $hasData = true;
-                break;
-            }
+        $versionResult = $this->findFirstAllowedField($ldapData, $biosVersionFields, $fieldMappings);
+        if ($versionResult['value'] !== null) {
+            $bios['bversion'] = $versionResult['value'];
+            $hasData = true;
         }
 
         // BIOS date - only if allowed
         $biosDateFields = ['biosdate', 'bdate'];
-        foreach ($biosDateFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $bios['bdate'] = $ldapData[$field][0];
-                $hasData = true;
-                break;
-            }
+        $dateResult = $this->findFirstAllowedField($ldapData, $biosDateFields, $fieldMappings);
+        if ($dateResult['value'] !== null) {
+            $bios['bdate'] = $dateResult['value'];
+            $hasData = true;
         }
 
         // System model - only if allowed
         $modelFields = ['model', 'productname', 'smodel'];
-        foreach ($modelFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $bios['smodel'] = $ldapData[$field][0];
-                $hasData = true;
-                break;
-            }
+        $modelResult = $this->findFirstAllowedField($ldapData, $modelFields, $fieldMappings);
+        if ($modelResult['value'] !== null) {
+            $bios['smodel'] = $modelResult['value'];
+            $hasData = true;
         }
 
         // System serial number - only if allowed (THIS IS THE KEY FIX!)
         $serialFields = ['serialnumber', 'serialNumber', 'ssn'];
-        foreach ($serialFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $bios['ssn'] = $ldapData[$field][0];
-                $hasData = true;
-                break;
-            }
+        $serialResult = $this->findFirstAllowedField($ldapData, $serialFields, $fieldMappings);
+        if ($serialResult['value'] !== null) {
+            $bios['ssn'] = $serialResult['value'];
+            $hasData = true;
         }
 
         // Motherboard manufacturer (if different) - only if allowed
@@ -655,24 +644,17 @@ class LdapToInventoryConverter
 
         // IP Address - only if allowed
         $ipFields = ['ipaddress', 'networkaddress', 'ip'];
-        $ipAddress = null;
-        foreach ($ipFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                $ipAddress = $ldapData[$field][0];
-                break;
-            }
-        }
+        $ipResult = $this->findFirstAllowedField($ldapData, $ipFields, $fieldMappings);
+        $ipAddress = $ipResult['value'];
 
         // MAC Address - only if allowed
         $macFields = ['macaddress', 'physicaldeliveryofficename', 'networkaddress'];
+        $macResult = $this->findFirstAllowedField($ldapData, $macFields, $fieldMappings);
         $macAddress = null;
-        foreach ($macFields as $field) {
-            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
-                // Validate MAC address format
-                if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $ldapData[$field][0])) {
-                    $macAddress = $ldapData[$field][0];
-                    break;
-                }
+        if ($macResult['value'] !== null) {
+            // Validate MAC address format
+            if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $macResult['value'])) {
+                $macAddress = $macResult['value'];
             }
         }
 
