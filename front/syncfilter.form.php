@@ -44,6 +44,16 @@ $ldapSanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSa
 
 Session::checkRight(SyncFilter::$rightname, READ);
 
+/**
+ * Helper function to get the authldap_id from request
+ * Checks both POST and GET parameters for authldap_id
+ *
+ * @return int The sanitized authldap_id or 0 if not found
+ */
+function getAuthLdapId(): int {
+    return Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+}
+
 if (!isset($_GET['id'])) {
     $_GET['id'] = "";
 }
@@ -64,8 +74,8 @@ if (isset($_POST["add"])) {
             // Build correct redirect URL (not using getLinkURL which points to wrong path)
             $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
 
-            // Preserve authldap_id if it was provided - use Toolbox::cleanInteger for security
-            $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+            // Preserve authldap_id if it was provided
+            $authldap_id = getAuthLdapId();
             if ($authldap_id > 0) {
                 $redirect_url .= "&authldap_id=" . $authldap_id;
             }
@@ -77,8 +87,8 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST["purge"])) {
     $syncfilter->check($_POST['id'], PURGE);
 
-    // Get authldap_id from POST data or URL before deletion - use Toolbox::cleanInteger for security
-    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+    // Get authldap_id from POST data or URL before deletion
+    $authldap_id = getAuthLdapId();
 
     if ($syncfilter->delete($_POST, true)) {
 
@@ -113,7 +123,7 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST['sync_from_ldap'])) {
     // Handle LDAP synchronization
     $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);
-    $authldap_id = Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+    $authldap_id = getAuthLdapId();
 
     // Validate required parameters
     if ($syncfilter_id <= 0 || $authldap_id <= 0) {
