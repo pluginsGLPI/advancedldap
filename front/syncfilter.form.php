@@ -94,7 +94,21 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST["update"])) {
     $syncfilter->check($_POST['id'], UPDATE);
 
-    $syncfilter->update($_POST);
+    // Check if this is a field mappings update from the dedicated tab
+    if (isset($_POST['update_mappings']) && $_POST['update_mappings'] === '1') {
+        // Handle field mappings update using dedicated method
+        if ($syncfilter->getFromDB($_POST['id'])) {
+            if ($syncfilter->updateFieldMappings($_POST)) {
+                Session::addMessageAfterRedirect(__('Field mappings updated successfully', 'advancedldap'), false, INFO);
+            } else {
+                Session::addMessageAfterRedirect(__('Failed to update field mappings', 'advancedldap'), false, ERROR);
+            }
+        }
+    } else {
+        // Regular update of all fields
+        $syncfilter->update($_POST);
+    }
+
     Html::back();
 } elseif (isset($_POST['sync_from_ldap'])) {
     // Handle LDAP synchronization

@@ -190,8 +190,6 @@
                             {% endif %}
                         </div>
                     </div>
-                    {# Hidden field to preserve field_mappings data #}
-                    <input type="hidden" name="field_mappings" id="field_mappings_json" value="{{ item.fields['field_mappings']|default('{}')|e('html_attr') }}">
                 </div>
             </div>
         </div>

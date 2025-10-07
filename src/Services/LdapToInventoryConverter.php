@@ -176,6 +176,49 @@ class LdapToInventoryConverter
     }
 
     /**
+     * Get LDAP attribute value from field mapping
+     * Handles the lowercase normalization of LDAP attributes
+     *
+     * @param array<string, mixed> $ldapData LDAP data array
+     * @param string $glpiField GLPI field name
+     * @param array<string, string> $fieldMappings Field mappings configuration
+     * @return string|null The LDAP attribute value or null if not found
+     */
+    private function getMappedLdapValue(array $ldapData, string $glpiField, array $fieldMappings): ?string
+    {
+        if (empty($fieldMappings[$glpiField])) {
+            return null;
+        }
+
+        // LDAP attributes are normalized to lowercase by PHP ldap_get_entries
+        $ldapAttribute = strtolower($fieldMappings[$glpiField]);
+
+        if (!empty($ldapData[$ldapAttribute][0])) {
+            return $ldapData[$ldapAttribute][0];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the first available value from a list of LDAP fields
+     *
+     * @param array<string, mixed> $ldapData LDAP data array
+     * @param array<string> $fields List of field names to check
+     * @param array<string, string> $fieldMappings Field mappings configuration
+     * @return string|null The first non-empty value found or null
+     */
+    private function getFirstAvailableLdapField(array $ldapData, array $fields, array $fieldMappings): ?string
+    {
+        foreach ($fields as $field) {
+            if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field][0])) {
+                return $ldapData[$field][0];
+            }
+        }
+        return null;
+    }
+
+    /**
      * Generate unique device ID from LDAP data
      *
      * @param array<string, mixed> $ldapData
@@ -229,11 +272,15 @@ class LdapToInventoryConverter
             }
         }
 
-        // UUID mapping (important identifier) - only if allowed
-        if ($this->isFieldAllowed('objectguid', $fieldMappings) && !empty($ldapData['objectguid'][0])) {
-            $hardware['uuid'] = $ldapData['objectguid'][0];
-        } elseif ($this->isFieldAllowed('entryuuid', $fieldMappings) && !empty($ldapData['entryuuid'][0])) {
-            $hardware['uuid'] = $ldapData['entryuuid'][0];
+        // UUID mapping - Check field_mappings first, then defaults
+        $uuid = $this->getMappedLdapValue($ldapData, 'uuid', $fieldMappings);
+        if ($uuid === null) {
+            // Fallback to default UUID fields if not in mappings
+            $uuidFields = ['objectguid', 'entryuuid'];
+            $uuid = $this->getFirstAvailableLdapField($ldapData, $uuidFields, $fieldMappings);
+        }
+        if ($uuid !== null) {
+            $hardware['uuid'] = $uuid;
         }
 
         // Chassis type (for computers) - only if allowed
@@ -262,6 +309,16 @@ class LdapToInventoryConverter
 
         // Virtual machine system indicator
         $hardware['vmsystem'] = 'Physical'; // Default for LDAP assets
+
+        // Comment field - map from field_mappings configuration
+        // Check if 'comment' is configured in field mappings
+        if (!empty($fieldMappings['comment'])) {
+            // LDAP attributes are normalized to lowercase by PHP ldap_get_entries
+            $ldapAttribute = strtolower($fieldMappings['comment']);
+            if (!empty($ldapData[$ldapAttribute][0])) {
+                $hardware['comment'] = $ldapData[$ldapAttribute][0];
+            }
+        }
 
         return $hardware;
     }

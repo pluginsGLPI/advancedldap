@@ -634,18 +634,11 @@ class SyncFilter extends CommonDBTM
         // Get current asset type from the filter
         $asset_type = $this->fields['asset_type'] ?? '';
 
-        // Get current mappings (decode JSON if exists)
-        $current_mappings = [];
-        if (!empty($this->fields['field_mappings'])) {
-            try {
-                $current_mappings = json_decode($this->fields['field_mappings'], true) ?? [];
-            } catch (\Exception $e) {
-                $current_mappings = [];
-            }
-        }
+        // Use existing getFieldMappings method to respect DRY principle
+        $current_mappings = $this->getFieldMappings();
 
-        // Render the template using GLPI's TemplateRenderer
-        TemplateRenderer::getInstance()->display('@advancedldap/fields_mapping.html.twig', [
+        // Render the template using GLPI's TemplateRenderer - UPDATED NAME
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_mapping.form.twig', [
             'item'             => $this,
             'asset_type'       => $asset_type,
             'current_mappings' => $current_mappings,
@@ -654,6 +647,30 @@ class SyncFilter extends CommonDBTM
                 'canedit' => $this->canUpdateItem(),
             ],
         ]);
+    }
+
+    /**
+     * Update field mappings from form submission
+     * Following Single Responsibility Principle - separate method for mapping updates
+     *
+     * @param array<string, mixed> $mappings_data Raw mappings data from form
+     * @return bool Success status
+     */
+    public function updateFieldMappings(array $mappings_data): bool
+    {
+        // Transform indexed array to key-value pairs
+        $field_mappings = [];
+
+        if (isset($mappings_data['mappings']) && is_array($mappings_data['mappings'])) {
+            foreach ($mappings_data['mappings'] as $mapping) {
+                if (!empty($mapping['glpi_field']) && !empty($mapping['ldap_attribute'])) {
+                    $field_mappings[$mapping['glpi_field']] = $mapping['ldap_attribute'];
+                }
+            }
+        }
+
+        // Use existing setFieldMappings method to respect DRY principle
+        return $this->setFieldMappings($field_mappings);
     }
 
     /**
