@@ -1,3 +1,5 @@
+{% import "@advancedldap/macros/form_helpers.html.twig" as form_helpers %}
+
 {#
  # -------------------------------------------------------------------------
  # advancedldap plugin for GLPI
@@ -129,8 +131,7 @@
                 </div>
 
                 {# Hidden fields for form submission #}
-                <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="id" value="{{ item.fields['id'] }}">
+                {{ form_helpers.base_hidden_inputs(csrf_token(), item.fields['id']) }}
                 <input type="hidden" name="update_mappings" value="1">
 
                 {# Save button #}

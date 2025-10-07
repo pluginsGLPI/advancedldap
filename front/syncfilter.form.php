@@ -35,6 +35,7 @@ include('../../../inc/includes.php');
 
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 
 $configService = new GlpiConfigurationService();
 
@@ -44,15 +45,8 @@ $ldapSanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSa
 
 Session::checkRight(SyncFilter::$rightname, READ);
 
-/**
- * Helper function to get the authldap_id from request
- * Checks both POST and GET parameters for authldap_id
- *
- * @return int The sanitized authldap_id or 0 if not found
- */
-function getAuthLdapId(): int {
-    return Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
-}
+// Use the helper method from SyncFilterFormHelper instead of local function
+// This ensures consistency across the application
 
 if (!isset($_GET['id'])) {
     $_GET['id'] = "";
@@ -75,7 +69,7 @@ if (isset($_POST["add"])) {
             $redirect_url = $configService->getGlpiConfig('root_doc') . "/plugins/advancedldap/front/syncfilter.form.php?id=" . $newID;
 
             // Preserve authldap_id if it was provided
-            $authldap_id = getAuthLdapId();
+            $authldap_id = SyncFilterFormHelper::getAuthLdapIdFromRequest();
             if ($authldap_id > 0) {
                 $redirect_url .= "&authldap_id=" . $authldap_id;
             }
@@ -88,7 +82,7 @@ if (isset($_POST["add"])) {
     $syncfilter->check($_POST['id'], PURGE);
 
     // Get authldap_id from POST data or URL before deletion
-    $authldap_id = getAuthLdapId();
+    $authldap_id = SyncFilterFormHelper::getAuthLdapIdFromRequest();
 
     if ($syncfilter->delete($_POST, true)) {
 
@@ -123,7 +117,7 @@ if (isset($_POST["add"])) {
 } elseif (isset($_POST['sync_from_ldap'])) {
     // Handle LDAP synchronization
     $syncfilter_id = Toolbox::cleanInteger($_POST['id'] ?? 0);
-    $authldap_id = getAuthLdapId();
+    $authldap_id = SyncFilterFormHelper::getAuthLdapIdFromRequest();
 
     // Validate required parameters
     if ($syncfilter_id <= 0 || $authldap_id <= 0) {

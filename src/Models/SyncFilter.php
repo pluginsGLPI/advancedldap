@@ -142,8 +142,8 @@ class SyncFilter extends CommonDBTM
         $container = Bootstrap::getContainer();
         $configService = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
 
-        // Try to get authldap_id from current URL parameters (after deletion context)
-        $authldap_id = $_GET['authldap_id'] ?? null;
+        // Try to get authldap_id from current request parameters
+        $authldap_id = \GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper::getAuthLdapIdFromRequest();
 
         // If we have a parent AuthLDAP from URL, redirect there
         if ($authldap_id) {

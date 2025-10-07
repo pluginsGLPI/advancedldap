@@ -1,4 +1,5 @@
 {% import "components/form/fields_macros.html.twig" as fields %}
+{% import "@advancedldap/macros/form_helpers.html.twig" as form_helpers %}
 
 {# Breadcrumb navigation #}
 {% if parent_authldap or current_authldap_id %}
@@ -196,13 +197,7 @@
         
         <!-- Action Buttons -->
         <div class="ms-auto">
-            <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="id" value="{{ item.fields['id'] }}">
-            {% if current_authldap_id %}
-                <input type="hidden" name="authldap_id" value="{{ current_authldap_id }}">
-            {% elseif current_config.authldap_id is defined and current_config.authldap_id %}
-                <input type="hidden" name="authldap_id" value="{{ current_config.authldap_id }}">
-            {% endif %}
+            {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
             
             {% if item.fields['id'] > 0 and item.canPurge() %}
                 <button type="submit" name="purge" class="btn btn-outline-danger me-2"
@@ -255,14 +250,8 @@
             <div class="alert alert-success d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>{{ test_results.entries|length }} {{ __('entries found in LDAP', 'advancedldap') }}</h5>
                 <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" class="d-inline">
-                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="id" value="{{ item.fields['id'] }}">
+                    {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
                     <input type="hidden" name="sync_from_ldap" value="1">
-                    {% if current_authldap_id %}
-                        <input type="hidden" name="authldap_id" value="{{ current_authldap_id }}">
-                    {% elseif current_config.authldap_id is defined and current_config.authldap_id %}
-                        <input type="hidden" name="authldap_id" value="{{ current_config.authldap_id }}">
-                    {% endif %}
                     <button type="submit" class="btn btn-success btn-sm">
                         <i class="fas fa-sync-alt me-1"></i>{{ __('Sync data from LDAP directory', 'advancedldap') }}
                     </button>

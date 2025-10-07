@@ -101,6 +101,17 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
     }
 
     /**
+     * Helper method to get authldap_id from request
+     * Checks both POST and GET parameters for authldap_id
+     *
+     * @return int The sanitized authldap_id or 0 if not found
+     */
+    public static function getAuthLdapIdFromRequest(): int
+    {
+        return Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+    }
+
+    /**
      * Get current filter configuration
      *
      * @param int $filter_id SyncFilter ID (0 for new)
@@ -110,8 +121,8 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
      */
     public function getCurrentConfiguration(int $filter_id, ?int $authldap_id, array $filter_data): array
     {
-        // Use provided authldap_id, or fall back to GET parameter, or find the first active one
-        $default_authldap_id = $authldap_id ?? $_GET['authldap_id'] ?? '';
+        // Use provided authldap_id, or fall back to request parameters, or find the first active one
+        $default_authldap_id = $authldap_id ?? self::getAuthLdapIdFromRequest();
         if (empty($default_authldap_id)) {
             $default_authldap_id = $this->getFirstActiveAuthLdapId();
         }

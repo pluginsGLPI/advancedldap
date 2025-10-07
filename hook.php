@@ -126,8 +126,8 @@ function plugin_advancedldap_addDefaultWhere($itemtype)
     // Handle both legacy and namespaced class names
     if ($itemtype === 'PluginAdvancedldapSyncFilter' || $itemtype === 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter') {
 
-        // Clean and validate authldap_id parameter using GLPI native function
-        $authldap_id = Toolbox::cleanInteger($_GET['authldap_id'] ?? 0);
+        // Clean and validate authldap_id parameter using helper method
+        $authldap_id = \GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper::getAuthLdapIdFromRequest();
 
         if ($authldap_id > 0) {
             // Return WHERE clause in iterator format with QuerySubQuery for SQL injection protection
