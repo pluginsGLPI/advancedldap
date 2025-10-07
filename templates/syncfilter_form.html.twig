@@ -175,12 +175,23 @@
             </div>
             <div class="col-md-6">
                 <div class="form-field mb-3">
-                    <label class="form-label"><i class="ti ti-line me-1"></i>{{ __('Asset Fields to Map', 'advancedldap') }}</label>
-                    {% set asset_field_rand = asset_type_rand %}
-                    <div id="asset_field_dropdown_{{ asset_field_rand }}">
-                        <!-- This will be populated by AJAX using GLPI's Dropdown::showFromArray() -->
+                    <label class="form-label"><i class="ti ti-link me-1"></i>{{ __('Fields Mapping', 'advancedldap') }}</label>
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="ti ti-info-circle me-2"></i>
+                        <div>
+                            {{ __('Configure the mapping between GLPI asset fields and LDAP attributes in the dedicated tab.', 'advancedldap') }}
+                            {% if item.fields['id'] > 0 %}
+                                <a href="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php?id={{ item.fields['id'] }}&forcetab=GlpiPlugin\Advancedldap\Models\SyncFilter$1" class="alert-link ms-2">
+                                    <i class="ti ti-arrow-right me-1"></i>{{ __('Go to Fields Mapping tab', 'advancedldap') }}
+                                </a>
+                            {% else %}
+                                <br>
+                                <small class="text-muted">{{ __('Save this filter first to access the fields mapping configuration.', 'advancedldap') }}</small>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="form-text">{{ __('Select which asset fields to synchronize from LDAP (multiple selection). Mandatory fields for sync are pre-selected', 'advancedldap') }}</div>
+                    {# Hidden field to preserve field_mappings data #}
+                    <input type="hidden" name="field_mappings" id="field_mappings_json" value="{{ item.fields['field_mappings']|default('{}')|e('html_attr') }}">
                 </div>
             </div>
         </div>
@@ -308,102 +319,39 @@
 
 <script type="text/javascript">
 $(document).ready(function() {
-    // Minimum required fields by asset type (based on GLPI inventory requirements)
-    var minimumRequiredFields = {
-        'Computer': ['name'],
-        'NetworkEquipment': ['name', 'serial'],
-        'Printer': ['name'],
-        'Phone': ['name', 'serial']
-    };
+    // Check if we need to open the Fields Mapping tab
+    if (window.location.hash === '#open-fields-mapping') {
+        // Wait a bit for tabs to be fully loaded
+        setTimeout(function() {
+            // Try to find and click the Fields Mapping tab
+            var foundTab = false;
 
-    // Extract selected fields from existing field_mappings JSON
-    var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encode|raw }};
-    var fieldMappings = {};
-    var selectedAssetFields = [];
+            // First try: Look for tabs with the exact text
+            $('a[data-bs-toggle="tab"]').each(function() {
+                if ($(this).text().includes('Fields mapping')) {
+                    $(this).tab('show');
+                    foundTab = true;
+                    return false; // break the loop
+                }
+            });
 
-    try {
-        if (typeof fieldMappingsRaw === 'string') {
-            fieldMappings = JSON.parse(fieldMappingsRaw);
-        } else {
-            fieldMappings = fieldMappingsRaw;
-        }
-
-        if (fieldMappings && typeof fieldMappings === 'object') {
-            selectedAssetFields = Object.keys(fieldMappings);
-        }
-    } catch (e) {
-        console.error('Error parsing field mappings:', e);
-        fieldMappings = {};
-        selectedAssetFields = [];
-    }
-
-    /**
-     * Get minimum required fields for a given asset type
-     */
-    function getMinimumRequiredFields(itemtype) {
-        // Extract the class name from the full namespace (e.g., "Computer" from "Computer" or "\\Computer")
-        var className = itemtype.split('\\').pop();
-        return minimumRequiredFields[className] || [];
-    }
-
-    function loadAssetFields(itemtype, selectedFields) {
-        var container = $('#asset_field_dropdown_{{ asset_field_rand }}');
-
-        if (!itemtype || itemtype === '0' || itemtype === '') {
-            container.html('{{ __("Select an asset type first", "advancedldap")|e('js') }}');
-            return;
-        }
-
-        container.html('{{ __("Loading fields...", "advancedldap")|e('js') }}');
-
-        // Get minimum required fields for this asset type
-        var requiredFields = getMinimumRequiredFields(itemtype);
-
-        // Merge required fields with already selected fields (avoid duplicates)
-        var fieldsToSelect = selectedFields.slice(); // Copy array
-        requiredFields.forEach(function(field) {
-            if (fieldsToSelect.indexOf(field) === -1) {
-                fieldsToSelect.push(field);
-            }
-        });
-
-        $.post('{{ config('root_doc') }}/plugins/advancedldap/ajax/getAssetFields.php', {
-            itemtype: itemtype,
-            name: 'asset_fields[]',
-            rand: {{ asset_field_rand }},
-            selected: fieldsToSelect,
-            multiple: true
-        })
-        .done(function(data) {
-            container.html(data);
-
-            // Show info message if minimum fields were pre-selected
-            if (requiredFields.length > 0 && selectedFields.length === 0) {
-                var className = itemtype.split('\\').pop();
-                var message = '{{ __("Minimum required fields for", "advancedldap")|e('js') }} ' + className + ': ' + requiredFields.join(', ');
-                displayAjaxMessageAfterRedirect({
-                    message: message,
-                    type: 'info',
-                    timeout: 5000
+            // Second try: Look in the navigation tabs
+            if (!foundTab) {
+                $('#tabspanel .nav-link').each(function() {
+                    if ($(this).text().includes('Fields mapping')) {
+                        $(this).click();
+                        foundTab = true;
+                        return false;
+                    }
                 });
             }
-        })
-        .fail(function(xhr, status, error) {
-            container.html('{{ __("Error loading fields", "advancedldap")|e('js') }}');
-        });
-    }
 
-    // Load fields on page load if asset type is already selected
-    var initialAssetType = $('#dropdown_asset_type{{ asset_type_rand }}').val();
-    if (initialAssetType && initialAssetType !== '') {
-        loadAssetFields(initialAssetType, selectedAssetFields);
+            // Clear the hash after switching
+            if (foundTab) {
+                history.replaceState(null, null, window.location.pathname + window.location.search);
+            }
+        }, 500);
     }
-
-    // Handle asset type change
-    $('#dropdown_asset_type{{ asset_type_rand }}').on('change', function() {
-        var itemtype = $(this).val();
-        loadAssetFields(itemtype, []);
-    });
 
     // Disable Test LDAP Filter button when form fields are modified
     var testLdapButton = $('a.btn.btn-info[href*="test_ldap"]');
@@ -433,17 +381,6 @@ $(document).ready(function() {
                 }
             });
 
-            // Check asset fields (dynamic field)
-            var assetFieldsSelect = $('select[name="asset_fields[]"]');
-            if (assetFieldsSelect.length > 0) {
-                var currentAssetFields = assetFieldsSelect.val() || [];
-                var initialAssetFields = selectedAssetFields || [];
-
-                // Compare arrays
-                if (JSON.stringify(currentAssetFields.sort()) !== JSON.stringify(initialAssetFields.sort())) {
-                    isModified = true;
-                }
-            }
 
             if (isModified) {
                 testLdapButton.css({
@@ -464,10 +401,6 @@ $(document).ready(function() {
         watchedFields.forEach(function(selector) {
             $(document).on('change', selector, checkFieldsModified);
         });
-
-        // Watch for changes on dynamic asset fields select
-        // Use delegated event since the element is dynamically loaded
-        $(document).on('change', 'select[name="asset_fields[]"]', checkFieldsModified);
 
         // Prevent click on disabled button
         testLdapButton.on('click', function(e) {

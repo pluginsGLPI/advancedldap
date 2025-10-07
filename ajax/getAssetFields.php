@@ -47,7 +47,6 @@ if (!isset($_POST['itemtype']) || empty($_POST['itemtype'])) {
 
 $itemtype = $_POST['itemtype'];
 $selected = $_POST['selected'] ?? [];
-$multiple = isset($_POST['multiple']) && $_POST['multiple'];
 
 // Handle selected as array or single value
 if (!is_array($selected)) {
@@ -67,20 +66,22 @@ try {
     exit;
 }
 
-// Use official GLPI Dropdown::showFromArray method
-if ($multiple) {
-    Dropdown::showFromArray('asset_fields', $fields, [
-        'values' => $selected,
-        'multiple' => true,
-        'display_emptychoice' => true,
-        'emptylabel' => __('Select fields to map...', 'advancedldap'),
-        'width' => '100%',
-    ]);
-} else {
-    Dropdown::showFromArray('asset_field', $fields, [
-        'value' => !empty($selected) ? $selected[0] : '',
-        'display_emptychoice' => true,
-        'emptylabel' => __('Select a field', 'advancedldap'),
-        'width' => '100%',
-    ]);
+// Generate simple HTML select (no select2)
+$name = isset($_POST['name']) ? $_POST['name'] : 'asset_field';
+$selected_value = !empty($selected) ? $selected[0] : '';
+
+// Build the HTML select
+echo '<select class="form-control" name="' . htmlspecialchars($name) . '" id="' . htmlspecialchars($name) . '">';
+
+// Add empty option
+echo '<option value="">' . __('Select a field', 'advancedldap') . '</option>';
+
+// Add field options
+foreach ($fields as $key => $label) {
+    $is_selected = ($selected_value === $key) ? ' selected' : '';
+    echo '<option value="' . htmlspecialchars($key) . '"' . $is_selected . '>';
+    echo htmlspecialchars($label);
+    echo '</option>';
 }
+
+echo '</select>';
