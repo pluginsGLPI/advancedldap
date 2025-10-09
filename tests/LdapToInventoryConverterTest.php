@@ -2,6 +2,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use InvalidArgumentException;
 use GlpiPlugin\Advancedldap\Services\LdapToInventoryConverter;
 use Computer;
 use NetworkEquipment;
@@ -180,7 +181,7 @@ class LdapToInventoryConverterTest extends DbTestCase
         $ldapData = ['cn' => ['TEST-DEVICE']];
 
         // Assert
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Unsupported itemtype for inventory conversion: UnsupportedClass');
 
         // Act

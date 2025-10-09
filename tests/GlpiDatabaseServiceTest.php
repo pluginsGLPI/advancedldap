@@ -2,6 +2,9 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use DBmysqlIterator;
+use Exception;
+use RuntimeException;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use DbTestCase;
 
@@ -33,7 +36,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
         $result = $this->databaseService->request($criteria);
 
         // Assert
-        $this->assertInstanceOf(\DBmysqlIterator::class, $result);
+        $this->assertInstanceOf(DBmysqlIterator::class, $result);
         $this->assertGreaterThanOrEqual(0, $result->count());
     }
 
@@ -47,7 +50,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
 
         // Act & Assert
         // Empty criteria should throw exception or return empty iterator
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->databaseService->request($criteria);
     }
 
@@ -145,7 +148,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
 
         // Act & Assert
         // GLPI throws RuntimeException for invalid tables
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/Table .* doesn\'t exist/');
         $this->databaseService->insert($table, $data);
     }
@@ -222,7 +225,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
 
         // Act & Assert
         // GLPI throws RuntimeException for invalid tables
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/Table .* doesn\'t exist/');
         $this->databaseService->update($table, $data, $where);
     }
@@ -296,7 +299,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
 
         // Act & Assert
         // GLPI throws RuntimeException for invalid tables
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/Table .* doesn\'t exist/');
         $this->databaseService->delete($table, $where);
     }
@@ -329,7 +332,7 @@ class GlpiDatabaseServiceTest extends DbTestCase
 
         // Act & Assert
         // GLPI prevents DELETE without WHERE clause
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Cannot run an DELETE query without WHERE clause!');
         $this->databaseService->delete($table, $where);
     }

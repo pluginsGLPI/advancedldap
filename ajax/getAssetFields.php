@@ -31,7 +31,7 @@
  * -------------------------------------------------------------------------
  */
 
-include('../../../inc/includes.php');
+include(__DIR__ . '/../../../inc/includes.php');
 
 use GlpiPlugin\Advancedldap\Bootstrap;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
@@ -67,8 +67,8 @@ try {
 }
 
 // Generate simple HTML select (no select2)
-$name = isset($_POST['name']) ? $_POST['name'] : 'asset_field';
-$selected_value = !empty($selected) ? $selected[0] : '';
+$name = $_POST['name'] ?? 'asset_field';
+$selected_value = $selected !== [] ? $selected[0] : '';
 
 // Build the HTML select
 echo '<select class="form-control" name="' . htmlspecialchars($name) . '" id="' . htmlspecialchars($name) . '">';

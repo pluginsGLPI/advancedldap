@@ -2,6 +2,9 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use ReflectionMethod;
+use ReflectionClass;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
@@ -130,8 +133,8 @@ class GlpiLdapConnectionServiceTest extends TestCase
         $this->assertNotNull($result['error']);
         // Error should contain meaningful message
         $this->assertTrue(
-            strpos($result['error'], 'AuthLDAP server not found') !== false ||
-            strpos($result['error'], 'Cannot connect') !== false
+            str_contains($result['error'], 'AuthLDAP server not found') ||
+            str_contains($result['error'], 'Cannot connect')
         );
     }
 
@@ -157,7 +160,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
     public function testServiceImplementsInterface()
     {
         $this->assertInstanceOf(
-            'GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface',
+            LdapConnectionInterface::class,
             $this->service
         );
     }
@@ -183,7 +186,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
                 "Method $method should exist"
             );
 
-            $reflection = new \ReflectionMethod($this->service, $method);
+            $reflection = new ReflectionMethod($this->service, $method);
             $this->assertTrue(
                 $reflection->isPublic(),
                 "Method $method should be public"
@@ -320,7 +323,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
         // Assert
         $this->assertInstanceOf(GlpiLdapConnectionService::class, $service);
         $this->assertInstanceOf(
-            'GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface',
+            LdapConnectionInterface::class,
             $service
         );
     }
@@ -330,7 +333,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
      */
     public function testMethodSignatures()
     {
-        $reflection = new \ReflectionClass($this->service);
+        $reflection = new ReflectionClass($this->service);
 
         // Test connect method
         $connectMethod = $reflection->getMethod('connect');
@@ -371,7 +374,7 @@ class GlpiLdapConnectionServiceTest extends TestCase
         $result = $this->service->checkConnection(null);
 
         // Verify return type hints are respected
-        $reflection = new \ReflectionMethod($this->service, 'checkConnection');
+        $reflection = new ReflectionMethod($this->service, 'checkConnection');
         $returnType = $reflection->getReturnType();
 
         if ($returnType) {

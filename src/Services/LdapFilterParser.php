@@ -58,7 +58,7 @@ class LdapFilterParser implements LdapFilterParserInterface
 
         // Pattern to match LDAP attribute patterns like (attribute=*), (attribute=value),
         // (attribute>=value), (attribute<=value), etc.
-        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*[=<>~]/', $ldap_filter, $matches)) {
+        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*[=<>~]/', $ldap_filter, $matches) !== 0) {
             $attributes = array_unique($matches[1]);
             sort($attributes);
         }
@@ -92,16 +92,11 @@ class LdapFilterParser implements LdapFilterParserInterface
         }
 
         // Check for at least one attribute-value pair pattern
-        if (!preg_match('/\([a-zA-Z][a-zA-Z0-9]*\s*[=<>~]/', $ldap_filter)) {
+        if (preg_match('/\([a-zA-Z][a-zA-Z0-9]*\s*[=<>~]/', $ldap_filter) === 0) {
             return false;
         }
-
         // Check for invalid characters (basic check)
-        if (preg_match('/[^\w\s()\[\]&|!=<>~*\-:.,;@\\\]/', $ldap_filter)) {
-            return false;
-        }
-
-        return true;
+        return preg_match('/[^\w\s()\[\]&|!=<>~*\-:.,;@\\\]/', $ldap_filter) === 0;
     }
 
     /**
@@ -115,7 +110,7 @@ class LdapFilterParser implements LdapFilterParserInterface
         $object_classes = [];
 
         // Pattern to match (objectClass=value) or (objectClass=*)
-        if (preg_match_all('/\(objectClass\s*=\s*([^)]+)\)/', $ldap_filter, $matches)) {
+        if (preg_match_all('/\(objectClass\s*=\s*([^)]+)\)/', $ldap_filter, $matches) !== 0) {
             // Filter out wildcards and get unique values
             $object_classes = array_filter(
                 array_unique($matches[1]),

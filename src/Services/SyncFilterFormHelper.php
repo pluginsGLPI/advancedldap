@@ -82,7 +82,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
         $generic_assets = array_filter($all_asset_types, fn($info) => $info['type'] === 'generic');
 
         // Add native assets section
-        if (!empty($native_assets)) {
+        if ($native_assets !== []) {
             $available_assets['native_separator'] = '--- ' . __('Native Assets') . ' ---';
             foreach ($native_assets as $itemtype => $info) {
                 $available_assets[$itemtype] = $info['name'];
@@ -90,7 +90,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
         }
 
         // Add generic assets section
-        if (!empty($generic_assets)) {
+        if ($generic_assets !== []) {
             $available_assets['generic_separator'] = '--- ' . __('Generic Assets') . ' ---';
             foreach ($generic_assets as $itemtype => $info) {
                 $available_assets[$itemtype] = $info['name'];
@@ -139,7 +139,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
         ];
 
         // Populate with existing filter data
-        if ($filter_id > 0 && !empty($filter_data)) {
+        if ($filter_id > 0 && $filter_data !== []) {
             $field_mappings = [];
             if (isset($filter_data['field_mappings']) && is_string($filter_data['field_mappings'])) {
                 try {

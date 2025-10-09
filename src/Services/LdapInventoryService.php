@@ -33,6 +33,12 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use InvalidArgumentException;
+use Exception;
+use Computer;
+use NetworkEquipment;
+use Printer;
+use Phone;
 use Glpi\Inventory\Inventory;
 use Glpi\Inventory\Request;
 use Safe\Exceptions\JsonException;
@@ -152,7 +158,7 @@ class LdapInventoryService
                 'message' => 'Asset synchronized via inventory system',
             ];
 
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             return [
                 'success' => false,
                 'action' => 'inventory',
@@ -161,7 +167,7 @@ class LdapInventoryService
                 'message' => 'Invalid itemtype or configuration',
             ];
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Toolbox::logDebug("LdapInventoryService: Unexpected error for '$assetName': " . $e->getMessage());
 
             return [
@@ -205,16 +211,16 @@ class LdapInventoryService
     {
         // Based on GLPI inventory schema and practical requirements
         switch ($itemtype) {
-            case \Computer::class:
+            case Computer::class:
                 return __('Name (required for identification)', 'advancedldap');
 
-            case \NetworkEquipment::class:
+            case NetworkEquipment::class:
                 return __('Name + Serial Number OR MAC Address (required for unique identification)', 'advancedldap');
 
-            case \Printer::class:
+            case Printer::class:
                 return __('Name (required)', 'advancedldap');
 
-            case \Phone::class:
+            case Phone::class:
                 return __('Name + Serial Number (recommended for unique identification)', 'advancedldap');
 
             default:
@@ -239,7 +245,7 @@ class LdapInventoryService
         }
 
         // Basic LDAP data validation
-        if (empty($ldapData)) {
+        if ($ldapData === []) {
             $issues[] = "LDAP data is empty";
         }
 
@@ -258,7 +264,7 @@ class LdapInventoryService
         }
 
         return [
-            'valid' => empty($issues),
+            'valid' => $issues === [],
             'issues' => $issues,
         ];
     }

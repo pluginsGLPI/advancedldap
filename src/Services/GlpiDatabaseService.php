@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use DBmysqlIterator;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 
 /**
@@ -44,7 +45,7 @@ class GlpiDatabaseService implements DatabaseInterface
      * Execute a database request
      *
      * @param array<string, mixed> $criteria Database query criteria
-     * @return \DBmysqlIterator Query result iterator
+     * @return DBmysqlIterator Query result iterator
      */
     public function request(array $criteria)
     {

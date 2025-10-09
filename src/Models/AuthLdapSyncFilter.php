@@ -113,7 +113,7 @@ class AuthLdapSyncFilter extends CommonDBRelation
 
         $tab[] = [
             'id'                => '3',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'is_active',
             'name'              => __('Active'),
             'datatype'          => 'bool',
@@ -121,7 +121,7 @@ class AuthLdapSyncFilter extends CommonDBRelation
 
         $tab[] = [
             'id'                => '121',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'date_creation',
             'name'              => __('Creation date'),
             'datatype'          => 'datetime',

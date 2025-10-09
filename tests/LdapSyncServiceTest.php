@@ -6,7 +6,6 @@ use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
-use GlpiPlugin\Advancedldap\Services\LdapInventoryService;
 use DbTestCase;
 
 /**

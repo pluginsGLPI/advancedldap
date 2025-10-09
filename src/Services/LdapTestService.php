@@ -117,9 +117,9 @@ class LdapTestService
                 $fields = $this->asset_field_provider->getItemtypeFields($asset_type);
 
                 // Handle new field mappings system
-                if (!empty($field_mappings)) {
+                if ($field_mappings !== []) {
                     $readable_mappings = [];
-                    foreach ($field_mappings as $glpi_field => $ldap_attribute) {
+                    foreach (array_keys($field_mappings) as $glpi_field) {
                         $readable_mappings[$glpi_field] = $fields[$glpi_field] ?? $glpi_field;
                     }
                     $results['config']['field_mappings_readable'] = $readable_mappings;
@@ -223,7 +223,7 @@ class LdapTestService
             }
 
             // Add attributes from field mappings
-            if (!empty($field_mappings)) {
+            if ($field_mappings !== []) {
                 foreach ($field_mappings as $glpi_field => $ldap_attribute) {
                     $attributes_to_show[] = $ldap_attribute;
                 }
@@ -364,7 +364,7 @@ class LdapTestService
      */
     private function buildFieldsSyncMessage(array $field_mappings, string $asset_field): string
     {
-        if (!empty($field_mappings)) {
+        if ($field_mappings !== []) {
             // Use new field mappings system
             $field_names = [];
             foreach ($field_mappings as $glpi_field => $ldap_attribute) {
@@ -418,7 +418,7 @@ class LdapTestService
     {
         // Look for pattern like (attributeName=*) or (attributeName=value)
         // Skip objectClass as it's structural
-        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*=/', $filter, $matches)) {
+        if (preg_match_all('/\(([a-zA-Z][a-zA-Z0-9]*)\s*=/', $filter, $matches) !== 0) {
             foreach ($matches[1] as $attr) {
                 if (strtolower($attr) !== 'objectclass') {
                     return $attr;

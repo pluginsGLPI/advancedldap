@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use InvalidArgumentException;
 use Computer;
 use NetworkEquipment;
 use Printer;
@@ -73,7 +74,7 @@ class LdapToInventoryConverter
     public function convertToInventoryFormat(array $ldapData, string $itemtype, array $fieldMappings = []): array
     {
         if (!isset(self::SUPPORTED_ITEMTYPES[$itemtype])) {
-            throw new \InvalidArgumentException("Unsupported itemtype for inventory conversion: $itemtype");
+            throw new InvalidArgumentException("Unsupported itemtype for inventory conversion: $itemtype");
         }
 
         $deviceId = $this->generateDeviceId($ldapData, $itemtype);
@@ -118,13 +119,13 @@ class LdapToInventoryConverter
 
         // Hardware section - build if we have basic hardware data
         $hardware = $this->buildHardwareSection($ldapData, $itemtype, $fieldMappings);
-        if (!empty($hardware)) {
+        if ($hardware !== []) {
             $sections['hardware'] = $hardware;
         }
 
         // BIOS section - build if we have BIOS-related data
         $bios = $this->buildBiosSection($ldapData, $fieldMappings);
-        if (!empty($bios)) {
+        if ($bios !== []) {
             $sections['bios'] = $bios;
         }
 
@@ -161,7 +162,7 @@ class LdapToInventoryConverter
     private function isFieldAllowed(string $ldapField, array $fieldMappings): bool
     {
         // If no field mappings configured, allow all fields (backward compatibility)
-        if (empty($fieldMappings)) {
+        if ($fieldMappings === []) {
             return true;
         }
 
@@ -450,7 +451,7 @@ class LdapToInventoryConverter
         foreach ($ipFields as $field) {
             if ($this->isFieldAllowed($field, $fieldMappings) && !empty($ldapData[$field])) {
                 $ips = is_array($ldapData[$field]) ? array_filter($ldapData[$field], 'is_string') : [$ldapData[$field]];
-                if (!empty($ips)) {
+                if ($ips !== []) {
                     $networkDevice['ips'] = $ips;
                     break;
                 }
@@ -651,11 +652,9 @@ class LdapToInventoryConverter
         $macFields = ['macaddress', 'physicaldeliveryofficename', 'networkaddress'];
         $macResult = $this->findFirstAllowedField($ldapData, $macFields, $fieldMappings);
         $macAddress = null;
-        if ($macResult['value'] !== null) {
-            // Validate MAC address format
-            if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $macResult['value'])) {
-                $macAddress = $macResult['value'];
-            }
+        // Validate MAC address format
+        if ($macResult['value'] !== null && preg_match('/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/', $macResult['value'])) {
+            $macAddress = $macResult['value'];
         }
 
         // Description - only if allowed

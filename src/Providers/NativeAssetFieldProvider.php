@@ -166,15 +166,13 @@ class NativeAssetFieldProvider implements AssetFieldProviderInterface
             if (isset($fields[$field_key])) {
                 // Collision with main table field key - skip the related field to avoid key duplicates
                 continue;
-            } else {
+            } elseif ($name_counts[$field_name] > 1) {
                 // If this name appears multiple times, qualify it
-                if ($name_counts[$field_name] > 1) {
-                    $table_display = $this->getTableDisplayName($table);
-                    $qualified_name = $field_name . ' (' . $table_display . ')';
-                    $fields[$field_key] = $qualified_name;
-                } else {
-                    $fields[$field_key] = $field_name;
-                }
+                $table_display = $this->getTableDisplayName($table);
+                $qualified_name = $field_name . ' (' . $table_display . ')';
+                $fields[$field_key] = $qualified_name;
+            } else {
+                $fields[$field_key] = $field_name;
             }
         }
 

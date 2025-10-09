@@ -1,5 +1,9 @@
 <?php
 
+use GlpiPlugin\Advancedldap\Bootstrap;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
+use GlpiPlugin\Advancedldap\Services\LdapSyncService;
+
 /**
  * -------------------------------------------------------------------------
  * advancedldap plugin for GLPI
@@ -31,7 +35,7 @@
  * -------------------------------------------------------------------------
  */
 
-include('../../../inc/includes.php');
+include(__DIR__ . '/../../../inc/includes.php');
 
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
@@ -40,8 +44,8 @@ use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 $configService = new GlpiConfigurationService();
 
 // Get security service for LDAP filter sanitization
-$container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-$ldapSanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface::class);
+$container = Bootstrap::getContainer();
+$ldapSanitizer = $container->get(LdapFilterSanitizerInterface::class);
 
 Session::checkRight(SyncFilter::$rightname, READ);
 
@@ -143,8 +147,8 @@ if (isset($_POST["add"])) {
 
     try {
         // Get service container and sync service
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-        $sync_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapSyncService::class);
+        $container = Bootstrap::getContainer();
+        $sync_service = $container->get(LdapSyncService::class);
 
         // Perform synchronization
         $sync_results = $sync_service->synchronizeFromFilter($syncfilter_id, $authldap_id);

@@ -4,7 +4,6 @@ namespace GlpiPlugin\Advancedldap\Tests;
 
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
-use Computer;
 use DbTestCase;
 
 /**

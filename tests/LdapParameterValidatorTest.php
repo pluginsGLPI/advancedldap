@@ -2,6 +2,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Services\LdapParameterValidator;
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
 use DbTestCase;
@@ -156,7 +157,7 @@ class LdapParameterValidatorTest extends DbTestCase
     public function testValidateAssetTypeExistsWithValidGenericAsset()
     {
         // Arrange - Create a test asset definition
-        $definition = new \Glpi\Asset\AssetDefinition();
+        $definition = new AssetDefinition();
         $definitionId = $definition->add([
             'name' => 'Test Generic Asset',
             'system_name' => 'testgenericasset',

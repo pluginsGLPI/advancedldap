@@ -473,7 +473,7 @@ class LdapTestServiceTest extends DbTestCase
             ->expects($this->once())
             ->method('searchWithErrorHandling')
             ->with($authldapId, $baseDn, $filter)
-            ->will($this->throwException(new \Exception('Connection timeout')));
+            ->will($this->throwException(new Exception('Connection timeout')));
 
         // Act
         $result = $this->ldapTestService->testLdapFilter($authldapId, $baseDn, $filter, $assetType);

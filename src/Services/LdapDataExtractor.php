@@ -131,7 +131,7 @@ class LdapDataExtractor
         }
 
         // Empty array after removing count
-        if (empty($value)) {
+        if ($value === []) {
             return '';
         }
 

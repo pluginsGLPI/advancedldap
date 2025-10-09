@@ -120,11 +120,7 @@ class LdapAttributeMapper implements LdapAttributeMapperInterface
     {
         $reverse_mapping = array_flip($this->standard_mappings);
 
-        if (isset($reverse_mapping[$ldap_attribute])) {
-            return $reverse_mapping[$ldap_attribute];
-        }
-
-        return null;
+        return $reverse_mapping[$ldap_attribute] ?? null;
     }
 
     /**

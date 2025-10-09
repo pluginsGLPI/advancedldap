@@ -33,6 +33,8 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use AuthLDAP;
+use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\Models\SyncFilter;
 use DbTestCase;
 
@@ -496,7 +498,7 @@ class SyncFilterTest extends DbTestCase
         $this->login();
 
         // Create an AuthLDAP server
-        $authldap = new \AuthLDAP();
+        $authldap = new AuthLDAP();
         $authldap_id = $authldap->add([
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
@@ -519,7 +521,7 @@ class SyncFilterTest extends DbTestCase
         $this->assertGreaterThan(0, $filter_id);
 
         // Verify relation was created
-        $relation = new \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter();
+        $relation = new AuthLdapSyncFilter();
         $found = $relation->getFromDBByCrit([
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $filter_id,
@@ -551,7 +553,7 @@ class SyncFilterTest extends DbTestCase
         // Verify no relation was created
         global $DB;
         $iterator = $DB->request([
-            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'FROM' => AuthLdapSyncFilter::getTable(),
             'WHERE' => ['syncfilter_id' => $filter_id],
         ]);
 
@@ -566,7 +568,7 @@ class SyncFilterTest extends DbTestCase
         $this->login();
 
         // Create an AuthLDAP server
-        $authldap = new \AuthLDAP();
+        $authldap = new AuthLDAP();
         $authldap_id = $authldap->add([
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
@@ -591,7 +593,7 @@ class SyncFilterTest extends DbTestCase
         // Verify relation exists
         global $DB;
         $iterator = $DB->request([
-            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'FROM' => AuthLdapSyncFilter::getTable(),
             'WHERE' => ['syncfilter_id' => $filter_id],
         ]);
         $this->assertEquals(1, count($iterator));
@@ -602,7 +604,7 @@ class SyncFilterTest extends DbTestCase
 
         // Verify relation was deleted
         $iterator = $DB->request([
-            'FROM' => \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter::getTable(),
+            'FROM' => AuthLdapSyncFilter::getTable(),
             'WHERE' => ['syncfilter_id' => $filter_id],
         ]);
         $this->assertEquals(0, count($iterator));
@@ -616,7 +618,7 @@ class SyncFilterTest extends DbTestCase
         $this->login();
 
         // Create AuthLDAP servers
-        $authldap1 = new \AuthLDAP();
+        $authldap1 = new AuthLDAP();
         $authldap_id1 = $authldap1->add([
             'name' => 'LDAP Server 1',
             'host' => 'ldap1.example.com',
@@ -624,7 +626,7 @@ class SyncFilterTest extends DbTestCase
             'is_active' => 1,
         ]);
 
-        $authldap2 = new \AuthLDAP();
+        $authldap2 = new AuthLDAP();
         $authldap_id2 = $authldap2->add([
             'name' => 'LDAP Server 2',
             'host' => 'ldap2.example.com',
@@ -644,7 +646,7 @@ class SyncFilterTest extends DbTestCase
         ]);
 
         // Add second relation manually
-        $relation = new \GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter();
+        $relation = new AuthLdapSyncFilter();
         $relation->add([
             'authldap_id' => $authldap_id2,
             'syncfilter_id' => $filter_id,

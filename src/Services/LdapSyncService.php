@@ -237,7 +237,7 @@ class LdapSyncService
             // Extract mapped data from LDAP entry
             $asset_data = $this->extractAssetData($ldap_entry, $field_mappings);
 
-            if (empty($asset_data)) {
+            if ($asset_data === []) {
                 $result['error'] = __('No valid data extracted from LDAP entry', 'advancedldap');
                 return $result;
             }

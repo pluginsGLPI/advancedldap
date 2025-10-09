@@ -39,9 +39,6 @@ use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
 use Location;
 use Session;
-use Toolbox;
-
-use function Safe\json_encode;
 
 /**
  * Asset creation and update service

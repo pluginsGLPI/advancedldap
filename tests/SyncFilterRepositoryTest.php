@@ -268,16 +268,14 @@ class SyncFilterRepositoryTest extends DbTestCase
             ->method('insert')
             ->with(
                 SyncFilter::$table,
-                $this->callback(function ($data) use ($inputData) {
-                    return $data['name'] === $inputData['name']
-                           && $data['ldap_filter'] === $inputData['ldap_filter']
-                           && $data['base_dn'] === $inputData['base_dn']
-                           && $data['asset_type'] === $inputData['asset_type']
-                           && $data['field_mappings'] === json_encode($inputData['field_mappings'])
-                           && $data['is_active'] === $inputData['is_active']
-                           && isset($data['date_creation'])
-                           && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data['date_creation']);
-                }),
+                $this->callback(fn($data) => $data['name'] === $inputData['name']
+                       && $data['ldap_filter'] === $inputData['ldap_filter']
+                       && $data['base_dn'] === $inputData['base_dn']
+                       && $data['asset_type'] === $inputData['asset_type']
+                       && $data['field_mappings'] === json_encode($inputData['field_mappings'])
+                       && $data['is_active'] === $inputData['is_active']
+                       && isset($data['date_creation'])
+                       && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data['date_creation'])),
             )
             ->willReturn($expectedId);
 
@@ -306,11 +304,9 @@ class SyncFilterRepositoryTest extends DbTestCase
             ->method('insert')
             ->with(
                 SyncFilter::$table,
-                $this->callback(function ($data) {
-                    return isset($data['field_mappings'])
-                           && $data['field_mappings'] === json_encode(['name' => 'cn', 'serial' => 'serialNumber'])
-                           && isset($data['date_creation']);
-                }),
+                $this->callback(fn($data) => isset($data['field_mappings'])
+                       && $data['field_mappings'] === json_encode(['name' => 'cn', 'serial' => 'serialNumber'])
+                       && isset($data['date_creation'])),
             )
             ->willReturn($expectedId);
 
@@ -366,12 +362,10 @@ class SyncFilterRepositoryTest extends DbTestCase
             ->method('update')
             ->with(
                 SyncFilter::$table,
-                $this->callback(function ($data) use ($expectedData) {
-                    return $data['name'] === $expectedData['name']
-                           && $data['is_active'] === $expectedData['is_active']
-                           && $data['field_mappings'] === $expectedData['field_mappings']
-                           && isset($data['date_mod']);
-                }),
+                $this->callback(fn($data) => $data['name'] === $expectedData['name']
+                       && $data['is_active'] === $expectedData['is_active']
+                       && $data['field_mappings'] === $expectedData['field_mappings']
+                       && isset($data['date_mod'])),
                 ['id' => $filterId],
             )
             ->willReturn(true);

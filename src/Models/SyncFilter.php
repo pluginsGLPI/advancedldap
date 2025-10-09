@@ -33,6 +33,17 @@
 
 namespace GlpiPlugin\Advancedldap\Models;
 
+use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
+use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
+use AuthLDAP;
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
+use GlpiPlugin\Advancedldap\Services\LdapTestService;
+use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
 use CommonDBTM;
 use CommonGLPI;
 use Html;
@@ -140,13 +151,13 @@ class SyncFilter extends CommonDBTM
     public function redirectToList(): void
     {
         $container = Bootstrap::getContainer();
-        $configService = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
+        $configService = $container->get(GlpiConfigurationService::class);
 
         // Try to get authldap_id from current request parameters
-        $authldap_id = \GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper::getAuthLdapIdFromRequest();
+        $authldap_id = SyncFilterFormHelper::getAuthLdapIdFromRequest();
 
         // If we have a parent AuthLDAP from URL, redirect there
-        if ($authldap_id) {
+        if ($authldap_id !== 0) {
             Html::redirect($configService->getGlpiConfig('root_doc') . "/front/authldap.form.php?id=" . intval($authldap_id));
         }
 
@@ -180,7 +191,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '1',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'name',
             'name'              => __('Name'),
             'datatype'          => 'itemlink',
@@ -189,7 +200,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '2',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'ldap_filter',
             'name'              => __('LDAP Filter', 'advancedldap'),
             'datatype'          => 'text',
@@ -198,7 +209,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '3',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'base_dn',
             'name'              => __('Base DN', 'advancedldap'),
             'datatype'          => 'string',
@@ -206,7 +217,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '4',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'asset_type',
             'name'              => __('Asset Type', 'advancedldap'),
             'datatype'          => 'string',
@@ -214,7 +225,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '5',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'is_active',
             'name'              => __('Active'),
             'datatype'          => 'bool',
@@ -222,7 +233,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '19',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'date_mod',
             'name'              => __('Last update'),
             'datatype'          => 'datetime',
@@ -231,7 +242,7 @@ class SyncFilter extends CommonDBTM
 
         $tab[] = [
             'id'                => '121',
-            'table'             => $this->getTable(),
+            'table'             => static::getTable(),
             'field'             => 'date_creation',
             'name'              => __('Creation date'),
             'datatype'          => 'datetime',
@@ -276,7 +287,7 @@ class SyncFilter extends CommonDBTM
         }
 
         $container = Bootstrap::getContainer();
-        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        $repository = $container->get(SyncFilterRepositoryInterface::class);
 
         return $repository->getAssociatedAuthLdaps($this->getID());
     }
@@ -304,18 +315,16 @@ class SyncFilter extends CommonDBTM
     private function validateLdapInputs(array $input)
     {
         $container = Bootstrap::getContainer();
-        $sanitizer = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface::class);
+        $sanitizer = $container->get(LdapFilterSanitizerInterface::class);
 
         // Validate Base DN if present
-        if (isset($input['base_dn']) && !empty($input['base_dn'])) {
-            if (!$sanitizer->isValidDN($input['base_dn'])) {
-                Session::addMessageAfterRedirect(
-                    __('Invalid LDAP Base DN syntax. Please check the format (example: ou=users,dc=example,dc=com)', 'advancedldap'),
-                    false,
-                    ERROR
-                );
-                return false;
-            }
+        if (isset($input['base_dn']) && !empty($input['base_dn']) && !$sanitizer->isValidDN($input['base_dn'])) {
+            Session::addMessageAfterRedirect(
+                __('Invalid LDAP Base DN syntax. Please check the format (example: ou=users,dc=example,dc=com)', 'advancedldap'),
+                false,
+                ERROR
+            );
+            return false;
         }
 
         // Validate LDAP filter if present
@@ -352,8 +361,8 @@ class SyncFilter extends CommonDBTM
 
         // Get services from container
         $container = Bootstrap::getContainer();
-        $filter_parser = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface::class);
-        $attribute_mapper = $container->get(\GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface::class);
+        $filter_parser = $container->get(LdapFilterParserInterface::class);
+        $attribute_mapper = $container->get(LdapAttributeMapperInterface::class);
 
         // Create intelligent field mapping from asset_fields using LDAP filter analysis
         if (isset($input['asset_fields']) && is_array($input['asset_fields']) && !empty($input['asset_fields'])) {
@@ -373,7 +382,7 @@ class SyncFilter extends CommonDBTM
                 }
             }
 
-            if (!empty($field_mappings)) {
+            if ($field_mappings !== []) {
                 $input['field_mappings'] = json_encode($field_mappings);
             }
         }
@@ -447,7 +456,7 @@ class SyncFilter extends CommonDBTM
 
         // Delete all related AuthLDAP relations before deleting the sync filter
         $container = Bootstrap::getContainer();
-        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        $repository = $container->get(SyncFilterRepositoryInterface::class);
         $repository->deleteAuthLdapRelations($this->getID());
 
         return true;
@@ -547,7 +556,7 @@ class SyncFilter extends CommonDBTM
                         if ($new_item->add($input)) {
                             // Duplicate ALL AuthLDAP relations
                             $container = Bootstrap::getContainer();
-                            $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+                            $repository = $container->get(SyncFilterRepositoryInterface::class);
                             $relations = $repository->getAuthLdapRelations($id);
 
                             foreach ($relations as $relation_data) {
@@ -752,7 +761,7 @@ class SyncFilter extends CommonDBTM
         );
 
         // Render template with all collected data
-        \Glpi\Application\View\TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_form.html.twig', [
             'item' => $this,
             'params' => $options,
             'parent_authldap' => $authldap_context['parent_authldap'],
@@ -783,10 +792,10 @@ class SyncFilter extends CommonDBTM
     {
         // Handle parent AuthLDAP if provided (following GLPI conventions)
         $parent_authldap = null;
-        if (isset($options['parent']) && $options['parent'] instanceof \AuthLDAP) {
+        if (isset($options['parent']) && $options['parent'] instanceof AuthLDAP) {
             $parent_authldap = $options['parent'];
         } elseif (!empty($options['authldap_id'])) {
-            $authldap = new \AuthLDAP();
+            $authldap = new AuthLDAP();
             if ($authldap->getFromDB($options['authldap_id'])) {
                 $parent_authldap = $authldap;
             }
@@ -824,12 +833,12 @@ class SyncFilter extends CommonDBTM
     private function prepareFormData(int $ID, ?int $authldap_id): array
     {
         // Get container for dependency injection
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
+        $container = Bootstrap::getContainer();
 
         // Get services
-        $form_helper = $container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface::class);
-        $asset_field_provider = $container->get(\GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface::class);
-        $config_service = $container->get(\GlpiPlugin\Advancedldap\Services\GlpiConfigurationService::class);
+        $form_helper = $container->get(SyncFilterFormHelperInterface::class);
+        $asset_field_provider = $container->get(AssetFieldProviderInterface::class);
+        $config_service = $container->get(GlpiConfigurationService::class);
 
         // Get AuthLDAP servers for dropdown
         $authldap_servers = $form_helper->getAvailableAuthLdapServers();
@@ -918,7 +927,7 @@ class SyncFilter extends CommonDBTM
         }
 
         $container = Bootstrap::getContainer();
-        $ldap_test_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapTestService::class);
+        $ldap_test_service = $container->get(LdapTestService::class);
 
         // Get field mappings from database
         $field_mappings = $this->getFieldMappings();
@@ -948,8 +957,8 @@ class SyncFilter extends CommonDBTM
             return null;
         }
 
-        $container = \GlpiPlugin\Advancedldap\Bootstrap::getContainer();
-        $repository = $container->get(\GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface::class);
+        $container = Bootstrap::getContainer();
+        $repository = $container->get(AuthLdapSyncFilterRepositoryInterface::class);
 
         $authldap_ids = $repository->getAuthLdapsForSyncFilter($this->getID(), true);
 
@@ -959,16 +968,16 @@ class SyncFilter extends CommonDBTM
     /**
      * Get the parent AuthLDAP object for this filter
      *
-     * @return \AuthLDAP|null
+     * @return AuthLDAP|null
      */
-    public function getParentAuthLdap(): ?\AuthLDAP
+    public function getParentAuthLdap(): ?AuthLDAP
     {
         $authldap_id = $this->getParentAuthLdapId();
         if (!$authldap_id) {
             return null;
         }
 
-        $authldap = new \AuthLDAP();
+        $authldap = new AuthLDAP();
         if ($authldap->getFromDB($authldap_id)) {
             return $authldap;
         }
@@ -981,5 +990,5 @@ class SyncFilter extends CommonDBTM
 // Legacy compatibility for GLPI 11 Search engine
 // This alias ensures that the old PluginAdvancedldapSyncFilter naming still works
 if (!class_exists('PluginAdvancedldapSyncFilter', false)) {
-    class_alias('GlpiPlugin\Advancedldap\Models\SyncFilter', 'PluginAdvancedldapSyncFilter');
+    class_alias(\GlpiPlugin\Advancedldap\Models\SyncFilter::class, 'PluginAdvancedldapSyncFilter');
 }

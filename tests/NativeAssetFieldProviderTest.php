@@ -341,7 +341,7 @@ class NativeAssetFieldProviderTest extends DbTestCase
         // Check if any field has parentheses (indication of qualification)
         $hasQualifiedField = false;
         foreach ($result as $label) {
-            if (strpos($label, '(') !== false && strpos($label, ')') !== false) {
+            if (str_contains($label, '(') && str_contains($label, ')')) {
                 $hasQualifiedField = true;
                 break;
             }

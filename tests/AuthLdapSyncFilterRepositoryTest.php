@@ -39,13 +39,11 @@ class AuthLdapSyncFilterRepositoryTest extends DbTestCase
             ->method('insert')
             ->with(
                 AuthLdapSyncFilter::$table,
-                $this->callback(function ($data) use ($authldapId, $syncfilterId) {
-                    return $data['authldap_id'] === $authldapId
-                           && $data['syncfilter_id'] === $syncfilterId
-                           && $data['is_active'] === 1
-                           && isset($data['date_creation'])
-                           && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data['date_creation']);
-                }),
+                $this->callback(fn($data) => $data['authldap_id'] === $authldapId
+                       && $data['syncfilter_id'] === $syncfilterId
+                       && $data['is_active'] === 1
+                       && isset($data['date_creation'])
+                       && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $data['date_creation'])),
             )
             ->willReturn($expectedId);
 
@@ -72,9 +70,7 @@ class AuthLdapSyncFilterRepositoryTest extends DbTestCase
             ->method('insert')
             ->with(
                 AuthLdapSyncFilter::$table,
-                $this->callback(function ($data) {
-                    return $data['is_active'] === 0;
-                }),
+                $this->callback(fn($data) => $data['is_active'] === 0),
             )
             ->willReturn($expectedId);
 

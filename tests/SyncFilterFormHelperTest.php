@@ -2,11 +2,10 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use AuthLDAP;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
-use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
-use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use DbTestCase;
 
 /**
@@ -48,7 +47,7 @@ class SyncFilterFormHelperTest extends DbTestCase
         );
 
         // Create AuthLDAP instance for tests
-        $this->authldap = new \AuthLDAP();
+        $this->authldap = new AuthLDAP();
     }
 
 

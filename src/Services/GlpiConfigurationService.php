@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Exception;
 use Config;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use Toolbox;
@@ -67,7 +68,7 @@ class GlpiConfigurationService implements ConfigurationInterface
         try {
             Config::setConfigurationValues(self::PLUGIN_NAMESPACE, $values);
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Toolbox::logDebug("Advanced LDAP - Configuration error: " . $e->getMessage());
             return false;
         }

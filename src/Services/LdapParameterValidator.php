@@ -110,7 +110,7 @@ class LdapParameterValidator
 
         // Validate field mappings exist
         $field_mappings = $sync_filter->getFieldMappings();
-        if (empty($field_mappings)) {
+        if ($field_mappings === []) {
             return __('Field mappings are required', 'advancedldap');
         }
 
@@ -152,7 +152,7 @@ class LdapParameterValidator
      */
     public function validateFieldMappings(array $field_mappings): ?string
     {
-        if (empty($field_mappings)) {
+        if ($field_mappings === []) {
             return __('Field mappings are required', 'advancedldap');
         }
 

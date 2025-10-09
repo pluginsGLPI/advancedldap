@@ -33,6 +33,8 @@
 
 namespace GlpiPlugin\Advancedldap;
 
+use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
+use GlpiPlugin\Advancedldap\Services\SyncFilterService;
 use AuthLDAP;
 use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
@@ -151,7 +153,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getSyncFiltersForAuthLdap(int $authldap_id): array
     {
-        $repository = $this->container->get(\GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface::class);
+        $repository = $this->container->get(SyncFilterRepositoryInterface::class);
         return $repository->getSyncFiltersForAuthLdapDetailed($authldap_id);
     }
 
@@ -162,7 +164,7 @@ class AdvancedLdapSync extends CommonGLPI
      */
     public function getAvailableSyncFilters(): array
     {
-        $sync_filter_service = $this->container->get(\GlpiPlugin\Advancedldap\Services\SyncFilterService::class);
+        $sync_filter_service = $this->container->get(SyncFilterService::class);
         return $sync_filter_service->getAvailableSyncFilters();
     }
 

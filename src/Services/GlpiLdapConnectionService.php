@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Toolbox;
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
@@ -235,7 +236,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
         $pagesize = (int) $authldap->fields['pagesize'];
         $ldap_maxlimit = (int) $authldap->fields['ldap_maxlimit'];
 
-        \Toolbox::logDebug(
+        Toolbox::logDebug(
             "GlpiLdapConnectionService: Pagination enabled (pagesize: $pagesize, maxlimit: " .
             ($ldap_maxlimit > 0 ? $ldap_maxlimit : 'unlimited') . ")"
         );
@@ -273,7 +274,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
             $page_entries = $entries['count'];
             $total_count += $page_entries;
 
-            \Toolbox::logDebug("GlpiLdapConnectionService: Page $page_count retrieved $page_entries entries (total: $total_count)");
+            Toolbox::logDebug("GlpiLdapConnectionService: Page $page_count retrieved $page_entries entries (total: $total_count)");
 
             // Accumulate entries (skip 'count' key during merge)
             for ($i = 0; $i < $page_entries; $i++) {
@@ -282,7 +283,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
 
             // Check if we've reached ldap_maxlimit
             if ($ldap_maxlimit > 0 && $total_count >= $ldap_maxlimit) {
-                \Toolbox::logDebug("GlpiLdapConnectionService: Reached ldap_maxlimit ($ldap_maxlimit), stopping pagination");
+                Toolbox::logDebug("GlpiLdapConnectionService: Reached ldap_maxlimit ($ldap_maxlimit), stopping pagination");
                 break;
             }
         } while ($cookie !== '');
@@ -290,7 +291,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
         $all_entries['count'] = $total_count;
         $this->close($connection);
 
-        \Toolbox::logDebug("GlpiLdapConnectionService: Pagination completed - $total_count entries retrieved in $page_count page(s)");
+        Toolbox::logDebug("GlpiLdapConnectionService: Pagination completed - $total_count entries retrieved in $page_count page(s)");
 
         return ['entries' => $all_entries];
     }
@@ -305,7 +306,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
      */
     private function searchSimple($connection, string $base_dn, string $filter): array
     {
-        \Toolbox::logDebug("GlpiLdapConnectionService: Pagination disabled, performing simple search");
+        Toolbox::logDebug("GlpiLdapConnectionService: Pagination disabled, performing simple search");
 
         $search = $this->search($connection, $base_dn, $filter);
         if (!$search) {
@@ -320,7 +321,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
         $entries = $this->getEntries($connection, $search);
         $this->close($connection);
 
-        \Toolbox::logDebug("GlpiLdapConnectionService: Simple search retrieved {$entries['count']} entries");
+        Toolbox::logDebug("GlpiLdapConnectionService: Simple search retrieved {$entries['count']} entries");
 
         return ['entries' => $entries];
     }

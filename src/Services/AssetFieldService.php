@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Glpi\Asset\AssetDefinition;
 use Exception;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
@@ -163,7 +164,7 @@ class AssetFieldService implements AssetFieldProviderInterface
      */
     private function getGenericAssets(): array
     {
-        if (!class_exists('Glpi\\Asset\\AssetDefinition')) {
+        if (!class_exists(AssetDefinition::class)) {
             return [];
         }
 

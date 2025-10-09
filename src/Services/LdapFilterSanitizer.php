@@ -136,20 +136,14 @@ class LdapFilterSanitizer implements LdapFilterSanitizerInterface
         if (substr_count($filter, '(') !== substr_count($filter, ')')) {
             return false;
         }
-
         // Check minimum structure: must contain at least one attribute-value pair
         // Valid patterns: (attr=value), (attr>=value), (attr<=value), (attr~=value)
         // Also allow attribute names with hyphens and numbers (common in LDAP schemas)
-        if (!preg_match('/\([a-zA-Z][a-zA-Z0-9\-]*\s*[=<>~]/', $filter)) {
-            return false;
-        }
-
         // Check for common injection patterns that bypass simple filters
         // The previous checks (balanced parens + attribute-value pairs) are sufficient
         // for catching most injection attempts. The orphan paren check was too strict
         // and rejected valid nested filters like (&(attr1=val1)(attr2=val2))
-
-        return true;
+        return (bool) preg_match('/\([a-zA-Z][a-zA-Z0-9\-]*\s*[=<>~]/', $filter);
     }
 
     /**
@@ -224,12 +218,12 @@ class LdapFilterSanitizer implements LdapFilterSanitizerInterface
         // Examples: ou=users,dc=example,dc=com or cn=admin,dc=example,dc=com
 
         // Check for at least one attribute=value pair
-        if (!preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*\s*=/', $dn)) {
+        if (preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*\s*=/', $dn) === 0) {
             return false;
         }
 
         // Check for balanced structure (no trailing commas, etc.)
-        if (preg_match('/[,=]\s*$/', $dn)) {
+        if (preg_match('/[,=]\s*$/', $dn) !== 0) {
             return false;
         }
 
@@ -240,14 +234,14 @@ class LdapFilterSanitizer implements LdapFilterSanitizerInterface
 
             // Each component should be attribute=value (without LDAP filter metacharacters)
             // The value must contain at least one non-whitespace character
-            if (!preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*\s*=\s*\S/', $component)) {
+            if (preg_match('/^[a-zA-Z][a-zA-Z0-9\-]*\s*=\s*\S/', $component) === 0) {
                 return false;
             }
 
             // Check that the value part doesn't contain LDAP filter metacharacters
             // These characters should not appear in DN values: ( ) & | ! ~ * \
             // Allow escaped versions if needed, but reject unescaped filter operators
-            if (preg_match('/[()&|!~*]/', $component)) {
+            if (preg_match('/[()&|!~*]/', $component) !== 0) {
                 return false;
             }
         }

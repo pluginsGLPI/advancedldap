@@ -33,6 +33,8 @@
 
 namespace GlpiPlugin\Advancedldap\Container;
 
+use InvalidArgumentException;
+use Toolbox;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
@@ -107,7 +109,7 @@ class ServiceContainer
      *
      * @param string $id Service identifier
      * @return object Service instance
-     * @throws \InvalidArgumentException If service not found
+     * @throws InvalidArgumentException If service not found
      */
     public function get(string $id): object
     {
@@ -122,7 +124,7 @@ class ServiceContainer
             return $this->services[$id];
         }
 
-        throw new \InvalidArgumentException("Service '$id' not found");
+        throw new InvalidArgumentException("Service '$id' not found");
     }
 
     /**
@@ -144,117 +146,81 @@ class ServiceContainer
     private function registerDefaultServices(): void
     {
         // Core services
-        $this->register(DatabaseInterface::class, function () {
-            return new GlpiDatabaseService();
-        });
+        $this->register(DatabaseInterface::class, fn() => new GlpiDatabaseService());
 
-        $this->register(ConfigurationInterface::class, function () {
-            return new GlpiConfigurationService();
-        });
+        $this->register(ConfigurationInterface::class, fn() => new GlpiConfigurationService());
 
         // Register the service also by its class name for direct access
-        $this->register(GlpiConfigurationService::class, function () {
-            return new GlpiConfigurationService();
-        });
+        $this->register(GlpiConfigurationService::class, fn() => new GlpiConfigurationService());
 
-        $this->register(LdapConnectionInterface::class, function (ServiceContainer $container) {
-            return new GlpiLdapConnectionService(
-                $container->get(SyncFilterRepositoryInterface::class),
-                $container->get(LdapFilterSanitizerInterface::class)
-            );
-        });
+        $this->register(LdapConnectionInterface::class, fn(ServiceContainer $container) => new GlpiLdapConnectionService(
+            $container->get(SyncFilterRepositoryInterface::class),
+            $container->get(LdapFilterSanitizerInterface::class)
+        ));
 
         // LDAP utilities
-        $this->register(LdapFilterParserInterface::class, function () {
-            return new LdapFilterParser();
-        });
+        $this->register(LdapFilterParserInterface::class, fn() => new LdapFilterParser());
 
-        $this->register(LdapAttributeMapperInterface::class, function () {
-            return new LdapAttributeMapper();
-        });
+        $this->register(LdapAttributeMapperInterface::class, fn() => new LdapAttributeMapper());
 
         // LDAP security - RFC 4515 filter sanitization
-        $this->register(LdapFilterSanitizerInterface::class, function () {
-            return new LdapFilterSanitizer();
-        });
+        $this->register(LdapFilterSanitizerInterface::class, fn() => new LdapFilterSanitizer());
 
         // Factory
-        $this->register(AssetFieldProviderFactory::class, function () {
-            return new AssetFieldProviderFactory();
-        });
+        $this->register(AssetFieldProviderFactory::class, fn() => new AssetFieldProviderFactory());
 
         // Asset field service
-        $this->register(AssetFieldProviderInterface::class, function (ServiceContainer $container) {
-            return new AssetFieldService(
-                $container->get(ConfigurationInterface::class),
-                $container->get(DatabaseInterface::class),
-                $container->get(AssetFieldProviderFactory::class),
-            );
-        });
+        $this->register(AssetFieldProviderInterface::class, fn(ServiceContainer $container) => new AssetFieldService(
+            $container->get(ConfigurationInterface::class),
+            $container->get(DatabaseInterface::class),
+            $container->get(AssetFieldProviderFactory::class),
+        ));
 
         // LDAP test service
-        $this->register(LdapTestService::class, function (ServiceContainer $container) {
-            return new LdapTestService(
-                $container->get(LdapConnectionInterface::class),
-                $container->get(DatabaseInterface::class),
-                $container->get(AssetFieldProviderInterface::class),
-            );
-        });
+        $this->register(LdapTestService::class, fn(ServiceContainer $container) => new LdapTestService(
+            $container->get(LdapConnectionInterface::class),
+            $container->get(DatabaseInterface::class),
+            $container->get(AssetFieldProviderInterface::class),
+        ));
 
         // Repositories
-        $this->register(AuthLdapSyncFilterRepositoryInterface::class, function (ServiceContainer $container) {
-            return new AuthLdapSyncFilterRepository(
-                $container->get(DatabaseInterface::class),
-            );
-        });
+        $this->register(AuthLdapSyncFilterRepositoryInterface::class, fn(ServiceContainer $container) => new AuthLdapSyncFilterRepository(
+            $container->get(DatabaseInterface::class),
+        ));
 
-        $this->register(SyncFilterRepositoryInterface::class, function (ServiceContainer $container) {
-            return new SyncFilterRepository(
-                $container->get(DatabaseInterface::class)
-            );
-        });
+        $this->register(SyncFilterRepositoryInterface::class, fn(ServiceContainer $container) => new SyncFilterRepository(
+            $container->get(DatabaseInterface::class)
+        ));
 
         // SyncFilter service
-        $this->register(SyncFilterService::class, function (ServiceContainer $container) {
-            return new SyncFilterService(
-                $container->get(SyncFilterRepositoryInterface::class),
-                $container->get(AuthLdapSyncFilterRepositoryInterface::class),
-            );
-        });
+        $this->register(SyncFilterService::class, fn(ServiceContainer $container) => new SyncFilterService(
+            $container->get(SyncFilterRepositoryInterface::class),
+            $container->get(AuthLdapSyncFilterRepositoryInterface::class),
+        ));
 
         // SyncFilter form helper service
-        $this->register(SyncFilterFormHelperInterface::class, function (ServiceContainer $container) {
-            return new SyncFilterFormHelper(
-                $container->get(SyncFilterRepositoryInterface::class),
-                $container->get(LdapConnectionInterface::class),
-            );
-        });
+        $this->register(SyncFilterFormHelperInterface::class, fn(ServiceContainer $container) => new SyncFilterFormHelper(
+            $container->get(SyncFilterRepositoryInterface::class),
+            $container->get(LdapConnectionInterface::class),
+        ));
 
         // Asset type classifier service
-        $this->register(AssetTypeClassifier::class, function (ServiceContainer $container) {
-            return new AssetTypeClassifier(
-                $container->get(ConfigurationInterface::class)
-            );
-        });
+        $this->register(AssetTypeClassifier::class, fn(ServiceContainer $container) => new AssetTypeClassifier(
+            $container->get(ConfigurationInterface::class)
+        ));
 
         // Asset creation service
-        $this->register(AssetCreationService::class, function (ServiceContainer $container) {
-            return new AssetCreationService(
-                $container->get(DatabaseInterface::class),
-            );
-        });
+        $this->register(AssetCreationService::class, fn(ServiceContainer $container) => new AssetCreationService(
+            $container->get(DatabaseInterface::class),
+        ));
 
         // LDAP to inventory converter service
-        $this->register(LdapToInventoryConverter::class, function () {
-            return new LdapToInventoryConverter();
-        });
+        $this->register(LdapToInventoryConverter::class, fn() => new LdapToInventoryConverter());
 
         // LDAP inventory service
-        $this->register(LdapInventoryService::class, function (ServiceContainer $container) {
-            return new LdapInventoryService(
-                $container->get(LdapToInventoryConverter::class),
-            );
-        });
+        $this->register(LdapInventoryService::class, fn(ServiceContainer $container) => new LdapInventoryService(
+            $container->get(LdapToInventoryConverter::class),
+        ));
 
         // LDAP synchronization service
         $this->register(LdapSyncService::class, function (ServiceContainer $container) {
@@ -268,9 +234,9 @@ class ServiceContainer
             $configService = $container->get(ConfigurationInterface::class);
             if ($configService->isInventoryEnabled()) {
                 $service->setLdapInventoryService($container->get(LdapInventoryService::class));
-                \Toolbox::logDebug("ServiceContainer: LdapInventoryService INJECTED - inventory workflow is available");
+                Toolbox::logDebug("ServiceContainer: LdapInventoryService INJECTED - inventory workflow is available");
             } else {
-                \Toolbox::logDebug("ServiceContainer: LdapInventoryService NOT injected - inventory disabled, fallback to traditional workflow");
+                Toolbox::logDebug("ServiceContainer: LdapInventoryService NOT injected - inventory disabled, fallback to traditional workflow");
             }
 
             return $service;

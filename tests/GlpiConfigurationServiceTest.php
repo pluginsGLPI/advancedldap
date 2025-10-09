@@ -2,6 +2,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use Config;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use DbTestCase;
 
@@ -31,7 +32,7 @@ class GlpiConfigurationServiceTest extends DbTestCase
         $expectedValue = 'test_value';
 
         // First set a value using Config directly
-        \Config::setConfigurationValues('plugin:Advancedldap', [$key => $expectedValue]);
+        Config::setConfigurationValues('plugin:Advancedldap', [$key => $expectedValue]);
 
         // Act
         $result = $this->configurationService->get($key);
@@ -156,7 +157,7 @@ class GlpiConfigurationServiceTest extends DbTestCase
     public function testIsInventoryEnabledWhenEnabled()
     {
         // Arrange
-        \Config::setConfigurationValues('inventory', ['enabled_inventory' => 1]);
+        Config::setConfigurationValues('inventory', ['enabled_inventory' => 1]);
 
         // Act
         $result = $this->configurationService->isInventoryEnabled();
@@ -171,7 +172,7 @@ class GlpiConfigurationServiceTest extends DbTestCase
     public function testIsInventoryEnabledWhenDisabled()
     {
         // Arrange
-        \Config::setConfigurationValues('inventory', ['enabled_inventory' => 0]);
+        Config::setConfigurationValues('inventory', ['enabled_inventory' => 0]);
 
         // Act
         $result = $this->configurationService->isInventoryEnabled();
@@ -261,7 +262,7 @@ class GlpiConfigurationServiceTest extends DbTestCase
         $this->configurationService->set([$key => $value]);
 
         // Assert - Verify value was set in correct namespace
-        $directValue = \Config::getConfigurationValue('plugin:Advancedldap', $key);
+        $directValue = Config::getConfigurationValue('plugin:Advancedldap', $key);
         $this->assertEquals($value, $directValue);
 
         // Also verify get method returns the same value
