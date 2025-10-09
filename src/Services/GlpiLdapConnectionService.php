@@ -176,6 +176,7 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
 
     /**
      * Perform LDAP search with connection and error handling
+     * Automatically handles pagination if enabled in AuthLDAP configuration
      *
      * @param int $authldap_id AuthLDAP configuration ID
      * @param string $base_dn Base DN for search
@@ -195,16 +196,122 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
             return ['error' => __('Invalid LDAP filter syntax', 'advancedldap')];
         }
 
+        // Load AuthLDAP configuration to check pagination settings
+        $authldap = new AuthLDAP();
+        if (!$authldap->getFromDB($authldap_id)) {
+            return ['error' => __('AuthLDAP configuration not found', 'advancedldap')];
+        }
+
         $connection = $this->connect($authldap_id);
         if (!$connection) {
             return ['error' => __('Cannot connect to LDAP server', 'advancedldap')];
         }
 
-        $search = $this->search($connection, $base_dn, $sanitized_filter);
+        // Check if pagination is enabled in AuthLDAP configuration
+        if (AuthLDAP::isLdapPageSizeAvailable($authldap)) {
+            return $this->searchWithPagination($connection, $authldap, $base_dn, $sanitized_filter);
+        } else {
+            return $this->searchSimple($connection, $base_dn, $sanitized_filter);
+        }
+    }
+
+    /**
+     * Perform LDAP search with pagination (RFC 2696)
+     * Automatically retrieves all pages and accumulates results
+     *
+     * @param mixed $connection LDAP connection resource
+     * @param AuthLDAP $authldap AuthLDAP configuration object
+     * @param string $base_dn Base DN for search
+     * @param string $filter LDAP filter (already sanitized)
+     * @return array{entries?: array<mixed>, error?: string} Returns ['entries' => array] on success or ['error' => string] on failure
+     */
+    private function searchWithPagination($connection, AuthLDAP $authldap, string $base_dn, string $filter): array
+    {
+        $all_entries = ['count' => 0];
+        $total_count = 0;
+        $page_count = 0;
+        $cookie = '';
+
+        $pagesize = (int) $authldap->fields['pagesize'];
+        $ldap_maxlimit = (int) $authldap->fields['ldap_maxlimit'];
+
+        \Toolbox::logDebug(
+            "GlpiLdapConnectionService: Pagination enabled (pagesize: $pagesize, maxlimit: " .
+            ($ldap_maxlimit > 0 ? $ldap_maxlimit : 'unlimited') . ")"
+        );
+
+        do {
+            $page_count++;
+
+            // Configure pagination control (RFC 2696)
+            $controls = [[
+                'oid' => LDAP_CONTROL_PAGEDRESULTS,
+                'iscritical' => true,
+                'value' => [
+                    'size' => $pagesize,
+                    'cookie' => $cookie,
+                ],
+            ]];
+
+            // Perform LDAP search with pagination control
+            $sr = @ldap_search($connection, $base_dn, $filter, [], 0, -1, -1, LDAP_DEREF_NEVER, $controls);
+
+            if ($sr === false || @ldap_parse_result($connection, $sr, $errcode, $matcheddn, $errmsg, $referrals, $controls) === false) {
+                $error = sprintf(
+                    __('LDAP search failed: %s', 'advancedldap'),
+                    $this->getError($connection)
+                );
+                $this->close($connection);
+                return ['error' => $error];
+            }
+
+            // Extract cookie for next page
+            $cookie = $controls[LDAP_CONTROL_PAGEDRESULTS]['value']['cookie'] ?? '';
+
+            // Get entries from current page
+            $entries = $this->getEntries($connection, $sr);
+            $page_entries = $entries['count'];
+            $total_count += $page_entries;
+
+            \Toolbox::logDebug("GlpiLdapConnectionService: Page $page_count retrieved $page_entries entries (total: $total_count)");
+
+            // Accumulate entries (skip 'count' key during merge)
+            for ($i = 0; $i < $page_entries; $i++) {
+                $all_entries[] = $entries[$i];
+            }
+
+            // Check if we've reached ldap_maxlimit
+            if ($ldap_maxlimit > 0 && $total_count >= $ldap_maxlimit) {
+                \Toolbox::logDebug("GlpiLdapConnectionService: Reached ldap_maxlimit ($ldap_maxlimit), stopping pagination");
+                break;
+            }
+        } while ($cookie !== '');
+
+        $all_entries['count'] = $total_count;
+        $this->close($connection);
+
+        \Toolbox::logDebug("GlpiLdapConnectionService: Pagination completed - $total_count entries retrieved in $page_count page(s)");
+
+        return ['entries' => $all_entries];
+    }
+
+    /**
+     * Perform simple LDAP search without pagination
+     *
+     * @param mixed $connection LDAP connection resource
+     * @param string $base_dn Base DN for search
+     * @param string $filter LDAP filter (already sanitized)
+     * @return array{entries?: array<mixed>, error?: string} Returns ['entries' => array] on success or ['error' => string] on failure
+     */
+    private function searchSimple($connection, string $base_dn, string $filter): array
+    {
+        \Toolbox::logDebug("GlpiLdapConnectionService: Pagination disabled, performing simple search");
+
+        $search = $this->search($connection, $base_dn, $filter);
         if (!$search) {
             $error = sprintf(
                 __('LDAP search failed: %s', 'advancedldap'),
-                $this->getError($connection),
+                $this->getError($connection)
             );
             $this->close($connection);
             return ['error' => $error];
@@ -212,6 +319,8 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
 
         $entries = $this->getEntries($connection, $search);
         $this->close($connection);
+
+        \Toolbox::logDebug("GlpiLdapConnectionService: Simple search retrieved {$entries['count']} entries");
 
         return ['entries' => $entries];
     }
