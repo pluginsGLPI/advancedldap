@@ -33,12 +33,14 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Exception;
 use Toolbox;
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use function Safe\ldap_get_entries;
+use function Safe\ldap_parse_result;
 
 /**
  * GLPI LDAP Connection Service Implementation
@@ -257,10 +259,22 @@ class GlpiLdapConnectionService implements LdapConnectionInterface
             // Perform LDAP search with pagination control
             $sr = @ldap_search($connection, $base_dn, $filter, [], 0, -1, -1, LDAP_DEREF_NEVER, $controls);
 
-            if ($sr === false || @ldap_parse_result($connection, $sr, $errcode, $matcheddn, $errmsg, $referrals, $controls) === false) {
+            if ($sr === false) {
                 $error = sprintf(
                     __('LDAP search failed: %s', 'advancedldap'),
                     $this->getError($connection)
+                );
+                $this->close($connection);
+                return ['error' => $error];
+            }
+
+            // Parse result to extract pagination cookie (Safe function throws exception on error)
+            try {
+                ldap_parse_result($connection, $sr, $errcode, $matcheddn, $errmsg, $referrals, $controls);
+            } catch (Exception $e) {
+                $error = sprintf(
+                    __('LDAP parse result failed: %s', 'advancedldap'),
+                    $e->getMessage()
                 );
                 $this->close($connection);
                 return ['error' => $error];

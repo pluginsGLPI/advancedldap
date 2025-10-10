@@ -33,6 +33,8 @@
 
 namespace GlpiPlugin\Advancedldap\Models;
 
+use GlpiPlugin\Advancedldap\Services\LdapSyncService;
+use Exception;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
@@ -607,7 +609,7 @@ class SyncFilter extends CommonDBTM
      *
      * @param CommonGLPI $item Item for which the tab is displayed
      * @param int $withtemplate Template mode
-     * @return string|array Tab name
+     * @return string|array<string, mixed> Tab name
      */
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
@@ -1023,16 +1025,15 @@ class SyncFilter extends CommonDBTM
         // Get container and required services
         $container = Bootstrap::getContainer();
         $repository = $container->get(SyncFilterRepositoryInterface::class);
-        $sync_service = $container->get(\GlpiPlugin\Advancedldap\Services\LdapSyncService::class);
+        $sync_service = $container->get(LdapSyncService::class);
 
         // Get all active sync filters with their AuthLDAP servers
         $filters_to_sync = self::getAllActiveSyncFiltersWithAuthLdap($repository);
 
-        if (empty($filters_to_sync)) {
+        if ($filters_to_sync === []) {
             if ($task !== null) {
                 $task->log(__('No active LDAP sync filters found', 'advancedldap'));
             }
-            Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - No active filters to synchronize");
             return 0; // Nothing to do
         }
 
@@ -1046,7 +1047,6 @@ class SyncFilter extends CommonDBTM
             $msg = sprintf(__('Found %d active filter(s) to synchronize', 'advancedldap'), $total_filters);
             $task->log($msg);
         }
-        Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - Found {$total_filters} active filter(s) to synchronize");
 
         // Process each filter (limit by max_filters if set)
         foreach ($filters_to_sync as $filter_data) {
@@ -1056,7 +1056,6 @@ class SyncFilter extends CommonDBTM
                     $msg = sprintf(__('Reached maximum limit of %d filters per execution', 'advancedldap'), $max_filters);
                     $task->log($msg);
                 }
-                Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - Reached max_filters limit ({$max_filters})");
                 break;
             }
 
@@ -1065,8 +1064,6 @@ class SyncFilter extends CommonDBTM
             $filter_name = $filter_data['name'] ?? "ID {$syncfilter_id}";
 
             $processed_count++;
-
-            Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - Processing filter '{$filter_name}' (ID: {$syncfilter_id}) with AuthLDAP {$authldap_id}");
 
             try {
                 // Synchronize using the existing LdapSyncService
@@ -1090,7 +1087,6 @@ class SyncFilter extends CommonDBTM
                     if ($task !== null) {
                         $task->log($msg);
                     }
-                    Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - SUCCESS: {$msg}");
                 } else {
                     $error_count++;
                     $error_msg = $sync_results['error'] ?? __('Unknown error', 'advancedldap');
@@ -1103,9 +1099,8 @@ class SyncFilter extends CommonDBTM
                     if ($task !== null) {
                         $task->log($msg);
                     }
-                    Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - ERROR: Filter '{$filter_name}' - {$error_msg}");
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $error_count++;
                 $msg = sprintf(
                     __('Filter "%s": Exception - %s', 'advancedldap'),
@@ -1116,7 +1111,6 @@ class SyncFilter extends CommonDBTM
                 if ($task !== null) {
                     $task->log($msg);
                 }
-                Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - EXCEPTION: Filter '{$filter_name}' - " . $e->getMessage());
             }
         }
 
@@ -1134,7 +1128,6 @@ class SyncFilter extends CommonDBTM
             $task->log($summary);
             $task->setVolume($total_assets_synced);
         }
-        Toolbox::logDebug("SyncFilter::cronSyncLdapFilters - SUMMARY: {$summary}");
 
         // Return codes:
         // -1 = need to run again (more filters to process)
@@ -1160,7 +1153,7 @@ class SyncFilter extends CommonDBTM
         // Get all active sync filters from repository
         $active_filters = $repository->getActiveSyncFilters();
 
-        if (empty($active_filters)) {
+        if ($active_filters === []) {
             return [];
         }
 
@@ -1177,7 +1170,7 @@ class SyncFilter extends CommonDBTM
             // Get associated AuthLDAP IDs for this filter (already filtered by is_active)
             $authldap_ids = $repository->getAssociatedAuthLdaps($syncfilter_id);
 
-            if (empty($authldap_ids)) {
+            if ($authldap_ids === []) {
                 continue;
             }
 

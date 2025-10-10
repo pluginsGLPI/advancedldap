@@ -34,7 +34,6 @@
 namespace GlpiPlugin\Advancedldap\Container;
 
 use InvalidArgumentException;
-use Toolbox;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
@@ -234,9 +233,6 @@ class ServiceContainer
             $configService = $container->get(ConfigurationInterface::class);
             if ($configService->isInventoryEnabled()) {
                 $service->setLdapInventoryService($container->get(LdapInventoryService::class));
-                Toolbox::logDebug("ServiceContainer: LdapInventoryService INJECTED - inventory workflow is available");
-            } else {
-                Toolbox::logDebug("ServiceContainer: LdapInventoryService NOT injected - inventory disabled, fallback to traditional workflow");
             }
 
             return $service;

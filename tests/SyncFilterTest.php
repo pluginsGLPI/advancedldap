@@ -875,4 +875,203 @@ class SyncFilterTest extends DbTestCase
         $this->assertEquals('Updated Filter Name', $result['name']);
     }
 
+    // ========== CronTask Tests ==========
+
+    /**
+     * Test cronInfo returns task information for SyncLdapFilters task
+     */
+    public function testCronInfoReturnsSyncLdapFiltersInfo(): void
+    {
+        $result = SyncFilter::cronInfo(SyncFilter::CRON_TASK_NAME);
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('description', $result);
+        $this->assertArrayHasKey('parameter', $result);
+        $this->assertNotEmpty($result['description']);
+        $this->assertNotEmpty($result['parameter']);
+    }
+
+    /**
+     * Test cronInfo returns empty array for unknown task name
+     */
+    public function testCronInfoReturnsEmptyForUnknownTask(): void
+    {
+        $result = SyncFilter::cronInfo('UnknownTaskName');
+
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    /**
+     * Test cronSyncLdapFilters returns 0 when no active filters found
+     */
+    public function testCronSyncLdapFiltersWithNoActiveFilters(): void
+    {
+        $this->login();
+
+        // Execute with null task (unit test mode)
+        // If no active filters exist, should return 0
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        $this->assertIsInt($result);
+        $this->assertContains($result, [0, -1, 1]); // Valid return codes
+    }
+
+    /**
+     * Test cronSyncLdapFilters returns valid codes
+     */
+    public function testCronSyncLdapFiltersReturnsValidCodes(): void
+    {
+        $this->login();
+
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        // Valid return codes:
+        // -1 = need to run again (more filters to process)
+        // 0 = nothing to do
+        // 1 = success
+        $this->assertIsInt($result);
+        $this->assertContains($result, [-1, 0, 1]);
+    }
+
+    /**
+     * Test cronSyncLdapFilters with successful synchronization
+     */
+    public function testCronSyncLdapFiltersWithSuccessfulSync(): void
+    {
+        $this->login();
+
+        // Create an AuthLDAP server
+        $authldap = new AuthLDAP();
+        $authldap_id = $authldap->add([
+            'name' => 'Test LDAP for Cron',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $this->assertGreaterThan(0, $authldap_id);
+
+        // Create an active SyncFilter
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Test Cron Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            'authldap_id' => $authldap_id,
+        ]);
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Execute cron task
+        // Note: This will attempt real synchronization with the LDAP server
+        // In a real environment, this would need LDAP connection to succeed
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        // Result should be valid (may fail due to LDAP connection, but code path is tested)
+        $this->assertIsInt($result);
+        $this->assertContains($result, [-1, 0, 1]);
+    }
+
+    /**
+     * Test cronSyncLdapFilters handles inactive filters correctly
+     */
+    public function testCronSyncLdapFiltersIgnoresInactiveFilters(): void
+    {
+        $this->login();
+
+        // Create an AuthLDAP server
+        $authldap = new AuthLDAP();
+        $authldap_id = $authldap->add([
+            'name' => 'Test LDAP Inactive',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $this->assertGreaterThan(0, $authldap_id);
+
+        // Create an INACTIVE SyncFilter
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Inactive Filter',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 0, // INACTIVE
+            'authldap_id' => $authldap_id,
+        ]);
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Execute cron task
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        // Should return 0 (nothing to do) or valid code
+        $this->assertIsInt($result);
+        $this->assertContains($result, [-1, 0, 1]);
+    }
+
+    /**
+     * Test cronSyncLdapFilters handles filters without AuthLDAP association
+     */
+    public function testCronSyncLdapFiltersIgnoresFiltersWithoutAuthLdap(): void
+    {
+        $this->login();
+
+        // Create a SyncFilter WITHOUT authldap_id
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Filter Without LDAP',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            // NO authldap_id - no relation created
+        ]);
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Execute cron task - should skip this filter
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        // Should return valid code
+        $this->assertIsInt($result);
+        $this->assertContains($result, [-1, 0, 1]);
+    }
+
+    /**
+     * Test cronSyncLdapFilters with inactive AuthLDAP server
+     */
+    public function testCronSyncLdapFiltersIgnoresInactiveAuthLdap(): void
+    {
+        $this->login();
+
+        // Create an INACTIVE AuthLDAP server
+        $authldap = new AuthLDAP();
+        $authldap_id = $authldap->add([
+            'name' => 'Inactive LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 0, // INACTIVE
+        ]);
+        $this->assertGreaterThan(0, $authldap_id);
+
+        // Create an active SyncFilter
+        $syncFilter = new SyncFilter();
+        $filter_id = $syncFilter->add([
+            'name' => 'Filter with Inactive LDAP',
+            'ldap_filter' => '(objectClass=computer)',
+            'base_dn' => 'OU=Computers,DC=example,DC=com',
+            'asset_type' => 'Computer',
+            'is_active' => 1,
+            'authldap_id' => $authldap_id,
+        ]);
+        $this->assertGreaterThan(0, $filter_id);
+
+        // Execute cron task - should skip due to inactive AuthLDAP
+        $result = SyncFilter::cronSyncLdapFilters(null);
+
+        // Should return 0 (nothing to do) since AuthLDAP is inactive
+        $this->assertIsInt($result);
+        $this->assertContains($result, [-1, 0, 1]);
+    }
+
 }

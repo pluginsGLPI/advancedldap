@@ -108,7 +108,7 @@ class SyncFilterFormHelper implements SyncFilterFormHelperInterface
      */
     public static function getAuthLdapIdFromRequest(): int
     {
-        return Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
+        return (int) Toolbox::cleanInteger($_POST['authldap_id'] ?? $_GET['authldap_id'] ?? 0);
     }
 
     /**
