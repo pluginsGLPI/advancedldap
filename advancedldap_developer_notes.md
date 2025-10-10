@@ -847,6 +847,61 @@ var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encod
 - Chargement paresseux des dépendances
 - Requêtes base de données optimisées
 - Cache des métadonnées d'assets
+- Logs de debug optimisés (réduction 99% du volume)
+
+#### **Gestion du Timeout PHP lors des Synchronisations**
+
+**Problème identifié** :
+- Les synchronisations de gros volumes LDAP (300+ entrées) peuvent dépasser le timeout PHP par défaut (30 secondes)
+- Le timeout se produit dans les requêtes DB (création/mise à jour assets), pas dans les requêtes LDAP
+- Performance observée : ~100-150ms par entrée (recherche asset existant + création/mise à jour)
+
+**Solutions standard GLPI** :
+
+1. **Configuration PHP (✅ Solution recommandée)** :
+   ```ini
+   # Dans php.ini ou .htaccess
+   max_execution_time = 300  # 5 minutes
+   ```
+   - Approche standard utilisée dans les déploiements GLPI
+   - Mentionnée dans la documentation officielle GLPI pour les synchronisations LDAP
+   - Ne nécessite pas de modification du code
+
+2. **Commandes CLI (✅ Recommandé pour gros volumes)** :
+   ```bash
+   # Les commandes CLI n'ont pas de timeout par défaut
+   php bin/console glpi:plugin:advancedldap:sync
+   ```
+   - CronTasks GLPI utilisent cette approche
+   - Aucune limite d'exécution
+   - Idéal pour automatisation
+
+3. **Utilisation de `set_time_limit()` (⚠️ Option alternative)** :
+   ```php
+   // Au début de synchronizeFromFilter()
+   @set_time_limit(300); // 5 minutes
+   ```
+   - Bien que GLPI core ne l'utilise pas, c'est acceptable pour un plugin
+   - Utilisé par certains plugins communautaires
+   - À documenter clairement si implémenté
+
+**Solution implémentée dans ce plugin** :
+- ✅ Optimisation des logs de debug (~99% de réduction)
+  - AVANT : ~900-1500 logs pour 300 entrées
+  - APRÈS : ~10 logs pour 300 entrées (début, progression tous les 50, fin)
+- ✅ Logs de pagination LDAP conservés (utiles pour diagnostic)
+- ✅ Mesure du temps d'exécution et affichage dans les logs
+- ⚠️ `set_time_limit()` **non implémenté** : configuration PHP préférée
+
+**Recommandations pour les administrateurs** :
+1. **Petits volumes (<200 entrées)** : Synchronisation manuelle via interface web (OK avec timeout 30s)
+2. **Volumes moyens (200-500 entrées)** : Augmenter `max_execution_time` à 300s dans php.ini
+3. **Gros volumes (>500 entrées)** : Utiliser les CronTasks GLPI (automatisation CLI)
+4. **Optimisation** : Utiliser `ldap_maxlimit` pour limiter les entrées par synchronisation
+
+**Fichiers impactés** :
+- `src/Services/LdapSyncService.php` : Logs de progression optimisés
+- `src/Services/GlpiLdapConnectionService.php` : Logs de pagination LDAP conservés
 
 ### **Standards de Code**
 - PHP 8.2+ avec types stricts

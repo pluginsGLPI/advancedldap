@@ -146,11 +146,13 @@ class LdapSyncService
             // Determine synchronization method based on asset type
             $sync_method = $this->asset_type_classifier->getSyncMethod($asset_type);
 
-            Toolbox::logDebug("LdapSyncService: Asset type '$asset_type' determined sync method: '$sync_method'");
-
             // Handle LDAP entries array properly (skip count and numeric indices)
             $entries = $ldap_entries['entries'];
             $entry_count = $entries['count'] ?? 0;
+
+            // Log synchronization start
+            Toolbox::logDebug("LdapSyncService: Starting synchronization of $entry_count entries");
+            $start_time = microtime(true);
 
             for ($i = 0; $i < $entry_count; $i++) {
                 if (!isset($entries[$i]) || !is_array($entries[$i])) {
@@ -178,7 +180,23 @@ class LdapSyncService
                 }
 
                 $results['details'][] = $entry_result;
+
+                // Log progress every 50 entries
+                if (($i + 1) % 50 === 0 || ($i + 1) === $entry_count) {
+                    $processed = $i + 1;
+                    $created = $results['stats']['created'];
+                    $updated = $results['stats']['updated'];
+                    $errors = $results['stats']['errors'];
+                    Toolbox::logDebug("LdapSyncService: Progress: $processed/$entry_count entries (created: $created, updated: $updated, errors: $errors)");
+                }
             }
+
+            // Log synchronization completion
+            $elapsed_time = round(microtime(true) - $start_time, 2);
+            $created = $results['stats']['created'];
+            $updated = $results['stats']['updated'];
+            $errors = $results['stats']['errors'];
+            Toolbox::logDebug("LdapSyncService: Synchronization completed in {$elapsed_time}s - $entry_count entries (created: $created, updated: $updated, errors: $errors)");
 
             $results['success'] = true;
 
@@ -245,13 +263,9 @@ class LdapSyncService
             $result['asset_name'] = $asset_data['name'] ?? '';
 
             // Route to appropriate synchronization method
-            Toolbox::logDebug("LdapSyncService: Routing asset '{$result['asset_name']}' to '$sync_method' workflow");
-
             if ($sync_method === 'inventory') {
-                Toolbox::logDebug("LdapSyncService: Processing inventoriable asset '{$result['asset_name']}' of type '$asset_type'");
                 $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry, $field_mappings);
             } else {
-                Toolbox::logDebug("LdapSyncService: Processing traditional asset '{$result['asset_name']}' of type '$asset_type'");
                 $creation_result = $this->processTraditionalAsset($asset_type, $asset_data);
             }
 
@@ -290,12 +304,8 @@ class LdapSyncService
      */
     private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry, array $field_mappings): array
     {
-        $asset_name = $asset_data['name'] ?? 'Unknown';
-
         // Use inventory workflow if service is available
         if ($this->ldap_inventory_service !== null) {
-            Toolbox::logDebug("LdapSyncService: Using INVENTORY workflow for asset '$asset_name' (type: $asset_type)");
-
             // Pass field mappings to respect user configuration
             return $this->ldap_inventory_service->syncInventoriableAsset(
                 $ldap_entry,
@@ -305,7 +315,6 @@ class LdapSyncService
         }
 
         // Fallback to traditional method if inventory service not available
-        Toolbox::logDebug("LdapSyncService: FALLBACK to TRADITIONAL workflow for asset '$asset_name' (type: $asset_type) - Inventory service not available");
         return $this->processTraditionalAsset($asset_type, $asset_data);
     }
 
@@ -318,9 +327,6 @@ class LdapSyncService
      */
     private function processTraditionalAsset(string $asset_type, array $asset_data): array
     {
-        $asset_name = $asset_data['name'] ?? 'Unknown';
-        Toolbox::logDebug("LdapSyncService: Executing TRADITIONAL workflow for asset '$asset_name' (type: $asset_type)");
-
         return $this->asset_creation_service->createOrUpdateAsset(
             $asset_type,
             $asset_data,
