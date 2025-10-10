@@ -2,7 +2,7 @@
 
 Ce document présente l'architecture technique du plugin Advanced LDAP et les bonnes pratiques pour le développer.
 
-**Dernière mise à jour : 3 octobre 2025**
+**Dernière mise à jour : 10 octobre 2025**
 
 ## Vue d'Ensemble
 
@@ -1040,7 +1040,305 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 ---
 
+### ⏰ **Synchronisation Automatique via Cron Tasks**
+
+#### **Vue d'ensemble**
+Le plugin supporte la synchronisation automatique des filtres LDAP via le système de tâches cron de GLPI. Cette fonctionnalité permet d'exécuter périodiquement la synchronisation des assets sans intervention manuelle.
+
+#### **Architecture**
+
+##### **Modèle SyncFilter - Méthodes Cron**
+
+**Constante** :
+```php
+public const CRON_TASK_NAME = 'SyncLdapFilters';
+```
+
+**Méthodes publiques** (ajoutées lignes 991-1200) :
+
+1. **`cronInfo(string $name): array`** - Ligne 997
+   - Fournit la description de la tâche cron pour l'interface GLPI
+   - Retourne le nom et la description du paramètre
+   - Utilisé par GLPI pour afficher les informations dans Configuration > Actions automatiques
+
+2. **`cronSyncLdapFilters(?CronTask $task = null): int`** - Ligne 1015
+   - **Point d'entrée principal** pour l'exécution automatique
+   - Signature conforme au standard GLPI (type `?CronTask` comme le core)
+   - Paramètre `$task` : Instance CronTask pour le logging (null dans les tests)
+   - **Workflow** :
+     1. Récupération du paramètre `max_filters` depuis `$task->fields['param']`
+     2. Instanciation des services via `Bootstrap::getContainer()`
+     3. Récupération des filtres actifs via `getAllActiveSyncFiltersWithAuthLdap()`
+     4. Boucle de synchronisation avec gestion d'erreurs isolées
+     5. Logging détaillé via `$task->log()` et `Toolbox::logDebug()`
+     6. Calcul du volume (nombre d'assets synchronisés)
+   - **Codes de retour** :
+     - `0` : Rien à faire (aucun filtre actif)
+     - `1` : Succès (au moins un filtre synchronisé)
+     - `-1` : Besoin de relancer (limite `max_filters` atteinte)
+
+3. **`getAllActiveSyncFiltersWithAuthLdap(SyncFilterRepositoryInterface $repository): array`** - Ligne 1158
+   - Méthode helper privée pour récupérer les filtres éligibles
+   - **Critères de sélection** :
+     - Filtre actif (`is_active = 1`)
+     - Relation active (`is_active = 1`)
+     - Serveur AuthLDAP actif (`is_active = 1`)
+   - Utilise les repositories existants (pas de SQL direct)
+   - **Retour** : Tableau de filtres avec leurs métadonnées
+
+**Gestion des erreurs** :
+- Chaque filtre est traité dans un `try/catch` indépendant
+- Une erreur sur un filtre ne bloque pas les autres
+- Logging détaillé pour chaque erreur (nom du filtre, message d'erreur)
+- Compteurs séparés : `success_count`, `error_count`
+
+**Logging** :
+- Logs CronTask via `$task->log()` (max 200 caractères, affiché dans l'interface)
+- Logs détaillés via `Toolbox::logDebug()` (fichier `php-errors.log`)
+- Messages traduits via `__()` pour internationalisation
+
+##### **Enregistrement de la CronTask - hook.php**
+
+**Installation** (lignes 91-106 de `hook.php`) :
+```php
+CronTask::register(
+    \GlpiPlugin\Advancedldap\Models\SyncFilter::class,
+    \GlpiPlugin\Advancedldap\Models\SyncFilter::CRON_TASK_NAME,
+    HOUR_TIMESTAMP,
+    [
+        'comment' => __('Automatically synchronize active LDAP filters with GLPI assets', 'advancedldap'),
+        'mode' => CronTask::MODE_EXTERNAL,
+        'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+        'hourmin' => 0,
+        'hourmax' => 24,
+        'logs_lifetime' => 30,
+        'param' => 0, // 0 = unlimited filters per execution
+        'state' => CronTask::STATE_WAITING,
+    ],
+);
+```
+
+**Configuration par défaut** :
+- **Fréquence** : `HOUR_TIMESTAMP` (1 heure)
+- **Mode** : `MODE_EXTERNAL` (CLI) mais autorise aussi `MODE_INTERNAL` (web)
+- **Plage horaire** : 0-24h (toute la journée)
+- **Rétention logs** : 30 jours
+- **Paramètre** : `0` (illimité, traite tous les filtres)
+- **État initial** : `STATE_WAITING` (en attente)
+
+**Paramètre `max_filters`** :
+- Permet de limiter le nombre de filtres traités par exécution
+- Valeur `0` = illimité (tous les filtres)
+- Valeur `N` > 0 = traite maximum N filtres puis retourne `-1`
+- Utile pour éviter les timeouts sur gros volumes
+
+#### **Bugs Corrigés dans SyncFilterRepository**
+
+**Problème identifié** : Les méthodes retournaient des itérateurs au lieu de tableaux
+
+**Méthodes corrigées** (lignes 64-152 de `SyncFilterRepository.php`) :
+
+1. **`getActiveSyncFilters()`** - Ligne 64
+   ```php
+   // AVANT (incorrect)
+   return is_array($results) ? $results : [];
+
+   // APRÈS (correct)
+   if (!is_iterable($iterator)) { return []; }
+   $filters = [];
+   foreach ($iterator as $data) {
+       $filters[] = $data;
+   }
+   return $filters;
+   ```
+
+2. **`getSyncFiltersForAuthLdap(int $authldap_id)`** - Ligne 90
+   - Même correction que ci-dessus
+   - Conversion itérateur → tableau
+
+3. **`findById(int $id)`** - Ligne 134
+   - Conversion itérateur → tableau
+   - Retourne la première ligne ou `null`
+
+**Impact** :
+- Correction du bug "Active filters count: 0" alors que des filtres existent
+- Respect des conventions GLPI pour la gestion des itérateurs
+- Cohérence avec les autres méthodes du repository
+
+#### **Utilisation**
+
+##### **Via l'interface web GLPI**
+
+1. Aller dans **Configuration > Actions automatiques**
+2. Rechercher `SyncLdapFilters`
+3. Cliquer sur le nom de la tâche
+4. Cliquer sur **Exécuter** pour lancer manuellement
+5. Consulter les logs dans l'onglet **Historique**
+
+##### **Via CLI (ligne de commande)**
+
+**Exécution forcée de la tâche** :
+```bash
+php /var/www/html/front/cron.php --force syncldapfilters
+```
+
+**Exécution de toutes les tâches en attente** :
+```bash
+php /var/www/html/front/cron.php
+```
+
+**Dans Docker** :
+```bash
+docker exec -it <conteneur_glpi> php /var/www/html/front/cron.php --force syncldapfilters
+```
+
+##### **Planification automatique**
+
+**Ajout au crontab système** (Linux) :
+```bash
+# Exécution toutes les heures
+0 * * * * php /var/www/html/front/cron.php
+
+# Ou via docker-compose
+0 * * * * docker exec glpi-app php /var/www/html/front/cron.php
+```
+
+**Configuration dans GLPI** :
+1. Modifier la fréquence dans l'interface (ex: 30 minutes = 1800 secondes)
+2. Activer/désactiver la tâche selon les besoins
+3. Ajuster le paramètre `param` pour limiter les filtres par exécution
+
+#### **Monitoring et Logs**
+
+##### **Logs CronTask (base de données)**
+
+**Table** : `glpi_crontasklogs`
+```sql
+SELECT * FROM glpi_crontasklogs
+WHERE crontasks_id = (
+    SELECT id FROM glpi_crontasks
+    WHERE itemtype = 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter'
+)
+ORDER BY date DESC LIMIT 10;
+```
+
+##### **Logs applicatifs (fichier)**
+
+**Emplacement** : `files/_log/php-errors.log`
+
+**Exemples de logs** :
+```
+SyncFilter::cronSyncLdapFilters - Found 3 active filter(s) to synchronize
+SyncFilter::cronSyncLdapFilters - Processing filter 'Printers - MFP' (ID: 2)
+SyncFilter::cronSyncLdapFilters - SUCCESS: Filter "Printers - MFP": 30 created, 0 updated, 0 errors
+SyncFilter::cronSyncLdapFilters - SUMMARY: Processed 3/3 filters: 3 success, 0 errors. Total assets: 85
+```
+
+**Filtrage des logs** :
+```bash
+# Voir tous les logs cron
+grep "SyncFilter::cron" /path/to/files/_log/php-errors.log
+
+# Voir uniquement les succès
+grep "SUCCESS" /path/to/files/_log/php-errors.log | grep SyncFilter
+
+# Voir uniquement les erreurs
+grep "ERROR" /path/to/files/_log/php-errors.log | grep SyncFilter
+
+# Voir les résumés
+grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
+```
+
+#### **Tests et Validation**
+
+**Scénarios de test recommandés** :
+
+1. **Test sans filtres actifs** :
+   - Désactiver tous les filtres
+   - Exécuter la tâche
+   - Vérifier : code retour `0`, message "No active LDAP sync filters found"
+
+2. **Test avec limite de filtres** :
+   - Créer 3 filtres actifs
+   - Paramètre `max_filters = 1`
+   - Exécuter 3 fois
+   - Vérifier : 3 exécutions, chacune traite 1 filtre, code retour `-1` puis `1`
+
+3. **Test avec erreur LDAP** :
+   - Créer un filtre avec Base DN invalide
+   - Exécuter la tâche
+   - Vérifier : erreur loggée, autres filtres traités normalement
+
+4. **Test de performance** :
+   - Créer plusieurs filtres avec beaucoup d'entrées LDAP
+   - Mesurer le temps d'exécution
+   - Ajuster `max_filters` si nécessaire
+
+**Checklist de validation** :
+- [ ] Tâche visible dans Configuration > Actions automatiques
+- [ ] Exécution manuelle fonctionne
+- [ ] Exécution CLI fonctionne
+- [ ] Seuls les filtres actifs sont traités
+- [ ] Logs détaillés générés
+- [ ] Volume correctement calculé
+- [ ] Erreurs isolées par filtre
+- [ ] Codes de retour appropriés
+
+#### **Fichiers Modifiés**
+
+**Création/Modification** (10 octobre 2025) :
+
+1. **src/Models/SyncFilter.php** :
+   - Ligne 72 : Constante `CRON_TASK_NAME`
+   - Ligne 49 : Import `use CronTask;`
+   - Lignes 991-1006 : Méthode `cronInfo()`
+   - Lignes 1008-1148 : Méthode `cronSyncLdapFilters()`
+   - Lignes 1150-1200 : Méthode `getAllActiveSyncFiltersWithAuthLdap()`
+
+2. **hook.php** :
+   - Lignes 91-106 : Enregistrement `CronTask::register()` dans `plugin_advancedldap_install()`
+
+3. **src/Repositories/SyncFilterRepository.php** :
+   - Lignes 64-82 : Correction `getActiveSyncFilters()`
+   - Lignes 90-126 : Correction `getSyncFiltersForAuthLdap()`
+   - Lignes 134-152 : Correction `findById()`
+
+**Statistiques** :
+- **Lignes ajoutées** : ~250 lignes (méthodes cron + enregistrement)
+- **Bugs corrigés** : 3 méthodes repository
+- **Services utilisés** : Bootstrap, ServiceContainer, SyncFilterRepository, LdapSyncService
+- **Conformité** : Standard GLPI CronTask (comme core GLPI 11)
+
+---
+
 ### 📈 **Évolutions Récentes**
+
+#### **10/10/2025 - Synchronisation Automatique via Cron Tasks**
+- ✅ **Nouvelle fonctionnalité** : Synchronisation automatique des filtres LDAP via tâches cron GLPI
+- ✅ **Méthodes ajoutées au modèle SyncFilter** :
+  - `cronInfo()` : Description de la tâche pour l'interface GLPI
+  - `cronSyncLdapFilters()` : Point d'entrée principal (164 lignes)
+  - `getAllActiveSyncFiltersWithAuthLdap()` : Helper pour récupérer les filtres éligibles
+- ✅ **Enregistrement CronTask** : Ajout de `CronTask::register()` dans `hook.php`
+- ✅ **Configuration par défaut** :
+  - Fréquence : 1 heure (ajustable)
+  - Mode : CLI + Web (flexible)
+  - Paramètre : illimité (ajustable pour limiter le nombre de filtres)
+- ✅ **Gestion d'erreurs robuste** :
+  - Isolation des erreurs par filtre (un échec ne bloque pas les autres)
+  - Logging détaillé via `$task->log()` et `Toolbox::logDebug()`
+  - Codes de retour appropriés (0, 1, -1)
+- ✅ **Bugs critiques corrigés dans SyncFilterRepository** :
+  - `getActiveSyncFilters()` : Conversion itérateur → tableau
+  - `getSyncFiltersForAuthLdap()` : Conversion itérateur → tableau
+  - `findById()` : Conversion itérateur → tableau
+  - Impact : Correction du bug "Active filters count: 0"
+- ✅ **Import CronTask** : Ajout de `use CronTask;` pour respecter les conventions GLPI
+- ✅ **Conformité standard GLPI** : Signature `?CronTask` comme le core GLPI 11
+- ✅ **Tests réussis** : 30 imprimantes synchronisées automatiquement via workflow inventory
+- ✅ **Documentation complète** : Section dédiée avec guide d'utilisation, monitoring, tests
+- ✅ **Fichiers modifiés** : 3 fichiers (SyncFilter.php, hook.php, SyncFilterRepository.php)
+- ✅ **Statistiques** : ~250 lignes ajoutées, 3 bugs corrigés, conformité GLPI
 
 #### **06/10/2025 - Révision Tests Unitaires & Support Assets Génériques**
 - ✅ **Révision complète des tests unitaires** suite à l'adaptation de la synchronisation des assets génériques

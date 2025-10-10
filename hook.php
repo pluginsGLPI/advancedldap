@@ -88,6 +88,23 @@ function plugin_advancedldap_install(): bool
         }
     }
 
+    // Register cron task for automatic LDAP synchronization
+    CronTask::register(
+        \GlpiPlugin\Advancedldap\Models\SyncFilter::class,
+        \GlpiPlugin\Advancedldap\Models\SyncFilter::CRON_TASK_NAME,
+        HOUR_TIMESTAMP,
+        [
+            'comment' => __('Automatically synchronize active LDAP filters with GLPI assets', 'advancedldap'),
+            'mode' => CronTask::MODE_EXTERNAL,
+            'allowmode' => CronTask::MODE_INTERNAL | CronTask::MODE_EXTERNAL,
+            'hourmin' => 0,
+            'hourmax' => 24,
+            'logs_lifetime' => 30,
+            'param' => 0, // 0 = unlimited filters per execution
+            'state' => CronTask::STATE_WAITING,
+        ],
+    );
+
     return true;
 }
 

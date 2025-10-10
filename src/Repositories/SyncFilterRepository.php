@@ -63,14 +63,22 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      */
     public function getActiveSyncFilters(): array
     {
-        $results = $this->database->request([
+        $iterator = $this->database->request([
             'FROM'   => SyncFilter::$table,
             'WHERE'  => ['is_active' => 1],
             'ORDER'  => 'name',
         ]);
 
-        /** @var array<int, array<string, mixed>> */
-        return is_array($results) ? $results : [];
+        if (!is_iterable($iterator)) {
+            return [];
+        }
+
+        $filters = [];
+        foreach ($iterator as $data) {
+            $filters[] = $data;
+        }
+
+        return $filters;
     }
 
     /**
@@ -84,7 +92,7 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
         $sync_table = SyncFilter::$table;
         $relation_table = AuthLdapSyncFilter::$table;
 
-        $results = $this->database->request([
+        $iterator = $this->database->request([
             'SELECT' => [
                 $sync_table . '.*',
             ],
@@ -105,8 +113,16 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
             'ORDER'  => $sync_table . '.name',
         ]);
 
-        /** @var array<int, array<string, mixed>> */
-        return is_array($results) ? $results : [];
+        if (!is_iterable($iterator)) {
+            return [];
+        }
+
+        $filters = [];
+        foreach ($iterator as $data) {
+            $filters[] = $data;
+        }
+
+        return $filters;
     }
 
     /**
@@ -117,18 +133,22 @@ class SyncFilterRepository implements SyncFilterRepositoryInterface
      */
     public function findById(int $id): ?array
     {
-        $results = $this->database->request([
+        $iterator = $this->database->request([
             'FROM'  => SyncFilter::$table,
             'WHERE' => ['id' => $id],
             'LIMIT' => 1,
         ]);
 
-        if (!is_array($results) || count($results) === 0) {
+        if (!is_iterable($iterator)) {
             return null;
         }
 
-        /** @var array<string, mixed> */
-        return $results[0];
+        foreach ($iterator as $data) {
+            /** @var array<string, mixed> */
+            return $data;
+        }
+
+        return null;
     }
 
     /**
