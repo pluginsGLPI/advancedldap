@@ -1494,6 +1494,55 @@ grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
 - ✅ Standards PHP 8.2+, PSR-12, typage strict respectés
 - ✅ Logs `Toolbox::logDebug()` dans tous les services critiques
 
+## Tests et Environnement de Développement
+
+### **Environnement de Test LDAP avec Docker**
+
+Pour faciliter le développement et les tests du plugin, un environnement Docker complet est disponible :
+
+**Repository** : https://github.com/f2cmb/ldaps-docker
+
+#### **Caractéristiques**
+- **Serveurs LDAP multiples** : Différentes configurations LDAP pré-configurées
+- **Données de test variées** :
+  - Utilisateurs avec différents attributs
+  - Groupes avec relations complexes
+  - Équipements (computers, printers, network devices)
+  - Structures organisationnelles variées
+- **Scénarios de test** :
+  - Authentication simple et complexe
+  - Synchronisation de masse
+  - Cas d'erreur et edge cases
+- **Support SSL/TLS** : Tests de connexions sécurisées
+
+#### **Utilisation Rapide**
+```bash
+# Cloner le repository
+git clone https://github.com/f2cmb/ldaps-docker
+cd ldaps-docker
+
+# Lancer l'environnement
+docker-compose up -d
+
+# Les serveurs LDAP sont disponibles sur :
+# - ldap://localhost:389 (LDAP simple)
+# - ldaps://localhost:636 (LDAP avec SSL)
+```
+
+#### **Configuration dans GLPI**
+1. Ajouter un serveur LDAP dans GLPI
+2. Utiliser les paramètres fournis dans le README du repo
+3. Tester avec le plugin Advanced LDAP
+
+#### **Données de Test Disponibles**
+- **Users** : 100+ utilisateurs avec attributs variés
+- **Computers** : 50+ ordinateurs avec serialNumber, model, etc.
+- **Printers** : 30+ imprimantes avec attributs spécifiques
+- **Network Equipment** : 20+ équipements réseau
+- **Groups** : Structures organisationnelles complexes
+
+Cette infrastructure de test permet de valider tous les cas d'usage du plugin sans avoir besoin d'un serveur LDAP de production.
+
 ## Outils de Développement
 
 ### **Workflow humain / IA**
