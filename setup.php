@@ -72,17 +72,17 @@ function plugin_init_advancedldap(): void
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter');
 
-    // Register legacy names for Search compatibility (GLPI 11 bug)
+    // Register legacy names for Search and MassiveAction compatibility (GLPI 11 limitation)
     Plugin::registerClass('PluginAdvancedldapSyncFilter');
     Plugin::registerClass('PluginAdvancedldapAuthLdapSyncFilter');
 
     // Force loading of classes to create aliases for getItemForItemtype() compatibility
-    // Workaround for GLPI namespace bug #8449
+    // Workaround for GLPI namespace limitation with Search engine
     if (class_exists('GlpiPlugin\\Advancedldap\\Models\\SyncFilter')) {
         // This will trigger the class_alias() in SyncFilter.php
     }
     if (class_exists('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter')) {
-        // This will trigger the class_alias() in AuthLdapSyncFilter.php
+        // This will trigger the class_alias() in AuthLdapSyncFilter.php (if exists)
     }
 }
 

@@ -32,6 +32,7 @@
  */
 
 use Glpi\DBAL\QuerySubQuery;
+use GlpiPlugin\Advancedldap\Models\SyncFilter;
 
 /**
  * Plugin install process
@@ -140,8 +141,7 @@ function plugin_advancedldap_uninstall(): bool
  */
 function plugin_advancedldap_addDefaultWhere($itemtype)
 {
-    // Handle both legacy and namespaced class names
-    if ($itemtype === 'PluginAdvancedldapSyncFilter' || $itemtype === 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter') {
+    if ($itemtype === SyncFilter::class) {
 
         // Clean and validate authldap_id parameter using helper method
         $authldap_id = \GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper::getAuthLdapIdFromRequest();
@@ -172,9 +172,7 @@ function plugin_advancedldap_MassiveActions($type): array
     $actions = [];
 
     switch ($type) {
-        case 'PluginAdvancedldapSyncFilter':
-        case 'GlpiPlugin\\Advancedldap\\Models\\SyncFilter':
-            // Use the type as passed by GLPI, not hardcoded
+        case SyncFilter::class:
             $actions[$type . MassiveAction::CLASS_ACTION_SEPARATOR . 'duplicate']
                 = _x('button', 'Duplicate');
             break;

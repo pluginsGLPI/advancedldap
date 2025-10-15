@@ -93,7 +93,7 @@ class SyncFilterTest extends DbTestCase
     }
 
     /**
-     * Test getType returns legacy class name
+     * Test getType returns legacy class name (for GLPI 11 compatibility)
      */
     public function testGetType(): void
     {

@@ -39,12 +39,6 @@ Session::checkRight(SyncFilter::$rightname, READ);
 
 Html::header(SyncFilter::getTypeName(Session::getPluralNumber()), $_SERVER['PHP_SELF'], "config", "auth", "SyncFilter");
 
-// Try with the full namespace class instead of legacy alias
-try {
-    Search::show(SyncFilter::class);
-} catch (Exception $e) {
-    // Fallback to legacy name if namespace fails
-    Search::show('PluginAdvancedldapSyncFilter');
-}
+Search::show(SyncFilter::class);
 
 Html::footer();

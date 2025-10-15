@@ -95,7 +95,10 @@ class SyncFilter extends CommonDBTM
     }
 
     /**
-     * Get the type identifier for this class (for massive actions compatibility)
+     * Get the type identifier for this class
+     *
+     * IMPORTANT: Returns different values based on calling context due to GLPI 11
+     * limitations with namespaced classes in massive actions and search.
      *
      * @return string
      * @phpstan-ignore-next-line method.parentMethodFinalByPhpDoc
@@ -114,7 +117,7 @@ class SyncFilter extends CommonDBTM
             }
         }
 
-        // Return legacy name for GLPI compatibility (hooks, setup, etc.)
+        // Return legacy name for GLPI compatibility (hooks, setup, search, etc.)
         return 'PluginAdvancedldapSyncFilter';
     }
 
@@ -921,8 +924,9 @@ class SyncFilter extends CommonDBTM
 
 }
 
-// Legacy compatibility for GLPI 11 Search engine
+// Legacy compatibility for GLPI 11 Search engine and massive actions
 // This alias ensures that the old PluginAdvancedldapSyncFilter naming still works
+// when GLPI core tries to instantiate the class using the legacy name
 if (!class_exists('PluginAdvancedldapSyncFilter', false)) {
     class_alias(\GlpiPlugin\Advancedldap\Models\SyncFilter::class, 'PluginAdvancedldapSyncFilter');
 }

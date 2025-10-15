@@ -1415,6 +1415,36 @@ Le plugin protège contre les injections XSS via un échappement systématique d
 - Tests unitaires pour chaque service
 - Makefile avec commandes de développement
 
+## Compatibilité Legacy GLPI 11
+
+### **Pourquoi les alias `class_alias()` sont nécessaires**
+
+Le plugin utilise une architecture moderne avec namespaces PHP (`GlpiPlugin\Advancedldap\Models\SyncFilter`), mais GLPI 11 a des limitations dans son moteur de recherche et ses actions massives qui nécessitent l'ancien format de nommage (`PluginAdvancedldapSyncFilter`).
+
+**Erreur sans compatibilité legacy :**
+```
+Class name must be a valid object or a string
+In ./src/Glpi/Search/Provider/SQLProvider.php(6431)
+```
+
+### **Implémentation de la compatibilité**
+
+1. **`class_alias()` automatique** : Créé en fin de fichier `SyncFilter.php` pour mapper l'ancien nom vers la nouvelle classe
+2. **Double enregistrement** : Classes enregistrées avec les deux conventions dans `setup.php`
+3. **`getType()` conditionnel** : Retourne le nom legacy sauf dans le contexte MassiveAction où le namespace est requis
+
+**Fichiers concernés :**
+- [src/Models/SyncFilter.php:927-932](src/Models/SyncFilter.php#L927-L932) - Création de l'alias
+- [src/Models/SyncFilter.php:105-121](src/Models/SyncFilter.php#L105-L121) - Méthode `getType()` avec logique conditionnelle
+- [setup.php:75-86](setup.php#L75-L86) - Enregistrement double + forçage du chargement
+
+### **Quand supprimer cette compatibilité ?**
+
+- ✅ Lorsque le plugin ciblera **GLPI 12+** uniquement
+- ✅ Lorsque GLPI corrigera complètement le support des namespaces dans `Search::show()` et `MassiveAction`
+
+**Jusqu'à GLPI 11.0.99, cette compatibilité est INDISPENSABLE.**
+
 ## Dépendances
 
 ### **GLPI Core Uniquement**
