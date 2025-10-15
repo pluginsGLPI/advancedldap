@@ -33,16 +33,11 @@
 
 namespace GlpiPlugin\Advancedldap\Models;
 
-use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterValidationService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterCronService;
-use Exception;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
-use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
-use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
-use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldProviderInterface;

@@ -2,18 +2,25 @@
 
 Ce document présente l'architecture technique du plugin Advanced LDAP et les bonnes pratiques pour le développer.
 
-**Dernière mise à jour : 10 octobre 2025**
+**Dernière mise à jour : 15 octobre 2025**
+
+**Note** : Ce document reflète l'état du plugin après la refactorisation majeure d'octobre 2025. Pour le détail des changements appliqués, consulter [PRE-REVIEW/REFACTORING_DONE.md](PRE-REVIEW/REFACTORING_DONE.md).
 
 ## Vue d'Ensemble
 
 Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de synchronisation LDAP pour les assets (équipements). Il permet de définir des filtres de synchronisation personnalisés qui s'intègrent directement dans les serveurs LDAP existants de GLPI via un onglet dédié dans AuthLDAP.
 
-### Points Clés
-- **Architecture SOLID** : Respect des principes SRP, DIP, ISP avec injection de dépendances
+### Points Clés de l'Architecture
+
+- **Architecture SOLID** : Respect des principes SRP, OCP, DIP, ISP avec injection complète de dépendances
+- **Pattern Strategy** : AssetFieldHandlers extensibles pour gérer différents types d'assets
+- **Services spécialisés** : Extraction du God Object SyncFilter en services dédiés (Validation, Cron, FormPresenter)
+- **Injection de dépendances** : Élimination totale des instanciations `new` dans les constructeurs
 - **Zero dépendance externe** : Utilise uniquement le core GLPI
 - **Double workflow** : Support traditionnel (CommonDBTM) + inventaire natif GLPI
 - **Namespace moderne** : `GlpiPlugin\Advancedldap` avec compatibilité legacy
 - **PHP 8.2+** : Types stricts, promotion de constructeur, attributs
+- **Sécurité LDAP** : Protection complète contre les injections (RFC 4515/4514)
 
 ## Structure Complète du Plugin
 
@@ -34,15 +41,16 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │
   ├── 🧩 MODÈLES DE DONNÉES
   │   └── src/Models/
-  │       ├── SyncFilter.php                 # Modèle principal filtres LDAP
+  │       ├── SyncFilter.php                 # Modèle principal filtres LDAP (façade déléguant aux services)
   │       │   • extends CommonDBTM           # → CRUD complet, massive actions
   │       │   • Alias legacy automatique     # → class_alias() pour Search GLPI 11
+  │       │   • Délégation services          # → Validation, Cron, FormPresenter
   │       │
   │       └── AuthLdapSyncFilter.php         # Modèle relation many-to-many
   │           • extends CommonDBRelation     # → AuthLDAP ↔ SyncFilter
   │           • Gestion unicity constraint   # → (authldap_id, syncfilter_id)
   │
-  ├── 🔧 SERVICES MÉTIER (17 services)
+  ├── 🔧 SERVICES MÉTIER (20 services)
   │   └── src/Services/
   │       │
   │       ├── 📋 SERVICES LDAP (8)
@@ -57,12 +65,21 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │       │
   │       ├── 🎯 SERVICES ASSETS (3)
   │       │   ├── AssetFieldService.php              # Gestion unifiée champs d'assets
-  │       │   ├── AssetCreationService.php           # Création/MAJ assets GLPI
+  │       │   ├── AssetCreationService.php           # Création/MAJ assets GLPI (Pattern Strategy)
   │       │   └── AssetTypeClassifier.php            # Classification inventoriables vs traditionnels
   │       │
-  │       ├── 🔍 SERVICES SYNCFILTER (2)
+  │       ├── 🎨 ASSET FIELD HANDLERS (4) - PATTERN STRATEGY ✨
+  │       │   └── AssetFieldHandlers/
+  │       │       ├── ComputerFieldHandler.php       # Handler pour type Computer
+  │       │       ├── PrinterFieldHandler.php        # Handler pour type Printer
+  │       │       ├── NetworkEquipmentFieldHandler.php # Handler pour type NetworkEquipment
+  │       │       └── UserFieldHandler.php           # Handler pour type User
+  │       │
+  │       ├── 🔍 SERVICES SYNCFILTER (5)
   │       │   ├── SyncFilterService.php              # Logique métier filtres
-  │       │   └── SyncFilterFormHelper.php           # Helpers formulaire (dropdown, config, connexion)
+  │       │   ├── SyncFilterFormHelper.php           # Helpers formulaire (dropdown, config, connexion)
+  │       │   ├── SyncFilterValidationService.php    # ✨ Validation LDAP inputs & field mappings
+  │       │   └── SyncFilterCronService.php          # ✨ Exécution tâches cron automatiques
   │       │
   │       ├── 🛡️ VALIDATION (1)
   │       │   └── LdapParameterValidator.php         # Validation centralisée paramètres LDAP
@@ -85,9 +102,14 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │   └── src/Factories/
   │       └── AssetFieldProviderFactory.php         # Factory création providers dynamiques
   │
-  ├── 🔌 CONTRATS (10 interfaces)
+  ├── 🎨 PRESENTERS (Préparation données pour vues)
+  │   └── src/Presenters/
+  │       └── SyncFilterFormPresenter.php           # ✨ Préparation données pour Twig
+  │
+  ├── 🔌 CONTRATS (11 interfaces)
   │   └── src/Contracts/
   │       ├── AssetFieldProviderInterface.php       # Contrat providers de champs
+  │       ├── AssetFieldHandlerInterface.php        # ✨ Contrat handlers Strategy pattern
   │       ├── SyncFilterRepositoryInterface.php     # Contrat repository filtres
   │       ├── AuthLdapSyncFilterRepositoryInterface.php # Contrat repository relations
   │       ├── SyncFilterFormHelperInterface.php     # Contrat helpers formulaire
@@ -111,14 +133,13 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │   └── composer.json                             # Dépendances PHP 8.2+
   │
   └── 🧪 TESTS & OUTILS
-      ├── tests/                                    # Tests unitaires (18 fichiers)
+      ├── tests/                                    # Tests unitaires
       ├── tools/                                    # Scripts maintenance
       ├── .php-cs-fixer.php                         # Configuration PSR-12
       ├── psalm.xml                                 # Configuration analyse statique
       └── phpunit.xml                               # Configuration tests
 
 ```
-
 
 ## Composants Principaux
 
@@ -140,16 +161,14 @@ Classe principale étendant `CommonGLPI`, responsable de l'intégration dans GLP
 
 ### 2. Modèles de Données (Pattern Active Record)
 
-#### **SyncFilter** (`src/Models/SyncFilter.php`) - 804 lignes
-Modèle principal des filtres de synchronisation LDAP :
-- **Héritage** : `extends CommonDBTM` → CRUD complet, historique, massive actions
-- **Table** : `glpi_plugin_advancedldap_syncfilters`
-- **Caractéristiques** :
-  - Legacy compatibility via `class_alias()` pour Search GLPI 11
-  - URLs personnalisées (`getSearchURL()`, `getFormURL()`)
-  - Redirection intelligente vers AuthLDAP parent après suppression
-  - Massive action "duplicate" avec duplication des relations
-  - Formulaire principal (voir méthode `showForm()`)
+#### **SyncFilter** (`src/Models/SyncFilter.php`)
+Modèle principal des filtres de synchronisation LDAP - Architecture **Façade** après refactorisation :
+
+**Principe architectural** : SyncFilter agit comme une **façade** qui délègue les responsabilités à des services spécialisés, tout en conservant son API publique inchangée (rétrocompatibilité 100%).
+
+**Héritage** : `extends CommonDBTM` → CRUD complet, historique, massive actions
+
+**Table** : `glpi_plugin_advancedldap_syncfilters`
 
 **Champs principaux** :
 ```php
@@ -161,14 +180,62 @@ Modèle principal des filtres de synchronisation LDAP :
 - is_active         : Statut (booléen)
 ```
 
-**Méthodes de formulaire** :
-- `showForm()` : Orchestration affichage formulaire (délégation vers services)
-- `resolveParentAuthLdap()` : Résolution contexte parent depuis options/relations
-- `prepareFormData()` : Préparation données (services, dropdowns, configuration)
-- `handleTestRequest()` : Gestion requête de test LDAP ($_GET['test_ldap'])
-- `collectFormMetadata()` : Collecte métadonnées (inventaire, connexion LDAP)
+**Architecture de délégation** :
 
-#### **AuthLdapSyncFilter** (`src/Models/AuthLdapSyncFilter.php`) - 142 lignes
+```php
+// API publique conservée (façade)
+public function prepareInputForAdd($input) {
+    // Délégation au service spécialisé
+    $container = Bootstrap::getContainer();
+    $validator = $container->get(SyncFilterValidationService::class);
+    return $validator->validateAndPrepare($input);
+}
+
+public function prepareInputForUpdate($input) {
+    // Même délégation pour update
+    $container = Bootstrap::getContainer();
+    $validator = $container->get(SyncFilterValidationService::class);
+    return $validator->validateAndPrepare($input);
+}
+
+// Méthode cron déléguée
+public static function cronSyncLdapFilters(?CronTask $task = null): int {
+    $container = Bootstrap::getContainer();
+    $cronService = $container->get(SyncFilterCronService::class);
+    return $cronService->executeSyncTask($task);
+}
+
+// Affichage formulaire délégué
+public function showForm($ID, array $options = []) {
+    // Préparation des données déléguée au Presenter
+    $container = Bootstrap::getContainer();
+    $presenter = $container->get(SyncFilterFormPresenter::class);
+    $viewModel = $presenter->prepareViewModel($this, $ID, $options);
+
+    // Rendu du template
+    return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
+}
+```
+
+**Services associés** :
+- **SyncFilterValidationService** : Validation LDAP inputs et field mappings
+- **SyncFilterCronService** : Exécution tâches cron automatiques
+- **SyncFilterFormPresenter** : Préparation données pour la vue Twig
+
+**Bénéfices de la refactorisation** :
+- ✅ Respect du principe **Single Responsibility**
+- ✅ API publique **inchangée** (zéro breaking change)
+- ✅ Services **testables indépendamment**
+- ✅ Code plus **maintenable** et **lisible**
+
+**Méthodes conservées** :
+- CRUD : `prepareInputForAdd()`, `prepareInputForUpdate()`, `pre_deleteItem()`
+- Affichage : `showForm()`, `getTabNameForItem()`, `displayTabContentForItem()`
+- Cron : `cronInfo()`, `cronSyncLdapFilters()`
+- Utilities : `rawSearchOptionsToAdd()`, `getForbiddenStandardMassiveAction()`
+- Massive actions : `showMassiveActionsSubForm()`, `processMassiveActionsForOneItemtype()`
+
+#### **AuthLdapSyncFilter** (`src/Models/AuthLdapSyncFilter.php`)
 Modèle de relation many-to-many AuthLDAP ↔ SyncFilter :
 - **Héritage** : `extends CommonDBRelation`
 - **Table** : `glpi_plugin_advancedldap_authldap_syncfilters`
@@ -179,25 +246,41 @@ Modèle de relation many-to-many AuthLDAP ↔ SyncFilter :
 
 ---
 
-### 3. Services Métier (17 services organisés)
+### 3. Services Métier (20 services organisés)
 
 #### 📋 **Services LDAP (8 services)**
 
 ##### **LdapSyncService** (`src/Services/LdapSyncService.php`)
-Orchestration complète de la synchronisation LDAP → GLPI :
-- **Dépendances** : `LdapConnectionInterface`, `AssetCreationService`, `AssetTypeClassifier`
-- **Injection optionnelle** : `LdapInventoryService` (si inventaire activé)
-- **Workflow** :
-  1. Validation paramètres via `LdapParameterValidator`
-  2. Récupération SyncFilter depuis DB
-  3. Connexion LDAP et recherche via `AuthLDAP::connectToServer()`
-  4. Classification assets (inventoriable vs traditionnel)
-  5. Routage vers workflow approprié (inventaire ou CommonDBTM)
-  6. Retour statistiques (`created`, `updated`, `errors`)
+Orchestration complète de la synchronisation LDAP → GLPI avec **injection complète de dépendances** :
+
+**Injection de dépendances** (pattern DIP) :
+```php
+public function __construct(
+    LdapConnectionInterface $ldap_connection,
+    AssetCreationService $asset_creation_service,
+    AssetTypeClassifier $asset_type_classifier,
+    LdapDataExtractor $data_extractor,          // ✨ Injecté (plus de new)
+    LdapParameterValidator $parameter_validator  // ✨ Injecté (plus de new)
+) {
+    $this->ldap_connection = $ldap_connection;
+    $this->asset_creation_service = $asset_creation_service;
+    $this->asset_type_classifier = $asset_type_classifier;
+    $this->data_extractor = $data_extractor;
+    $this->parameter_validator = $parameter_validator;
+}
+```
+
+**Workflow** :
+1. Validation paramètres via `LdapParameterValidator`
+2. Récupération SyncFilter depuis DB
+3. Connexion LDAP et recherche via `AuthLDAP::connectToServer()`
+4. Classification assets (inventoriable vs traditionnel)
+5. Routage vers workflow approprié (inventaire ou CommonDBTM)
+6. Retour statistiques (`created`, `updated`, `errors`)
 
 **Méthodes clés** :
 - `synchronizeFromFilter()` : Point d'entrée principal
-- `syncTraditionalWorkflow()` : Assets non-inventoriables (Computer natif si disabled)
+- `syncTraditionalWorkflow()` : Assets non-inventoriables
 - `syncInventoryWorkflow()` : Assets inventoriables via JSON
 
 ##### **LdapTestService** (`src/Services/LdapTestService.php`)
@@ -210,63 +293,12 @@ Tests et validation des filtres LDAP en temps réel :
 **Méthode publique** :
 - `testLdapFilter(int $authldap_id, string $base_dn, string $filter, string $asset_type, string $asset_field = '', array $field_mappings = []): array`
 
-**Analyse d'Impact pour Assets Génériques** :
-La méthode privée `analyzeGlpiImpact()` gère les assets génériques (lignes 297-319) :
-
-```php
-// Détection du format GenericAsset_ID
-if (str_starts_with($asset_type, 'GenericAsset_')) {
-    // Extraction ID et validation de la définition
-    $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
-    $definition = new \Glpi\Asset\AssetDefinition();
-
-    if (!$definition->getFromDB($asset_definition_id)) {
-        return [
-            'exists' => false,
-            'message' => sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id)
-        ];
-    }
-
-    // Recherche dans la table glpi_assets_assets
-    $asset_table = 'glpi_assets_assets';
-} else {
-    // Gestion assets natifs (Computer, Printer, etc.)
-    if (!class_exists($asset_type)) {
-        return ['exists' => false, 'message' => sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type)];
-    }
-    $asset_table = $this->database->getTableForItemType($asset_type);
-}
-
-// Recherche si l'asset existe déjà
-$iterator = $this->database->request([
-    'FROM'  => $asset_table,
-    'WHERE' => ['name' => $asset_name],
-    'LIMIT' => 1,
-]);
-
-// Message personnalisé selon existence
-if (count($iterator) > 0) {
-    $impact['message'] = sprintf(__('Asset "%s" exists, fields will be updated: %s', 'advancedldap'), ...);
-} else {
-    $impact['message'] = sprintf(__('Asset "%s" will be created with fields: %s', 'advancedldap'), ...);
-}
-```
-
-**Tests unitaires** :
-- ✅ 12 tests couvrant la méthode `testLdapFilter()` avec différents scénarios
-- ⚠️ Tests pour assets génériques **non inclus** dans les tests unitaires
-- Raison : Complexité de création d'asset definitions dans le contexte de test
-- **Solution** : Tests d'intégration pour couvrir cette fonctionnalité
-
 ##### **LdapInventoryService** (`src/Services/LdapInventoryService.php`)
 Intégration avec le système d'inventaire natif GLPI :
 - **Conversion** : Utilise `LdapToInventoryConverter` pour transformer LDAP → JSON
 - **Envoi** : Appelle `Inventory::sendInventory()` avec JSON formaté
 - **Workflow** : Respecte le cycle complet inventaire GLPI (règles, fusion, etc.)
 - **Détection d'échec silencieux** : Vérifie `$assetId = $item->getID()` après inventaire
-  - Si `$assetId <= 0` → Échec de création
-  - Appel à `getMinimumFieldRequirements($itemtype)` pour obtenir les exigences
-  - Message explicite : "Inventory system could not create/update asset. Insufficient field mappings. For {itemtype}, you need at least: {requirements}"
 
 **Exigences minimales par type d'asset** :
 - **Computer** : Name (requis pour identification)
@@ -279,29 +311,15 @@ Intégration avec le système d'inventaire natif GLPI :
 Conversion données LDAP vers format JSON attendu par `Inventory::sendInventory()` :
 - **Format** : Respect spec JSON inventaire GLPI
 - **Mapping** : Attributs LDAP → Sections inventaire
-- **Types supportés** : Computer, NetworkEquipment, Printer, cf : https://github.com/glpi-project/glpi/blob/11.0/bugfixes/src/autoload/CFG_GLPI.php#L443-L448
+- **Types supportés** : Computer, NetworkEquipment, Printer
 - **Respect strict des Field Mappings** : Seuls les champs LDAP configurés dans les field mappings sont utilisés
 
-**Nouvelle méthode** : `isFieldAllowed(string $ldapField, array $fieldMappings): bool`
+**Méthode de filtrage** : `isFieldAllowed(string $ldapField, array $fieldMappings): bool`
 
 **Logique de filtrage** :
 1. Si `$fieldMappings` est vide → Tous les champs LDAP autorisés (backward compatibility)
 2. Champs critiques TOUJOURS autorisés : `cn`, `name`, `displayname`, `samaccountname` (requis pour création assets)
 3. Pour les autres champs → Vérification dans `$fieldMappings`
-
-**Application dans toutes les méthodes de conversion** :
-- `buildHardwareSection()` : UUID, chassis_type, memory
-- `buildNetworkDeviceSection()` : Serial, manufacturer, model, firmware, MAC, IP, location, contact
-- `buildComputerSpecificSections()` : Operating system, memory
-- `buildNetworkEquipmentSections()` : Firmware
-- `buildPrinterSections()` : Driver, serial, description
-- `buildBiosSection()` : Manufacturer, version, date, model, serial, motherboard
-- `buildNetworkSection()` : IP, MAC, description
-
-**Impact** :
-- Les assets créés via inventaire contiennent UNIQUEMENT les champs configurés
-- Évite la création d'assets avec des données non souhaitées
-- Respect de la configuration utilisateur
 
 ##### **LdapFilterParser** (`src/Services/LdapFilterParser.php`)
 Parsing et validation des filtres LDAP selon RFC 4515 :
@@ -328,84 +346,75 @@ Extraction et normalisation des données depuis entrées LDAP :
 - **Validation filtres** : `isValidFilter()` - Vérifie structure (parenthèses équilibrées, syntaxe valide)
 - **Validation DN** : `isValidDN()` - Vérifie structure DN (composants valides, pas de métacaractères)
 - **Points protégés** :
-  - `front/syncfilter.form.php:108-122` - Validation avant test
-  - `src/Models/SyncFilter.php:302-335` - Validation avant sauvegarde (add/update)
-  - `src/Services/GlpiLdapConnectionService.php:187-196` - Validation avant recherche LDAP
-
-**Tests** : 66 tests unitaires couvrant tous les cas d'injection et RFC compliance
-
-##### **Workflow de Test LDAP Sécurisé**
-
-**Règle fondamentale** : Le filtre doit être sauvegardé avant test
-
-Le workflow de test a été modifié pour des raisons de sécurité :
-
-**AVANT (vulnérable)** :
-- Les paramètres de test étaient passés via `$_GET` (authldap_id, base_dn, filter)
-- Possibilité de tester des filtres non validés
-
-**APRÈS (sécurisé)** :
-- Le filtre DOIT être sauvegardé en base (`$this->getID() > 0`)
-- TOUTES les données proviennent de la base de données
-- Validation stricte avant test :
-  - Base DN : récupéré depuis `$this->fields['base_dn']`
-  - Filtre LDAP : récupéré depuis `$this->fields['ldap_filter']`
-  - AuthLDAP : récupéré via `getParentAuthLdapId()`
-- Triple validation de sécurité appliquée (voir section Sécurité)
-
-**Impact utilisateur** :
-- Message explicite si tentative de test sur un filtre non sauvegardé
-- Bouton "Test LDAP Filter" désactivé pour les nouveaux filtres (ID = 0)
-- Texte d'aide : "Save your changes before testing to ensure accurate results"
-
-**Fichiers modifiés** :
-- `src/Models/SyncFilter.php` : Méthode `handleTestRequest()` complètement refactorisée (lignes 804-838)
-- `templates/syncfilter_form.html.twig` : Bouton POST → Lien GET, ajout texte d'aide (lignes 204-216)
-- `front/syncfilter.form.php` : Suppression de la gestion POST `test_ldap_filter` (lignes 272-304 supprimées)
+  - `front/syncfilter.form.php` - Validation avant test
+  - `src/Models/SyncFilter.php` - Validation avant sauvegarde (add/update)
+  - `src/Services/GlpiLdapConnectionService.php` - Validation avant recherche LDAP
 
 ---
 
 #### 🎯 **Services Assets (3 services)**
+
+##### **AssetCreationService** (`src/Services/AssetCreationService.php`)
+Création et mise à jour des assets GLPI (workflow traditionnel) avec **Pattern Strategy** :
+
+**Architecture Strategy** après refactorisation :
+
+```php
+// AVANT : Switch/case (violation principe Open/Closed)
+switch ($asset_type) {
+    case 'Computer':
+        $data = $this->handleComputerFields($data);
+        break;
+    case 'Printer':
+        $data = $this->handlePrinterFields($data);
+        break;
+    // ...
+}
+
+// APRÈS : Pattern Strategy (extensible sans modification)
+public function __construct(
+    DatabaseInterface $database,
+    array $field_handlers = []  // ✨ Injection des handlers
+) {
+    $this->database = $database;
+    $this->field_handlers = $field_handlers;
+}
+
+private function handleSpecialFields(array $data, string $asset_type): array
+{
+    // Boucle sur les handlers jusqu'à trouver le bon
+    foreach ($this->field_handlers as $handler) {
+        if ($handler->supports($asset_type)) {
+            return $handler->handle($data);
+        }
+    }
+    return $data;
+}
+```
+
+**Bénéfices du Pattern Strategy** :
+- ✅ **Open/Closed** : Ajouter un type = créer un handler, pas modifier le service
+- ✅ **Extensibilité** : Nouveaux types d'assets sans toucher au code existant
+- ✅ **Testabilité** : Chaque handler testable indépendamment
+- ✅ **Maintenabilité** : Logique isolée par type d'asset
+
+**Support** :
+- Assets natifs : Computer, Printer, Monitor, NetworkEquipment, Phone, Peripheral
+- Assets génériques : Format `GenericAsset_ID` (ex: `GenericAsset_1`)
+
+**Workflow** :
+- Assets natifs → Instanciation directe de la classe (ex: `new Computer()`)
+- Assets génériques → Résolution via `AssetDefinition::getAssetClassName()` puis instanciation dynamique
+
+**Méthodes publiques** :
+- `createOrUpdateAsset(string $asset_type, array $asset_data): array` - Création/MAJ assets
+- `validateAssetData(array $asset_data, string $asset_type): array` - Validation données
 
 ##### **AssetFieldService** (`src/Services/AssetFieldService.php`)
 Gestion unifiée des champs disponibles pour tous types d'assets :
 - **Factory pattern** : Utilise `AssetFieldProviderFactory` pour instancier providers
 - **Cache** : Optimisation performance via cache des métadonnées
 - **Support** : Assets natifs + génériques + custom via providers
-
-##### **AssetCreationService** (`src/Services/AssetCreationService.php`)
-Création et mise à jour des assets GLPI (workflow traditionnel) :
-- **Support Assets Natifs** : Computer, Printer, Monitor, NetworkEquipment, Phone, Peripheral
-- **Support Assets Génériques** : Format `GenericAsset_ID` (ex: `GenericAsset_1`)
-- **Workflow** :
-  - Assets natifs → Instanciation directe de la classe (ex: `new Computer()`)
-  - Assets génériques → Résolution via `AssetDefinition::getAssetClassName()` puis instanciation dynamique
-- **Validation** : Vérification de l'existence de la définition d'asset générique via `getFromDB()`
-- **Logs** : `Toolbox::logDebug()` pour traçabilité (méthode privée `handleGenericAsset()`)
-
-**Méthodes publiques** :
-- `createOrUpdateAsset(string $asset_type, array $asset_data): array` - Création/MAJ assets
-- `validateAssetData(array $asset_data, string $asset_type): array` - Validation données
-
-**Gestion des Assets Génériques** :
-```php
-// Format attendu pour asset générique
-$asset_type = 'GenericAsset_1'; // ID = 1 de la table glpi_assets_assetdefinitions
-
-// Workflow interne
-1. Extraction ID depuis le format : str_replace('GenericAsset_', '', $asset_type) → 1
-2. Chargement définition : new \Glpi\Asset\AssetDefinition()->getFromDB(1)
-3. Récupération classe concrète : $definition->getAssetClassName() → 'Glpi\CustomAsset\FooAsset'
-4. Instanciation dynamique : new $concrete_class()
-5. Préparation données avec assets_assetdefinitions_id
-6. Création/MAJ via méthodes CommonDBTM standards
-```
-
-**Tests unitaires** :
-- ⚠️ Les tests pour assets génériques ne sont **pas inclus** dans les tests unitaires
-- Raison : La méthode privée `handleGenericAsset()` génère des logs via `Toolbox::logDebug()`
-- Framework GLPI rejette les "unexpected log entries" dans les tests unitaires
-- **Solution** : Tests d'intégration pour couvrir cette fonctionnalité
 
 ##### **AssetTypeClassifier** (`src/Services/AssetTypeClassifier.php`)
 Classification automatique des assets (inventoriables vs traditionnels) :
@@ -415,7 +424,58 @@ Classification automatique des assets (inventoriables vs traditionnels) :
 
 ---
 
-#### 🔍 **Services SyncFilter (2 services)**
+#### 🎨 **Asset Field Handlers (4 services) - PATTERN STRATEGY** ✨
+
+Les handlers implémentent tous l'interface `AssetFieldHandlerInterface` et suivent le **pattern Strategy** :
+
+**Interface commune** (`src/Contracts/AssetFieldHandlerInterface.php`) :
+```php
+interface AssetFieldHandlerInterface
+{
+    // Indique si le handler supporte ce type d'asset
+    public function supports(string $assetType): bool;
+
+    // Traite les données pour ce type d'asset
+    public function handle(array $data): array;
+
+    // Retourne les champs obligatoires
+    public function getRequiredFields(): array;
+
+    // Retourne les valeurs par défaut
+    public function getDefaultValues(): array;
+}
+```
+
+##### **ComputerFieldHandler** (`src/Services/AssetFieldHandlers/ComputerFieldHandler.php`)
+- **Supporte** : `Computer` (type natif GLPI)
+- **Champs requis** : `name`
+- **Valeurs par défaut** : `computertypes_id`, `states_id`, `manufacturers_id`
+
+##### **PrinterFieldHandler** (`src/Services/AssetFieldHandlers/PrinterFieldHandler.php`)
+- **Supporte** : `Printer` (type natif GLPI)
+- **Champs requis** : `name`
+- **Valeurs par défaut** : `printertypes_id`, `states_id`, `manufacturers_id`
+
+##### **NetworkEquipmentFieldHandler** (`src/Services/AssetFieldHandlers/NetworkEquipmentFieldHandler.php`)
+- **Supporte** : `NetworkEquipment` (type natif GLPI)
+- **Champs requis** : `name`, `serial` (ou `mac`)
+- **Valeurs par défaut** : `networkequipmenttypes_id`, `states_id`, `manufacturers_id`
+
+##### **UserFieldHandler** (`src/Services/AssetFieldHandlers/UserFieldHandler.php`)
+- **Supporte** : `User` (type natif GLPI)
+- **Champs requis** : `name` (ou `firstname` + `realname`)
+- **Valeurs par défaut** : `entities_id`, `profiles_id`
+
+**Principe de fonctionnement** :
+1. `AssetCreationService` reçoit un tableau de handlers via constructeur
+2. Lors du traitement d'un asset, il boucle sur les handlers
+3. Appelle `supports($assetType)` sur chaque handler
+4. Dès qu'un handler retourne `true`, il appelle `handle($data)` et s'arrête
+5. Si aucun handler ne supporte le type, les données sont retournées telles quelles
+
+---
+
+#### 🔍 **Services SyncFilter (5 services)**
 
 ##### **SyncFilterService** (`src/Services/SyncFilterService.php`)
 Logique métier pour les filtres de synchronisation :
@@ -428,6 +488,90 @@ Helpers spécialisés pour le formulaire SyncFilter :
 - **Dropdowns** : Génération listes AuthLDAP, assets disponibles
 - **Configuration** : Récupération config courante depuis DB
 - **Connexion** : Test statut connexion LDAP pour UI
+
+##### **SyncFilterValidationService** ✨ (`src/Services/SyncFilterValidationService.php`)
+**Service extrait du God Object SyncFilter** - Responsable de la validation des inputs :
+
+**Responsabilités** :
+- Validation des inputs LDAP (Base DN, filter)
+- Préparation des field mappings
+- Sanitization via `LdapFilterSanitizer`
+
+**Méthodes publiques** :
+- `validateLdapInputs(array $input)` - Valide Base DN et filter
+- `prepareMappingsInput(array $input)` - Prépare les mappings
+- `validateAndPrepare(array $input)` - Workflow complet
+
+**Code migré depuis SyncFilter** :
+```php
+// AVANT : Méthodes privées dans SyncFilter
+private function validateLdapInputs(array $input) { ... }
+private function prepareMappingsInput(array $input) { ... }
+
+// APRÈS : Service dédié avec méthodes publiques
+$validator = $container->get(SyncFilterValidationService::class);
+$validatedInput = $validator->validateAndPrepare($input);
+```
+
+**Bénéfice** : Logique de validation testable indépendamment et réutilisable
+
+##### **SyncFilterCronService** ✨ (`src/Services/SyncFilterCronService.php`)
+**Service extrait du God Object SyncFilter** - Responsable des tâches cron automatiques :
+
+**Responsabilités** :
+- Exécution des tâches cron automatiques
+- Récupération des filtres actifs avec AuthLDAP
+- Logging et reporting détaillé
+
+**Méthodes publiques** :
+- `executeSyncTask(?CronTask $task)` - Exécute la synchronisation
+- `getCronInfo(string $name)` - Retourne les infos de la tâche (statique)
+
+**Code migré depuis SyncFilter** :
+```php
+// AVANT : Méthode statique dans SyncFilter
+public static function cronSyncLdapFilters(?CronTask $task): int { ... }
+
+// APRÈS : Délégation au service
+public static function cronSyncLdapFilters(?CronTask $task = null): int {
+    $container = Bootstrap::getContainer();
+    $cronService = $container->get(SyncFilterCronService::class);
+    return $cronService->executeSyncTask($task);
+}
+```
+
+**Bénéfice** : Logique cron isolée, testable et maintenable
+
+##### **SyncFilterFormPresenter** ✨ (`src/Presenters/SyncFilterFormPresenter.php`)
+**Service extrait du God Object SyncFilter** - Responsable de la préparation des données pour la vue :
+
+**Responsabilités** :
+- Préparation des données pour la vue Twig
+- Résolution du contexte AuthLDAP parent
+- Transformation modèle → vue
+
+**Méthodes publiques** :
+- `prepareViewModel(SyncFilter $filter, int $ID, array $options)` - Prépare les données pour Twig
+
+**Code migré depuis SyncFilter** :
+```php
+// AVANT : Logique dans showForm()
+public function showForm($ID, array $options = []) {
+    // ... préparation données (résolution AuthLDAP, dropdowns, config)
+    return TemplateRenderer::getInstance()->display('...', $data);
+}
+
+// APRÈS : Délégation au Presenter
+public function showForm($ID, array $options = []) {
+    $container = Bootstrap::getContainer();
+    $presenter = $container->get(SyncFilterFormPresenter::class);
+    $viewModel = $presenter->prepareViewModel($this, $ID, $options);
+
+    return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
+}
+```
+
+**Bénéfice** : Séparation claire entre logique métier et présentation (pattern MVC)
 
 ---
 
@@ -442,35 +586,10 @@ Validation centralisée des paramètres LDAP :
 
 **Méthodes publiques** :
 - `validateBasicParameters(string $base_dn, string $filter, string $asset_type): ?string`
-- `validateAssetTypeExists(string $asset_type): ?string` - **Supporte assets génériques**
+- `validateAssetTypeExists(string $asset_type): ?string` - Supporte assets génériques
 - `validateSyncFilter(SyncFilter $sync_filter): ?string`
 - `validateConnectionParameters(string $host, int $port, string $base_dn): ?string`
 - `validateFieldMappings(array $field_mappings): ?string`
-
-**Validation Assets Génériques** :
-```php
-// Méthode validateAssetTypeExists() - lignes 71-89
-if (str_starts_with($asset_type, 'GenericAsset_')) {
-    $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
-    $definition = new \Glpi\Asset\AssetDefinition();
-
-    if (!$definition->getFromDB($asset_definition_id)) {
-        return sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
-    }
-    return null; // Validation réussie
-}
-
-// Validation classes natives GLPI
-if (!class_exists($asset_type)) {
-    return sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
-}
-```
-
-**Tests unitaires** :
-- ✅ 30 tests couvrant toutes les méthodes publiques
-- ✅ 2 tests spécifiques pour assets génériques :
-  - `testValidateAssetTypeExistsWithValidGenericAsset()` - Création asset definition + validation
-  - `testValidateAssetTypeExistsWithInvalidGenericAsset()` - ID inexistant (999999)
 
 ---
 
@@ -514,27 +633,6 @@ Accès aux relations AuthLDAP ↔ SyncFilter :
   - `createRelation()` : Création relation avec gestion unicity
   - `deleteRelation()` : Suppression relation
 
-**Correctif important** : Gestion correcte des itérateurs GLPI
-
-**Problème** : Utilisation incorrecte de `is_array()` sur des itérateurs GLPI retournés par `$this->database->request()`
-
-**Méthodes corrigées** :
-
-1. **getAuthLdapsForSyncFilter()** (lignes 649-669)
-   - **AVANT** : `if (!is_array($results))` + `array_column($results, 'authldap_id')`
-   - **APRÈS** : `if (!is_iterable($iterator))` + boucle `foreach` pour construire le tableau
-   - Respect des best practices GLPI (identique à `SyncFilterRepository`)
-
-2. **hasSyncFiltersForAuthLdap()** (lignes 676-696)
-   - **AVANT** : `if (!is_array($results))` + `!empty($results)`
-   - **APRÈS** : `if (!is_iterable($iterator))` + `foreach` avec `return true` au premier résultat
-   - Optimisation : arrêt dès qu'un résultat existe
-
-**Impact** :
-- Correction de bugs potentiels liés à la manipulation incorrecte des itérateurs
-- Cohérence avec `SyncFilterRepository`
-- Respect des conventions GLPI
-
 ---
 
 ### 5. Providers & Factories
@@ -563,10 +661,8 @@ Gestion des champs pour assets génériques (plugin Assets) :
 
 #### **ServiceContainer** (`src/Container/ServiceContainer.php`)
 Conteneur d'injection de dépendances (pattern Service Locator + Factory) :
-- **Singleton** : `getInstance()` pour accès global
-- **Registration** : `register($id, callable $factory)` pour enregistrer services
-- **Lazy loading** : Services créés uniquement à la demande
-- **16 services enregistrés** : Voir `registerDefaultServices()`
+
+**Principe clé** : **Injection complète des dépendances** - tous les services reçoivent leurs dépendances via constructeur
 
 **Services enregistrés** :
 ```php
@@ -582,17 +678,48 @@ SyncFilterRepositoryInterface::class          → SyncFilterRepository
 AuthLdapSyncFilterRepositoryInterface::class  → AuthLdapSyncFilterRepository
 SyncFilterFormHelperInterface::class          → SyncFilterFormHelper
 
-// Classes concrètes
+// Classes concrètes avec injection de dépendances
 GlpiConfigurationService::class
 AssetFieldProviderFactory::class
+LdapDataExtractor::class              // ✨ Maintenant enregistré pour injection
+LdapParameterValidator::class         // ✨ Maintenant enregistré pour injection
 LdapTestService::class
 SyncFilterService::class
 AssetTypeClassifier::class
-AssetCreationService::class
+
+// Services avec injection de handlers (Pattern Strategy)
+AssetCreationService::class → new AssetCreationService(
+    $c->get(DatabaseInterface::class),
+    [
+        new ComputerFieldHandler(),           // ✨ Handlers injectés
+        new PrinterFieldHandler(),
+        new NetworkEquipmentFieldHandler(),
+        new UserFieldHandler(),
+    ]
+)
+
+// Services avec injection complète (plus de new dans constructeur)
+LdapSyncService::class → new LdapSyncService(
+    $c->get(LdapConnectionInterface::class),
+    $c->get(AssetCreationService::class),
+    $c->get(AssetTypeClassifier::class),
+    $c->get(LdapDataExtractor::class),       // ✨ Injecté (au lieu de new)
+    $c->get(LdapParameterValidator::class)   // ✨ Injecté (au lieu de new)
+)
+
+// Services extraits du God Object
+SyncFilterValidationService::class    // ✨ NOUVEAU
+SyncFilterCronService::class          // ✨ NOUVEAU
+SyncFilterFormPresenter::class        // ✨ NOUVEAU
+
 LdapToInventoryConverter::class
 LdapInventoryService::class (injecté si inventaire activé)
-LdapSyncService::class
 ```
+
+**Caractéristiques** :
+- **Singleton** : `getInstance()` pour accès global
+- **Registration** : `register($id, callable $factory)` pour enregistrer services
+- **Lazy loading** : Services créés uniquement à la demande
 
 #### **Bootstrap** (`src/Bootstrap.php`)
 Classe statique d'initialisation simplifiée :
@@ -608,38 +735,576 @@ $container = Bootstrap::getContainer();
 $service = $container->get(LdapSyncService::class);
 ```
 
-## Points d'Extension
+## Principes de Refactorisation Appliqués
 
-### Ajouter un Nouveau Type d'Asset
+Cette section explique les **patterns et principes SOLID** appliqués lors de la refactorisation majeure d'octobre 2025.
 
-1. **Créer le provider** :
+### A. Pattern Strategy (AssetCreationService)
+
+**Problème résolu** : Violation du principe **Open/Closed** avec `switch/case`
+
+**Code AVANT** (non extensible) :
 ```php
-class CustomAssetFieldProvider implements AssetFieldProviderInterface {
-    public function getItemtypeFields(string $itemtype): array {
-        // Logique spécifique
+class AssetCreationService
+{
+    public function createOrUpdateAsset(string $asset_type, array $asset_data): array
+    {
+        // Switch/case rigide - pour ajouter un type, il faut modifier cette classe
+        switch ($asset_type) {
+            case 'Computer':
+                $data = $this->handleComputerFields($data);
+                break;
+            case 'Printer':
+                $data = $this->handlePrinterFields($data);
+                break;
+            case 'NetworkEquipment':
+                $data = $this->handleNetworkEquipmentFields($data);
+                break;
+            case 'User':
+                $data = $this->handleUserFields($data);
+                break;
+        }
+        // ...
+    }
+
+    // 4 méthodes privées avec logique dupliquée
+    private function handleComputerFields(array $data): array { ... }
+    private function handlePrinterFields(array $data): array { ... }
+    // etc.
+}
+```
+
+**Code APRÈS** (extensible sans modification) :
+```php
+// 1. Interface commune pour tous les handlers
+interface AssetFieldHandlerInterface
+{
+    public function supports(string $assetType): bool;
+    public function handle(array $data): array;
+    public function getRequiredFields(): array;
+    public function getDefaultValues(): array;
+}
+
+// 2. Un handler par type d'asset
+class ComputerFieldHandler implements AssetFieldHandlerInterface
+{
+    public function supports(string $assetType): bool
+    {
+        return $assetType === 'Computer';
+    }
+
+    public function handle(array $data): array
+    {
+        // Logique spécifique Computer
+        $defaults = $this->getDefaultValues();
+        foreach ($defaults as $field => $value) {
+            if (!isset($data[$field])) {
+                $data[$field] = $value;
+            }
+        }
+        return $data;
+    }
+
+    public function getRequiredFields(): array
+    {
+        return ['name'];
+    }
+
+    public function getDefaultValues(): array
+    {
+        return [
+            'computertypes_id' => 0,
+            'states_id' => 0,
+            'manufacturers_id' => 0,
+        ];
+    }
+}
+
+// 3. Service modifié pour utiliser les handlers
+class AssetCreationService
+{
+    private array $field_handlers;
+
+    // Injection des handlers via constructeur
+    public function __construct(
+        DatabaseInterface $database,
+        array $field_handlers = []
+    ) {
+        $this->database = $database;
+        $this->field_handlers = $field_handlers;
+    }
+
+    // Plus de switch/case ! Boucle sur les handlers
+    private function handleSpecialFields(array $data, string $asset_type): array
+    {
+        foreach ($this->field_handlers as $handler) {
+            if ($handler->supports($asset_type)) {
+                return $handler->handle($data);
+            }
+        }
+        return $data;
+    }
+}
+
+// 4. Enregistrement dans ServiceContainer
+$this->register(AssetCreationService::class, fn($c) =>
+    new AssetCreationService(
+        $c->get(DatabaseInterface::class),
+        [
+            new ComputerFieldHandler(),
+            new PrinterFieldHandler(),
+            new NetworkEquipmentFieldHandler(),
+            new UserFieldHandler(),
+        ]
+    )
+);
+```
+
+**Bénéfices** :
+- ✅ **Open/Closed** : Ajouter un nouveau type = créer un handler, pas toucher au service
+- ✅ **Extensibilité** : Nouveaux types d'assets sans modification du code existant
+- ✅ **Testabilité** : Chaque handler testable indépendamment avec ses propres tests
+- ✅ **Maintenabilité** : Logique isolée par type, pas de méthode géante
+- ✅ **Lisibilité** : Code plus clair et explicite
+
+---
+
+### B. Extraction du God Object (SyncFilter)
+
+**Problème résolu** : Classe `SyncFilter` avec **trop de responsabilités** (God Object anti-pattern)
+
+**AVANT la refactorisation** :
+- SyncFilter gérait 7+ responsabilités différentes
+- Mélange de logique métier, validation, présentation, cron
+- Difficile à tester, maintenir et faire évoluer
+
+**Responsabilités identifiées** :
+1. ✅ CRUD de base (CommonDBTM) → **Conservé** dans SyncFilter
+2. ✅ Affichage formulaire → **Conservé** dans SyncFilter (façade)
+3. ❌ Validation LDAP inputs → **Extrait** vers SyncFilterValidationService
+4. ❌ Préparation field mappings → **Extrait** vers SyncFilterValidationService
+5. ❌ Exécution tâches cron → **Extrait** vers SyncFilterCronService
+6. ❌ Préparation données vue Twig → **Extrait** vers SyncFilterFormPresenter
+7. ✅ Gestion relations AuthLDAP → **Conservé** dans SyncFilter
+
+**Solution appliquée** : **Extraction de 3 services spécialisés**
+
+#### 1. SyncFilterValidationService (Validation)
+
+**Responsabilités extraites** :
+- Validation des inputs LDAP (Base DN, filter)
+- Préparation des field mappings
+- Sanitization via `LdapFilterSanitizer`
+
+**Code AVANT** (dans SyncFilter) :
+```php
+class SyncFilter extends CommonDBTM
+{
+    public function prepareInputForAdd($input) {
+        // Logique de validation mélangée avec CRUD
+        $input = $this->validateLdapInputs($input);
+        if ($input === false) {
+            return false;
+        }
+        return $this->prepareMappingsInput($input);
+    }
+
+    private function validateLdapInputs(array $input) { /* ... */ }
+    private function prepareMappingsInput(array $input) { /* ... */ }
+}
+```
+
+**Code APRÈS** (délégation au service) :
+```php
+class SyncFilter extends CommonDBTM
+{
+    public function prepareInputForAdd($input) {
+        // Délégation au service spécialisé
+        $container = Bootstrap::getContainer();
+        $validator = $container->get(SyncFilterValidationService::class);
+        return $validator->validateAndPrepare($input);
+    }
+}
+
+// Service dédié testable indépendamment
+class SyncFilterValidationService
+{
+    public function validateAndPrepare(array $input): array|false
+    {
+        $input = $this->validateLdapInputs($input);
+        if ($input === false) {
+            return false;
+        }
+        return $this->prepareMappingsInput($input);
+    }
+
+    public function validateLdapInputs(array $input): array|false { /* ... */ }
+    public function prepareMappingsInput(array $input): array { /* ... */ }
+}
+```
+
+#### 2. SyncFilterCronService (Tâches automatiques)
+
+**Responsabilités extraites** :
+- Exécution des tâches cron automatiques
+- Récupération des filtres actifs avec AuthLDAP
+- Logging et reporting détaillé
+
+**Code AVANT** (dans SyncFilter) :
+```php
+class SyncFilter extends CommonDBTM
+{
+    public static function cronSyncLdapFilters(?CronTask $task): int
+    {
+        // Grosse logique cron mélangée avec modèle
+        // Récupération filtres actifs
+        // Boucle synchronisation
+        // Logging
+        // Gestion erreurs
+        // ...
     }
 }
 ```
 
-2. **Modifier la factory** :
+**Code APRÈS** (délégation au service) :
 ```php
-// AssetFieldProviderFactory::createProvider()
-if (str_starts_with($itemtype, 'CustomAsset_')) {
-    return new CustomAssetFieldProvider();
+class SyncFilter extends CommonDBTM
+{
+    public static function cronSyncLdapFilters(?CronTask $task = null): int
+    {
+        // Délégation au service spécialisé
+        $container = Bootstrap::getContainer();
+        $cronService = $container->get(SyncFilterCronService::class);
+        return $cronService->executeSyncTask($task);
+    }
+}
+
+// Service dédié pour les cron tasks
+class SyncFilterCronService
+{
+    public function executeSyncTask(?CronTask $task): int
+    {
+        // Logique cron isolée et testable
+        // ...
+    }
 }
 ```
 
-### Ajouter un Nouveau Service
+#### 3. SyncFilterFormPresenter (Présentation)
 
-1. **Créer l'interface** dans `Contracts/`
-2. **Implémenter** dans `Services/`
-3. **Enregistrer** dans `ServiceContainer::registerDefaultServices()`
+**Responsabilités extraites** :
+- Préparation des données pour la vue Twig
+- Résolution du contexte AuthLDAP parent
+- Transformation modèle → vue
 
-### Étendre les Fonctionnalités LDAP
+**Code AVANT** (dans SyncFilter) :
+```php
+class SyncFilter extends CommonDBTM
+{
+    public function showForm($ID, array $options = [])
+    {
+        // Grosse méthode mélangant logique et présentation
+        // Résolution AuthLDAP parent
+        // Préparation dropdowns
+        // Récupération config
+        // Test connexion LDAP
+        // Préparation données pour Twig
+        // ...
+        return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $data);
+    }
+}
+```
 
-1. Étendre `LdapConnectionInterface` si nécessaire
-2. Créer un service spécialisé héritant de `LdapTestService`
-3. Enregistrer dans le conteneur
+**Code APRÈS** (délégation au Presenter) :
+```php
+class SyncFilter extends CommonDBTM
+{
+    public function showForm($ID, array $options = [])
+    {
+        // Délégation au Presenter
+        $container = Bootstrap::getContainer();
+        $presenter = $container->get(SyncFilterFormPresenter::class);
+        $viewModel = $presenter->prepareViewModel($this, $ID, $options);
+
+        return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
+    }
+}
+
+// Presenter dédié pour préparation vue (pattern MVC)
+class SyncFilterFormPresenter
+{
+    public function prepareViewModel(SyncFilter $filter, int $ID, array $options): array
+    {
+        // Logique de présentation isolée
+        // Résolution contexte
+        // Préparation ViewModel
+        // ...
+        return $viewModel;
+    }
+}
+```
+
+**Bénéfices de l'extraction** :
+- ✅ **Single Responsibility** : Chaque classe a une seule responsabilité claire
+- ✅ **Testabilité** : Services testables indépendamment du modèle
+- ✅ **Maintenabilité** : Code plus court, plus clair, plus facile à modifier
+- ✅ **Réutilisabilité** : Services peuvent être utilisés ailleurs
+- ✅ **Évolutivité** : Ajouter des fonctionnalités sans toucher au modèle
+- ✅ **Rétrocompatibilité** : API publique de SyncFilter inchangée (zéro breaking change)
+
+---
+
+### C. Injection Complète des Dépendances
+
+**Problème résolu** : **Couplage fort** avec `new` dans les constructeurs
+
+**Code AVANT** (couplage fort) :
+```php
+class LdapSyncService
+{
+    public function __construct(
+        LdapConnectionInterface $ldap_connection,
+        AssetCreationService $asset_creation_service,
+        AssetTypeClassifier $asset_type_classifier
+    ) {
+        $this->ldap_connection = $ldap_connection;
+        $this->asset_creation_service = $asset_creation_service;
+        $this->asset_type_classifier = $asset_type_classifier;
+
+        // ❌ Instanciations directes = couplage fort
+        $this->data_extractor = new LdapDataExtractor();
+        $this->parameter_validator = new LdapParameterValidator();
+    }
+}
+```
+
+**Problèmes** :
+- ❌ Impossible de mocker `LdapDataExtractor` et `LdapParameterValidator` dans les tests
+- ❌ Dépendances cachées (pas visibles dans la signature du constructeur)
+- ❌ Violation du principe **Dependency Inversion** (dépend de classes concrètes)
+- ❌ Code rigide, difficile à tester et faire évoluer
+
+**Code APRÈS** (injection complète) :
+```php
+class LdapSyncService
+{
+    public function __construct(
+        LdapConnectionInterface $ldap_connection,
+        AssetCreationService $asset_creation_service,
+        AssetTypeClassifier $asset_type_classifier,
+        LdapDataExtractor $data_extractor,          // ✅ Injecté
+        LdapParameterValidator $parameter_validator  // ✅ Injecté
+    ) {
+        $this->ldap_connection = $ldap_connection;
+        $this->asset_creation_service = $asset_creation_service;
+        $this->asset_type_classifier = $asset_type_classifier;
+        $this->data_extractor = $data_extractor;
+        $this->parameter_validator = $parameter_validator;
+    }
+}
+
+// Enregistrement dans ServiceContainer
+$this->register(LdapDataExtractor::class, fn() => new LdapDataExtractor());
+$this->register(LdapParameterValidator::class, fn() => new LdapParameterValidator());
+
+$this->register(LdapSyncService::class, function ($c) {
+    return new LdapSyncService(
+        $c->get(LdapConnectionInterface::class),
+        $c->get(AssetCreationService::class),
+        $c->get(AssetTypeClassifier::class),
+        $c->get(LdapDataExtractor::class),       // ✅ Injection depuis conteneur
+        $c->get(LdapParameterValidator::class)   // ✅ Injection depuis conteneur
+    );
+});
+```
+
+**Bénéfices** :
+- ✅ **Testabilité** : Toutes les dépendances mockables facilement
+- ✅ **Transparence** : Dépendances visibles dans la signature du constructeur
+- ✅ **Dependency Inversion** : Dépend d'interfaces ou de contrats clairs
+- ✅ **Flexibilité** : Facile de changer l'implémentation d'une dépendance
+- ✅ **Maintenabilité** : Code découplé, facile à refactorer
+
+---
+
+### Résumé des Principes SOLID Appliqués
+
+| Principe | Application | Bénéfice |
+|----------|-------------|----------|
+| **Single Responsibility** | Extraction de 3 services depuis SyncFilter | Chaque classe a une seule responsabilité claire |
+| **Open/Closed** | Pattern Strategy pour AssetCreationService | Extensible sans modification du code existant |
+| **Liskov Substitution** | Interfaces communes (AssetFieldHandlerInterface) | Handlers interchangeables sans casser le code |
+| **Interface Segregation** | Interfaces spécialisées par domaine | Pas de dépendances inutiles |
+| **Dependency Inversion** | Injection complète via ServiceContainer | Code découplé, testable, maintenable |
+
+## Points d'Extension
+
+Cette section guide les développeurs pour **étendre le plugin** en ajoutant de nouveaux types d'assets grâce au **pattern Strategy**.
+
+### Comment Ajouter un Nouveau Type d'Asset
+
+Le pattern Strategy permet d'ajouter un nouveau type d'asset **sans modifier le code existant** (principe Open/Closed).
+
+#### Workflow d'Extension
+
+**Étape 1 : Créer le Handler**
+
+Créer une classe qui implémente `AssetFieldHandlerInterface` dans `src/Services/AssetFieldHandlers/` :
+
+```php
+// src/Services/AssetFieldHandlers/PeripheralFieldHandler.php
+<?php
+
+namespace GlpiPlugin\Advancedldap\Services\AssetFieldHandlers;
+
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldHandlerInterface;
+
+/**
+ * Field handler for Peripheral asset type
+ */
+class PeripheralFieldHandler implements AssetFieldHandlerInterface
+{
+    /**
+     * Check if this handler supports the given asset type
+     */
+    public function supports(string $assetType): bool
+    {
+        return $assetType === 'Peripheral';
+    }
+
+    /**
+     * Handle asset data by applying default values
+     */
+    public function handle(array $data): array
+    {
+        $defaults = $this->getDefaultValues();
+
+        // Merge defaults with existing data (existing data takes precedence)
+        foreach ($defaults as $field => $value) {
+            if (!isset($data[$field])) {
+                $data[$field] = $value;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Get required fields for this asset type
+     */
+    public function getRequiredFields(): array
+    {
+        return ['name', 'serial'];
+    }
+
+    /**
+     * Get default values for optional fields
+     */
+    public function getDefaultValues(): array
+    {
+        return [
+            'peripheraltypes_id' => 0,
+            'states_id' => 0,
+            'manufacturers_id' => 0,
+            'locations_id' => 0,
+        ];
+    }
+}
+```
+
+**Étape 2 : Enregistrer le Handler dans ServiceContainer**
+
+Ajouter le handler dans l'enregistrement de `AssetCreationService` :
+
+```php
+// src/Container/ServiceContainer.php - Dans registerDefaultServices()
+
+$this->register(AssetCreationService::class, fn($c) =>
+    new AssetCreationService(
+        $c->get(DatabaseInterface::class),
+        [
+            new ComputerFieldHandler(),
+            new PrinterFieldHandler(),
+            new NetworkEquipmentFieldHandler(),
+            new UserFieldHandler(),
+            new PeripheralFieldHandler(),        // ✅ Ajouter le nouveau handler ici
+        ]
+    )
+);
+```
+
+**C'est tout !** Le nouveau type `Peripheral` est maintenant supporté automatiquement. ✅
+
+#### Test du Nouveau Handler
+
+Le nouveau type d'asset sera automatiquement :
+- ✅ Disponible dans le dropdown "Asset Type" du formulaire SyncFilter
+- ✅ Pris en charge par `AssetCreationService` lors de la synchronisation
+- ✅ Géré avec les valeurs par défaut définies dans le handler
+
+#### Exemple d'Utilisation
+
+```php
+// Dans LdapSyncService, le handler sera automatiquement utilisé
+$assetData = [
+    'name' => 'Souris Logitech MX Master',
+    'serial' => 'MX123456789',
+    // peripheraltypes_id, states_id, etc. seront ajoutés automatiquement par le handler
+];
+
+$result = $this->asset_creation_service->createOrUpdateAsset('Peripheral', $assetData);
+// Le PeripheralFieldHandler détecte 'Peripheral' via supports() et applique getDefaultValues()
+```
+
+#### Points Importants
+
+1. **Nom du handler** : Doit se terminer par `FieldHandler` par convention
+2. **Méthode `supports()`** : Doit retourner `true` uniquement pour le type géré
+3. **Méthode `handle()`** : Ne doit pas écraser les données existantes, seulement ajouter les defaults
+4. **Champs requis** : Définir dans `getRequiredFields()` pour validation et UI
+5. **Tests** : Créer un fichier de test unitaire dans `tests/` pour valider le handler
+
+#### Extension Avancée : Custom Logic
+
+Si vous avez besoin d'une logique plus complexe que juste des valeurs par défaut :
+
+```php
+public function handle(array $data): array
+{
+    $defaults = $this->getDefaultValues();
+
+    foreach ($defaults as $field => $value) {
+        if (!isset($data[$field])) {
+            $data[$field] = $value;
+        }
+    }
+
+    // Logique custom : définir le type de périphérique selon le nom
+    if (!isset($data['peripheraltypes_id']) && isset($data['name'])) {
+        if (stripos($data['name'], 'souris') !== false) {
+            $data['peripheraltypes_id'] = 1; // ID pour "Souris"
+        } elseif (stripos($data['name'], 'clavier') !== false) {
+            $data['peripheraltypes_id'] = 2; // ID pour "Clavier"
+        }
+    }
+
+    // Validation : garantir qu'on a au moins le nom et le serial
+    if (empty($data['name']) || empty($data['serial'])) {
+        throw new \RuntimeException('Peripheral requires name and serial');
+    }
+
+    return $data;
+}
+```
+
+### Avantages du Pattern Strategy pour l'Extension
+
+- ✅ **Zero modification** du code existant (AssetCreationService)
+- ✅ **Isolation** : Logique du nouveau type complètement isolée
+- ✅ **Testabilité** : Handler testable indépendamment avec ses propres tests
+- ✅ **Découplage** : Pas de dépendance entre les handlers
+- ✅ **Simplicité** : Seulement 2 étapes pour ajouter un type (créer + enregistrer)
+- ✅ **Maintenabilité** : Code clair, explicite, facile à comprendre
 
 ## Fichiers Clés
 
@@ -661,92 +1326,6 @@ if (str_starts_with($itemtype, 'CustomAsset_')) {
 - `templates/syncfilter_form.html.twig` : Formulaire édition SyncFilter
 - `templates/syncfilters_list.html.twig` : Liste filtres dans onglet AuthLDAP
 - `ajax/getAssetFields.php` : Endpoint AJAX pour chargement dynamique champs d'assets
-
-#### **Améliorations de l'interface utilisateur**
-
-##### **1. Pré-sélection des champs obligatoires**
-
-**Template** : `syncfilter_form.html.twig`
-
-**Nouvelle fonctionnalité** : Pré-sélection automatique des champs obligatoires lors du changement de type d'asset
-
-**Objet JavaScript** : `minimumRequiredFields` (lignes 308-322)
-```javascript
-var minimumRequiredFields = {
-    'Computer': ['name'],
-    'NetworkEquipment': ['name', 'serial'],
-    'Printer': ['name'],
-    'Phone': ['name', 'serial']
-};
-```
-
-**Fonction JavaScript** : `getMinimumRequiredFields(itemtype)` (lignes 334-344)
-- Extrait le nom de classe depuis le namespace complet
-- Retourne les champs obligatoires pour le type donné
-
-**Workflow** :
-1. L'utilisateur sélectionne un type d'asset (Computer, NetworkEquipment, etc.)
-2. La fonction `loadAssetFields()` est appelée (ligne 346)
-3. Les champs obligatoires sont fusionnés avec les champs déjà sélectionnés (lignes 354-360)
-4. Appel AJAX pour charger les champs avec pré-sélection (ligne 362)
-5. Message d'information affiché : "Minimum required fields for {itemtype}: {fields}" (lignes 371-378)
-
-**Impact utilisateur** :
-- Guidage automatique pour éviter les erreurs de configuration
-- Message clair sur les champs requis
-- Gain de temps lors de la configuration
-
-##### **2. Simplification du workflow de test**
-
-**Template** : `syncfilter_form.html.twig`
-
-**AVANT** (lignes 204-208 supprimées) :
-```html
-<button type="submit" name="test_ldap_filter" class="btn btn-info me-2">
-    <i class="ti ti-test-pipe"></i>
-    <span>{{ __('Test and Sync LDAP Filter', 'advancedldap') }}</span>
-</button>
-```
-
-**APRÈS** (lignes 204-216) :
-```twig
-{% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
-{% if current_authldap_id %}
-    {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
-{% endif %}
-<a href="{{ test_url }}" class="btn btn-info me-2">
-    <i class="ti ti-test-pipe"></i>
-    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
-</a>
-<div class="form-text text-info mb-2">
-    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
-</div>
-```
-
-**Changements** :
-- Bouton POST → Lien GET (pas de soumission de formulaire)
-- Texte simplifié : "Test and Sync" → "Test LDAP Filter"
-- Ajout texte d'aide : "Save your changes before testing"
-- Construction URL avec paramètres `id` et `authldap_id`
-
-**Impact** :
-- Workflow plus clair et intuitif
-- Évite les soumissions de formulaire accidentelles
-- Message explicite sur la nécessité de sauvegarder avant test
-
-##### **3. Nettoyage des templates**
-
-**Template** : `syncfilters_list.html.twig`
-
-**Suppression** : Colonne "Actions" inutilisée (lignes 934-942 supprimées)
-- Suppression de la colonne `<th>{{ __('Actions') }}</th>`
-- Suppression des boutons "Test Filter" dans chaque ligne
-- Raison : Redondance avec le formulaire d'édition
-
-**Impact** :
-- Interface plus épurée
-- Moins de confusion pour l'utilisateur
-- Tests disponibles uniquement dans le formulaire d'édition (cohérence)
 
 ### **Points d'Entrée**
 - `Bootstrap::getContainer()` : Accès au conteneur de services (singleton)
@@ -781,20 +1360,20 @@ Le plugin implémente une protection complète contre les injections LDAP via le
 - Espaces de début/fin → `\ `
 
 **Points de protection** :
-1. **Validation avant test** (`front/syncfilter.form.php:108-122`)
+1. **Validation avant test** (`front/syncfilter.form.php`)
    - Base DN : `isValidDN()` - Rejet si métacaractères ou structure invalide
    - Filtre : `sanitizeFilter()` - Rejet si syntaxe invalide
 
-2. **Validation avant sauvegarde** (`src/Models/SyncFilter.php:302-335`)
-   - Méthode `validateLdapInputs()` appelée dans `prepareInputForAdd()` et `prepareInputForUpdate()`
+2. **Validation avant sauvegarde** (`src/Models/SyncFilter.php`)
+   - Méthode `validateLdapInputs()` via `SyncFilterValidationService`
    - Empêche la sauvegarde de données malveillantes en base
 
-3. **Validation avant recherche LDAP** (`src/Services/GlpiLdapConnectionService.php:187-196`)
+3. **Validation avant recherche LDAP** (`src/Services/GlpiLdapConnectionService.php`)
    - Double validation DN + filtre avant `ldap_search()`
    - Retourne erreur si validation échoue (pas d'exécution)
 
 **Tests de sécurité** :
-- 66 tests unitaires dans `tests/LdapFilterSanitizerTest.php`
+- Tests unitaires dans `tests/LdapFilterSanitizerTest.php`
 - Cas d'injection testés : `*))(|(objectClass=*`, `admin)(uid=*)`, backslash bypass, etc.
 - Conformité RFC vérifiée : RFC 4515 (filtres) et RFC 4514 (DN)
 
@@ -802,106 +1381,32 @@ Le plugin implémente une protection complète contre les injections LDAP via le
 Le plugin protège contre les injections XSS via un échappement systématique dans tous les templates :
 
 **Templates sécurisés** :
-1. **syncfilter_form.html.twig** (9 corrections)
-   - Ligne 56 : `server_name` → échappement HTML explicite `|e('html')`
-   - Ligne 75 : `server_name` → échappement HTML explicite `|e('html')`
-   - Ligne 77 : `error` (message LDAP) → échappement HTML `|e('html')`
-   - Ligne 231 : `test_results.error` → échappement HTML `|e('html')`
-   - Ligne 266 : `entry.dn` (DN LDAP) → échappement HTML `|e('html')`
-   - Ligne 269-273 : Attributs LDAP (`attr`, `values`) → échappement HTML `|e('html')`
-   - Ligne 285 : `entry.glpi_impact.message` → échappement HTML `|e('html')`
-   - Ligne 306 : **CRITIQUE** - `field_mappings` → `|json_encode|raw` au lieu de `|raw` seul
-   - Lignes 327, 331, 344 : Chaînes JavaScript → échappement JS `|e('js')`
-   - Suppression commentaires DEBUG (lignes 194, 197, 199) - Exposition logique interne
+1. **syncfilter_form.html.twig**
+   - Échappement HTML explicite `|e('html')` pour données LDAP (DN, attributs, messages erreur)
+   - Échappement JavaScript `|e('js')` pour chaînes insérées dans code JS inline
+   - JSON sécurisé : `field_mappings|json_encode|raw` au lieu de `|raw` seul
 
-2. **syncfilters_list.html.twig** (2 corrections)
-   - Ligne 46 : `filter.base_dn` → échappement HTML `|e('html')`
-   - Ligne 49 : `filter.ldap_filter` → échappement HTML `|e('html')`
+2. **syncfilters_list.html.twig**
+   - Échappement HTML pour `base_dn` et `ldap_filter`
 
 **Principes appliqués** :
 - Toutes les données provenant de sources externes (LDAP, DB user input) sont échappées explicitement
 - Contexte HTML : `|e('html')` pour empêcher injection de tags HTML/scripts
 - Contexte JavaScript : `|e('js')` pour empêcher injection dans code JS inline
 - JSON dans JavaScript : `|json_encode|raw` pour sérialisation sécurisée
-- Commentaires de debug retirés pour éviter exposition de la logique applicative
-
-**Vulnérabilité critique corrigée** :
-```twig
-# AVANT (Vulnérable XSS)
-var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|raw }};
-
-# APRÈS (Sécurisé)
-var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encode|raw }};
-```
 
 #### **Autres mesures de sécurité**
 - Validation stricte des paramètres d'entrée
-- Échappement HTML dans tous les templates Twig (explicite pour données externes)
 - Pas d'exposition des variables globales
 - Gestion centralisée des erreurs avec logs
 - Droits GLPI respectés (READ, UPDATE requis)
-- Suppression de tous les commentaires DEBUG en production
 
 ### **Performance**
 - Services instanciés une seule fois (singleton)
 - Chargement paresseux des dépendances
 - Requêtes base de données optimisées
 - Cache des métadonnées d'assets
-- Logs de debug optimisés (réduction 99% du volume)
-
-#### **Gestion du Timeout PHP lors des Synchronisations**
-
-**Problème identifié** :
-- Les synchronisations de gros volumes LDAP (300+ entrées) peuvent dépasser le timeout PHP par défaut (30 secondes)
-- Le timeout se produit dans les requêtes DB (création/mise à jour assets), pas dans les requêtes LDAP
-- Performance observée : ~100-150ms par entrée (recherche asset existant + création/mise à jour)
-
-**Solutions standard GLPI** :
-
-1. **Configuration PHP (✅ Solution recommandée)** :
-   ```ini
-   # Dans php.ini ou .htaccess
-   max_execution_time = 300  # 5 minutes
-   ```
-   - Approche standard utilisée dans les déploiements GLPI
-   - Mentionnée dans la documentation officielle GLPI pour les synchronisations LDAP
-   - Ne nécessite pas de modification du code
-
-2. **Commandes CLI (✅ Recommandé pour gros volumes)** :
-   ```bash
-   # Les commandes CLI n'ont pas de timeout par défaut
-   php bin/console glpi:plugin:advancedldap:sync
-   ```
-   - CronTasks GLPI utilisent cette approche
-   - Aucune limite d'exécution
-   - Idéal pour automatisation
-
-3. **Utilisation de `set_time_limit()` (⚠️ Option alternative)** :
-   ```php
-   // Au début de synchronizeFromFilter()
-   @set_time_limit(300); // 5 minutes
-   ```
-   - Bien que GLPI core ne l'utilise pas, c'est acceptable pour un plugin
-   - Utilisé par certains plugins communautaires
-   - À documenter clairement si implémenté
-
-**Solution implémentée dans ce plugin** :
-- ✅ Optimisation des logs de debug (~99% de réduction)
-  - AVANT : ~900-1500 logs pour 300 entrées
-  - APRÈS : ~10 logs pour 300 entrées (début, progression tous les 50, fin)
-- ✅ Logs de pagination LDAP conservés (utiles pour diagnostic)
-- ✅ Mesure du temps d'exécution et affichage dans les logs
-- ⚠️ `set_time_limit()` **non implémenté** : configuration PHP préférée
-
-**Recommandations pour les administrateurs** :
-1. **Petits volumes (<200 entrées)** : Synchronisation manuelle via interface web (OK avec timeout 30s)
-2. **Volumes moyens (200-500 entrées)** : Augmenter `max_execution_time` à 300s dans php.ini
-3. **Gros volumes (>500 entrées)** : Utiliser les CronTasks GLPI (automatisation CLI)
-4. **Optimisation** : Utiliser `ldap_maxlimit` pour limiter les entrées par synchronisation
-
-**Fichiers impactés** :
-- `src/Services/LdapSyncService.php` : Logs de progression optimisés
-- `src/Services/GlpiLdapConnectionService.php` : Logs de pagination LDAP conservés
+- Logs de debug optimisés (réduction volume important)
 
 ### **Standards de Code**
 - PHP 8.2+ avec types stricts
@@ -934,6 +1439,7 @@ var fieldMappingsRaw = {{ item.fields['field_mappings']|default('{}')|json_encod
 Le plugin est **autonome** et ne nécessite aucune dépendance externe hormis GLPI.
 
 ## Architecture du Plugin
+
 ### **Nouvelles Tables de Données**
 
 #### **glpi_plugin_advancedldap_syncfilters**
@@ -965,128 +1471,74 @@ Table de liaison many-to-many AuthLDAP ↔ SyncFilter :
 
 **Engine** : InnoDB, CHARSET utf8mb4_unicode_ci
 
-
-## État Actuel du Plugin (2 Octobre 2025)
+## État Actuel du Plugin
 
 ### ✅ **Architecture Complète et Opérationnelle**
 
-#### **Backend (100% fonctionnel)**
-- ✅ **2 Modèles** : `SyncFilter` (804 lignes) + `AuthLdapSyncFilter` (142 lignes)
-- ✅ **17 Services métier** : Organisation par domaine (LDAP, Assets, SyncFilter, Validation, Wrappers)
-- ✅ **2 Repositories** : Pattern Data Access avec gestion erreurs et validation
-- ✅ **3 Providers** : Native, Generic + Factory dynamique
-- ✅ **10 Contrats (Interfaces)** : Respect principes SOLID (DIP, ISP)
-- ✅ **Conteneur DI** : ServiceContainer avec 17 services enregistrés, lazy loading
-- ✅ **Workflows doubles** : Traditionnel (CommonDBTM) + Inventaire natif GLPI
-- ✅ **Legacy compatibility** : Alias automatiques pour Search GLPI 11
-- ✅ **🔒 Sécurité LDAP** : Protection injections RFC 4515/4514, validation triple couche
+#### **Backend - Architecture SOLID**
+- **Pattern Strategy** : AssetFieldHandlers extensibles pour différents types d'assets
+- **Injection de dépendances complète** : Tous les services reçoivent leurs dépendances via constructeur
+- **Services spécialisés** : 20 services organisés par domaine (LDAP, Assets, SyncFilter, Validation, Wrappers)
+- **Extraction God Object** : SyncFilter refactorisé en façade déléguant à 3 services spécialisés
+- **11 contrats (Interfaces)** : Respect principes SOLID (DIP, ISP)
+- **Conteneur DI** : ServiceContainer avec lazy loading et factory pattern
+- **Workflows doubles** : Traditionnel (CommonDBTM) + Inventaire natif GLPI
+- **Legacy compatibility** : Alias automatiques pour Search GLPI 11
+- **🔒 Sécurité LDAP** : Protection injections RFC 4515/4514, validation triple couche
 
-#### **Frontend (100% fonctionnel)**
-- ✅ **Onglet AuthLDAP** : "Advanced sync" avec badge comptage intégré (icône `ti ti-filter`)
-- ✅ **2 Templates Twig** :
+#### **Frontend - Interface Complète**
+- **Onglet AuthLDAP** : "Advanced sync" avec badge comptage intégré (icône `ti ti-filter`)
+- **2 Templates Twig** :
   - `syncfilters_list.html.twig` : Liste filtres dans onglet AuthLDAP
-  - `syncfilter_form.html.twig` : Formulaire édition avec 5 étapes
-- ✅ **2 Pages front** :
+  - `syncfilter_form.html.twig` : Formulaire édition avec validation
+- **2 Pages front** :
   - `front/syncfilter.php` : Liste via Search::show
   - `front/syncfilter.form.php` : CRUD complet avec actions multiples
-- ✅ **1 Endpoint AJAX** : Chargement dynamique champs assets (`ajax/getAssetFields.php`)
-- ✅ **Actions supportées** : add, update, delete, test_ldap, sync_from_ldap, duplicate (massive action)
-- ✅ **Filtrage contextuel** : Hook `addDefaultWhere` pour filtrer par AuthLDAP
+- **1 Endpoint AJAX** : Chargement dynamique champs assets (`ajax/getAssetFields.php`)
+- **Actions supportées** : add, update, delete, test_ldap, sync_from_ldap, duplicate (massive action)
+- **Filtrage contextuel** : Hook `addDefaultWhere` pour filtrer par AuthLDAP
 
 #### **Base de Données**
-- ✅ **Table principale** : `glpi_plugin_advancedldap_syncfilters` (9 colonnes + id)
+- **Table principale** : `glpi_plugin_advancedldap_syncfilters`
   - Champs : id, name, ldap_filter, base_dn, asset_type, field_mappings, is_active, date_creation, date_mod
-- ✅ **Table relation** : `glpi_plugin_advancedldap_authldap_syncfilters` (4 colonnes + id)
+- **Table relation** : `glpi_plugin_advancedldap_authldap_syncfilters`
   - Champs : id, authldap_id, syncfilter_id, is_active, date_creation
-- ✅ **Contrainte unicité** : UNIQUE KEY `unicity` (authldap_id, syncfilter_id)
-- ✅ **Indexes** : Optimisation requêtes (name, is_active, asset_type, dates, foreign keys)
-- ✅ **Installation/Désinstallation** : Gestion automatique via `plugin_advancedldap_install()` et `plugin_advancedldap_uninstall()`
-- ✅ **Engine** : InnoDB avec charset utf8mb4_unicode_ci pour support Unicode complet
+- **Contrainte unicité** : UNIQUE KEY `unicity` (authldap_id, syncfilter_id)
+- **Indexes** : Optimisation requêtes (name, is_active, asset_type, dates, foreign keys)
+- **Installation/Désinstallation** : Gestion automatique via hooks
+- **Engine** : InnoDB avec charset utf8mb4_unicode_ci
 
 #### **Qualité de Code**
-- ✅ **PHP 8.2+** : Types stricts, promotion constructeur, readonly properties, expressions match
-- ✅ **PSR-12** : Code style via `.php-cs-fixer.php`
-- ✅ **Analyse statique** : Psalm + PHPStan configurés (`psalm.xml`, `phpstan.neon`)
-- ✅ **Tests unitaires** : 25 fichiers de tests (24 tests + 1 bootstrap)
-  - Tests pour tous les services, modèles, repositories, providers
-  - 66 tests dédiés à la sécurité LDAP (`LdapFilterSanitizerTest.php`)
-  - **79 tests au total** après révision (octobre 2025)
+- **PHP 8.2+** : Types stricts, promotion constructeur, readonly properties, expressions match
+- **PSR-12** : Code style via `.php-cs-fixer.php`
+- **Analyse statique** : Psalm + PHPStan configurés (`psalm.xml`, `phpstan.neon`)
+- **Tests unitaires** : Fichiers de tests couvrant services, modèles, repositories, providers
+  - Tests dédiés à la sécurité LDAP (`LdapFilterSanitizerTest.php`)
   - Bootstrap configuré avec autoload GLPI
   - **Stratégie assets génériques** : Tests unitaires pour validation, tests d'intégration pour création
-- ✅ **Documentation** : PHPDoc complet avec types, @param, @return, @throws
-- ✅ **Logs** : `Toolbox::logDebug()` dans tous les services critiques pour traçabilité
-- ✅ **Namespaces** : Organisation moderne `GlpiPlugin\Advancedldap\*` avec alias legacy
-- ✅ **🔒 Audit sécurité** : `SECURITY_AUDIT.md` + cas de test documentés
-
-#### **Tests Unitaires et Assets Génériques**
-
-**Stratégie de test adoptée** (conforme conventions GLPI) :
-
-1. **Méthodes testables** :
-   - ✅ Seules les méthodes **publiques** sont testées
-   - ✅ Les méthodes **sans logs** sont testées unitairement
-   - ⚠️ Les méthodes générant des **logs de debug** ne sont **pas testées** unitairement
-
-2. **Assets Génériques - Couverture par service** :
-
-   | Service | Tests Unitaires | Raison |
-   |---------|----------------|--------|
-   | `AssetCreationService` | ❌ Non testés | Méthode `handleGenericAsset()` génère des logs |
-   | `LdapParameterValidator` | ✅ 2 tests ajoutés | Méthode `validateAssetTypeExists()` sans logs |
-   | `LdapTestService` | ❌ Non testés | Complexité création asset definitions en test |
-   | `GlpiConfigurationService` | ✅ 3 tests ajoutés | Méthode `isInventoryEnabled()` sans logs |
-   | `LdapInventoryService` | ⚠️ Documentés uniquement | Méthode `syncInventoriableAsset()` génère des logs |
-
-3. **Documentation explicative** :
-   - Chaque fichier de test contient un commentaire expliquant pourquoi certains tests sont absents
-   - Référence aux tests d'intégration pour couverture complète
-   - Exemples :
-     - `AssetCreationServiceTest.php` lignes 14-19
-     - `LdapTestServiceTest.php` lignes 17-19
-     - `LdapInventoryServiceTest.php` lignes 13-26
-
-4. **Statistiques tests (révision 06/10/2025)** :
-   - **Tests initiaux** : 74 tests
-   - **Tests ajoutés** : 5 tests
-   - **Total final** : 79 tests
-   - **Répartition** :
-     - AssetCreationService : 10 tests (assets natifs uniquement)
-     - GlpiConfigurationService : 14 tests (+3 pour `isInventoryEnabled()`)
-     - LdapInventoryService : 13 tests (hors `syncInventoriableAsset()`)
-     - LdapParameterValidator : 30 tests (+2 pour assets génériques)
-     - LdapTestService : 12 tests (hors assets génériques)
-
-5. **Principes respectés** :
-   - ✅ Framework GLPI rejette les "unexpected log entries"
-   - ✅ Pas de mock de `Toolbox::logDebug()` (anti-pattern)
-   - ✅ Séparation claire : tests unitaires vs tests d'intégration
-   - ✅ Documentation des limitations et justifications
+- **Documentation** : PHPDoc complet avec types, @param, @return, @throws
+- **Logs** : `Toolbox::logDebug()` dans tous les services critiques pour traçabilité
+- **Namespaces** : Organisation moderne `GlpiPlugin\Advancedldap\*` avec alias legacy
 
 #### **Fonctionnalités Avancées**
-- ✅ **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels via `AssetTypeClassifier`
-- ✅ **Test LDAP temps réel** : Validation avant sauvegarde, aperçu résultats (action `test_ldap`)
-- ✅ **Mapping automatique** : Suggestion attributs LDAP via `LdapAttributeMapper` (RFC 4519)
-- ✅ **Parsing filtres** : Extraction et validation attributs via `LdapFilterParser` (RFC 4515)
-- ✅ **Massive actions** : Duplication filtres avec relations associées (action `duplicate`)
-- ✅ **Gestion erreurs** : Messages explicites, logs détaillés, fallbacks gracieux
-- ✅ **Injection de dépendances** : ServiceContainer avec lazy loading et factory pattern
-- ✅ **Conversion inventaire** : `LdapToInventoryConverter` pour format JSON natif GLPI
-- ✅ **Workflows hybrides** : Support simultané CommonDBTM (legacy) et Inventory API (moderne)
-
-
+- **Synchronisation intelligente** : Classification automatique inventoriables vs traditionnels
+- **Test LDAP temps réel** : Validation avant sauvegarde, aperçu résultats
+- **Mapping automatique** : Suggestion attributs LDAP via `LdapAttributeMapper` (RFC 4519)
+- **Parsing filtres** : Extraction et validation attributs via `LdapFilterParser` (RFC 4515)
+- **Massive actions** : Duplication filtres avec relations associées
+- **Gestion erreurs** : Messages explicites, logs détaillés, fallbacks gracieux
+- **Injection de dépendances** : ServiceContainer avec lazy loading et factory pattern
+- **Conversion inventaire** : `LdapToInventoryConverter` pour format JSON natif GLPI
+- **Workflows hybrides** : Support simultané CommonDBTM (legacy) et Inventory API (moderne)
 
 ### 🔍 **Code Mort & Fichiers Deprecated**
 
-#### **État actuel (02/10/2025)**
+#### **État actuel**
 - ✅ **Aucun code mort détecté**
 - ✅ Tous les services sont enregistrés et utilisés dans ServiceContainer
 - ✅ Tous les contrats ont une implémentation active
 - ✅ Toutes les méthodes publiques sont utilisées
 - ✅ Architecture cohérente sans redondance
-
-#### **Fichiers deprecated supprimés (30/09/2025)**
-- ✅ ~~`front/config.form.php`~~ : Remplacé par `syncfilter.form.php` → **SUPPRIMÉ**
-- ✅ ~~`templates/ldap_sync.html.twig`~~ : Remplacé par `syncfilter_form.html.twig` → **SUPPRIMÉ**
 
 #### **Services utilitaires centralisés (à conserver)**
 - ✅ `LdapDataExtractor` : Centralise l'extraction de données LDAP (utilisé par LdapTestService et LdapToInventoryConverter)
@@ -1109,52 +1561,46 @@ Le plugin supporte la synchronisation automatique des filtres LDAP via le systè
 public const CRON_TASK_NAME = 'SyncLdapFilters';
 ```
 
-**Méthodes publiques** (ajoutées lignes 991-1200) :
+**Méthodes publiques** :
 
-1. **`cronInfo(string $name): array`** - Ligne 997
+1. **`cronInfo(string $name): array`**
    - Fournit la description de la tâche cron pour l'interface GLPI
    - Retourne le nom et la description du paramètre
    - Utilisé par GLPI pour afficher les informations dans Configuration > Actions automatiques
 
-2. **`cronSyncLdapFilters(?CronTask $task = null): int`** - Ligne 1015
+2. **`cronSyncLdapFilters(?CronTask $task = null): int`**
    - **Point d'entrée principal** pour l'exécution automatique
-   - Signature conforme au standard GLPI (type `?CronTask` comme le core)
-   - Paramètre `$task` : Instance CronTask pour le logging (null dans les tests)
-   - **Workflow** :
-     1. Récupération du paramètre `max_filters` depuis `$task->fields['param']`
-     2. Instanciation des services via `Bootstrap::getContainer()`
-     3. Récupération des filtres actifs via `getAllActiveSyncFiltersWithAuthLdap()`
-     4. Boucle de synchronisation avec gestion d'erreurs isolées
-     5. Logging détaillé via `$task->log()` et `Toolbox::logDebug()`
-     6. Calcul du volume (nombre d'assets synchronisés)
+   - Signature conforme au standard GLPI (type `?CronTask`)
+   - Délègue l'exécution à `SyncFilterCronService`
    - **Codes de retour** :
      - `0` : Rien à faire (aucun filtre actif)
      - `1` : Succès (au moins un filtre synchronisé)
      - `-1` : Besoin de relancer (limite `max_filters` atteinte)
 
-3. **`getAllActiveSyncFiltersWithAuthLdap(SyncFilterRepositoryInterface $repository): array`** - Ligne 1158
-   - Méthode helper privée pour récupérer les filtres éligibles
-   - **Critères de sélection** :
-     - Filtre actif (`is_active = 1`)
-     - Relation active (`is_active = 1`)
-     - Serveur AuthLDAP actif (`is_active = 1`)
-   - Utilise les repositories existants (pas de SQL direct)
-   - **Retour** : Tableau de filtres avec leurs métadonnées
+##### **SyncFilterCronService - Service Dédié**
+
+Le service `SyncFilterCronService` (extrait du God Object) gère toute la logique cron :
+
+**Workflow** :
+1. Récupération du paramètre `max_filters` depuis `$task->fields['param']`
+2. Récupération des filtres actifs via repository
+3. Boucle de synchronisation avec gestion d'erreurs isolées
+4. Logging détaillé via `$task->log()` et `Toolbox::logDebug()`
+5. Calcul du volume (nombre d'assets synchronisés)
+
+**Critères de sélection des filtres** :
+- Filtre actif (`is_active = 1`)
+- Relation active (`is_active = 1`)
+- Serveur AuthLDAP actif (`is_active = 1`)
 
 **Gestion des erreurs** :
-- Chaque filtre est traité dans un `try/catch` indépendant
+- Chaque filtre traité dans un `try/catch` indépendant
 - Une erreur sur un filtre ne bloque pas les autres
-- Logging détaillé pour chaque erreur (nom du filtre, message d'erreur)
-- Compteurs séparés : `success_count`, `error_count`
-
-**Logging** :
-- Logs CronTask via `$task->log()` (max 200 caractères, affiché dans l'interface)
-- Logs détaillés via `Toolbox::logDebug()` (fichier `php-errors.log`)
-- Messages traduits via `__()` pour internationalisation
+- Logging détaillé pour chaque erreur
 
 ##### **Enregistrement de la CronTask - hook.php**
 
-**Installation** (lignes 91-106 de `hook.php`) :
+**Installation** (dans `plugin_advancedldap_install()`) :
 ```php
 CronTask::register(
     \GlpiPlugin\Advancedldap\Models\SyncFilter::class,
@@ -1186,39 +1632,6 @@ CronTask::register(
 - Valeur `0` = illimité (tous les filtres)
 - Valeur `N` > 0 = traite maximum N filtres puis retourne `-1`
 - Utile pour éviter les timeouts sur gros volumes
-
-#### **Bugs Corrigés dans SyncFilterRepository**
-
-**Problème identifié** : Les méthodes retournaient des itérateurs au lieu de tableaux
-
-**Méthodes corrigées** (lignes 64-152 de `SyncFilterRepository.php`) :
-
-1. **`getActiveSyncFilters()`** - Ligne 64
-   ```php
-   // AVANT (incorrect)
-   return is_array($results) ? $results : [];
-
-   // APRÈS (correct)
-   if (!is_iterable($iterator)) { return []; }
-   $filters = [];
-   foreach ($iterator as $data) {
-       $filters[] = $data;
-   }
-   return $filters;
-   ```
-
-2. **`getSyncFiltersForAuthLdap(int $authldap_id)`** - Ligne 90
-   - Même correction que ci-dessus
-   - Conversion itérateur → tableau
-
-3. **`findById(int $id)`** - Ligne 134
-   - Conversion itérateur → tableau
-   - Retourne la première ligne ou `null`
-
-**Impact** :
-- Correction du bug "Active filters count: 0" alors que des filtres existent
-- Respect des conventions GLPI pour la gestion des itérateurs
-- Cohérence avec les autres méthodes du repository
 
 #### **Utilisation**
 
@@ -1304,77 +1717,30 @@ grep "ERROR" /path/to/files/_log/php-errors.log | grep SyncFilter
 grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
 ```
 
-#### **Tests et Validation**
-
-**Scénarios de test recommandés** :
-
-1. **Test sans filtres actifs** :
-   - Désactiver tous les filtres
-   - Exécuter la tâche
-   - Vérifier : code retour `0`, message "No active LDAP sync filters found"
-
-2. **Test avec limite de filtres** :
-   - Créer 3 filtres actifs
-   - Paramètre `max_filters = 1`
-   - Exécuter 3 fois
-   - Vérifier : 3 exécutions, chacune traite 1 filtre, code retour `-1` puis `1`
-
-3. **Test avec erreur LDAP** :
-   - Créer un filtre avec Base DN invalide
-   - Exécuter la tâche
-   - Vérifier : erreur loggée, autres filtres traités normalement
-
-4. **Test de performance** :
-   - Créer plusieurs filtres avec beaucoup d'entrées LDAP
-   - Mesurer le temps d'exécution
-   - Ajuster `max_filters` si nécessaire
-
-**Checklist de validation** :
-- [ ] Tâche visible dans Configuration > Actions automatiques
-- [ ] Exécution manuelle fonctionne
-- [ ] Exécution CLI fonctionne
-- [ ] Seuls les filtres actifs sont traités
-- [ ] Logs détaillés générés
-- [ ] Volume correctement calculé
-- [ ] Erreurs isolées par filtre
-- [ ] Codes de retour appropriés
-
-#### **Fichiers Modifiés**
-
-**Création/Modification** (10 octobre 2025) :
-
-1. **src/Models/SyncFilter.php** :
-   - Ligne 72 : Constante `CRON_TASK_NAME`
-   - Ligne 49 : Import `use CronTask;`
-   - Lignes 991-1006 : Méthode `cronInfo()`
-   - Lignes 1008-1148 : Méthode `cronSyncLdapFilters()`
-   - Lignes 1150-1200 : Méthode `getAllActiveSyncFiltersWithAuthLdap()`
-
-2. **hook.php** :
-   - Lignes 91-106 : Enregistrement `CronTask::register()` dans `plugin_advancedldap_install()`
-
-3. **src/Repositories/SyncFilterRepository.php** :
-   - Lignes 64-82 : Correction `getActiveSyncFilters()`
-   - Lignes 90-126 : Correction `getSyncFiltersForAuthLdap()`
-   - Lignes 134-152 : Correction `findById()`
-
-**Statistiques** :
-- **Lignes ajoutées** : ~250 lignes (méthodes cron + enregistrement)
-- **Bugs corrigés** : 3 méthodes repository
-- **Services utilisés** : Bootstrap, ServiceContainer, SyncFilterRepository, LdapSyncService
-- **Conformité** : Standard GLPI CronTask (comme core GLPI 11)
-
 ---
 
-### 📈 **Évolutions Récentes**
+## Évolutions Récentes
+
+### 📈 **Refactorisations Majeures**
+
+#### **15/10/2025 - Refactorisation Majeure : Architecture SOLID**
+- ✅ **Pattern Strategy** : AssetCreationService extensible sans modification (Open/Closed)
+- ✅ **4 handlers d'assets** : Computer, Printer, NetworkEquipment, User (extensible facilement)
+- ✅ **Extraction God Object** : SyncFilter devient façade déléguant à 3 services spécialisés
+  - SyncFilterValidationService : Validation LDAP inputs & field mappings
+  - SyncFilterCronService : Exécution tâches cron automatiques
+  - SyncFilterFormPresenter : Préparation données pour vues Twig
+- ✅ **Injection complète** : Élimination totale des `new` dans constructeurs
+  - LdapSyncService : Injection de LdapDataExtractor et LdapParameterValidator
+  - AssetCreationService : Injection d'un tableau de handlers
+- ✅ **Respect SOLID** : Single Responsibility, Open/Closed, Dependency Inversion
+- ✅ **Zero breaking change** : API publique inchangée, rétrocompatibilité 100%
+- ✅ **Documentation complète** : Guide d'extension avec exemples concrets (Pattern Strategy)
+- ✅ **Tests unitaires** : Tous les tests mis à jour et passent
 
 #### **10/10/2025 - Synchronisation Automatique via Cron Tasks**
 - ✅ **Nouvelle fonctionnalité** : Synchronisation automatique des filtres LDAP via tâches cron GLPI
-- ✅ **Méthodes ajoutées au modèle SyncFilter** :
-  - `cronInfo()` : Description de la tâche pour l'interface GLPI
-  - `cronSyncLdapFilters()` : Point d'entrée principal (164 lignes)
-  - `getAllActiveSyncFiltersWithAuthLdap()` : Helper pour récupérer les filtres éligibles
-- ✅ **Enregistrement CronTask** : Ajout de `CronTask::register()` dans `hook.php`
+- ✅ **Service dédié** : SyncFilterCronService pour logique cron isolée
 - ✅ **Configuration par défaut** :
   - Fréquence : 1 heure (ajustable)
   - Mode : CLI + Web (flexible)
@@ -1383,53 +1749,30 @@ grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
   - Isolation des erreurs par filtre (un échec ne bloque pas les autres)
   - Logging détaillé via `$task->log()` et `Toolbox::logDebug()`
   - Codes de retour appropriés (0, 1, -1)
-- ✅ **Bugs critiques corrigés dans SyncFilterRepository** :
-  - `getActiveSyncFilters()` : Conversion itérateur → tableau
-  - `getSyncFiltersForAuthLdap()` : Conversion itérateur → tableau
-  - `findById()` : Conversion itérateur → tableau
-  - Impact : Correction du bug "Active filters count: 0"
-- ✅ **Import CronTask** : Ajout de `use CronTask;` pour respecter les conventions GLPI
-- ✅ **Conformité standard GLPI** : Signature `?CronTask` comme le core GLPI 11
-- ✅ **Tests réussis** : 30 imprimantes synchronisées automatiquement via workflow inventory
-- ✅ **Documentation complète** : Section dédiée avec guide d'utilisation, monitoring, tests
-- ✅ **Fichiers modifiés** : 3 fichiers (SyncFilter.php, hook.php, SyncFilterRepository.php)
-- ✅ **Statistiques** : ~250 lignes ajoutées, 3 bugs corrigés, conformité GLPI
+- ✅ **Enregistrement CronTask** : Ajout de `CronTask::register()` dans `hook.php`
+- ✅ **Documentation complète** : Section dédiée avec guide d'utilisation, monitoring
 
 #### **06/10/2025 - Révision Tests Unitaires & Support Assets Génériques**
 - ✅ **Révision complète des tests unitaires** suite à l'adaptation de la synchronisation des assets génériques
-- ✅ **5 services testés** : AssetCreationService, GlpiConfigurationService, LdapInventoryService, LdapParameterValidator, LdapTestService
-- ✅ **5 nouveaux tests ajoutés** :
-  - `GlpiConfigurationService` : +3 tests pour `isInventoryEnabled()` (correction commentaire erroné)
-  - `LdapParameterValidator` : +2 tests pour validation assets génériques (`GenericAsset_ID`)
+- ✅ **Nouveaux tests ajoutés** :
+  - `GlpiConfigurationService` : Tests pour `isInventoryEnabled()`
+  - `LdapParameterValidator` : Tests pour validation assets génériques (`GenericAsset_ID`)
 - ✅ **Documentation explicative** :
   - Ajout commentaires dans chaque fichier de test expliquant pourquoi assets génériques non testés unitairement
   - Référence aux tests d'intégration pour couverture complète
-- ✅ **Correction PHPStan** : Import `use function Safe\json_encode;` dans `AssetCreationService.php`
 - ✅ **Stratégie de test GLPI** :
   - Méthodes générant des logs (`Toolbox::logDebug()`) non testées unitairement
   - Framework GLPI rejette les "unexpected log entries"
   - Tests d'intégration pour méthodes avec logs (création assets génériques)
-- ✅ **Statistiques** : 74 → 79 tests (+5 tests)
-- ✅ **Fichiers modifiés** :
-  - 5 fichiers de tests (ajouts commentaires + nouveaux tests)
-  - 1 fichier source (import Safe\json_encode)
-  - 1 fichier documentation (cette section)
-
-**Services avec support assets génériques** :
-- `AssetCreationService` : Format `GenericAsset_ID` → résolution via `AssetDefinition::getAssetClassName()`
-- `LdapParameterValidator` : Validation définitions d'assets génériques (✅ testée)
-- `LdapTestService` : Analyse d'impact GLPI avec table `glpi_assets_assets` (⚠️ non testée)
 
 #### **03/10/2025 - Correctifs & Améliorations UX**
 - ✅ **Workflow de Test LDAP Sécurisé** : Le filtre doit être sauvegardé avant test
-  - Refactorisation complète de `SyncFilter::handleTestRequest()` (lignes 804-838)
+  - Refactorisation complète de `SyncFilter::handleTestRequest()`
   - Données lues uniquement depuis la base de données (plus de paramètres `$_GET`)
   - Bouton POST → Lien GET avec message d'aide explicite
-  - Suppression de la gestion POST `test_ldap_filter` dans `front/syncfilter.form.php`
 - ✅ **Gestion intelligente des Field Mappings** :
   - Respect strict de la configuration utilisateur dans `LdapToInventoryConverter`
   - Nouvelle méthode `isFieldAllowed()` pour filtrage des champs LDAP
-  - Application dans 11 méthodes de conversion (hardware, network, bios, etc.)
   - Champs critiques toujours autorisés : `cn`, `name`, `displayname`, `samaccountname`
 - ✅ **Détection d'échec silencieux de l'inventaire** :
   - Vérification `$assetId = $item->getID()` après `doInventory()`
@@ -1437,58 +1780,42 @@ grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
   - Messages d'erreur explicites guidant l'utilisateur
 - ✅ **Correctif Repository AuthLdapSyncFilterRepository** :
   - Gestion correcte des itérateurs GLPI : `is_array()` → `is_iterable()`
-  - Méthodes corrigées : `getAuthLdapsForSyncFilter()` et `hasSyncFiltersForAuthLdap()`
   - Respect des conventions GLPI et cohérence avec `SyncFilterRepository`
 - ✅ **Améliorations Interface Utilisateur** :
   - Pré-sélection automatique des champs obligatoires (objet JavaScript `minimumRequiredFields`)
   - Simplification workflow de test (bouton → lien, texte d'aide)
-  - Nettoyage colonne "Actions" redondante dans `syncfilters_list.html.twig`
-- ✅ **Fichiers modifiés** : 11 fichiers (services, models, templates, repositories)
 
 #### **02/10/2025 - Sécurité : Protection XSS dans Templates Twig**
-- ✅ **Templates sécurisés** : Échappement systématique de toutes les données externes (11 corrections)
+- ✅ **Templates sécurisés** : Échappement systématique de toutes les données externes
 - ✅ **Vulnérabilité critique corrigée** : `field_mappings|raw` → `field_mappings|json_encode|raw`
 - ✅ **Contexte HTML** : Ajout `|e('html')` pour données LDAP (DN, attributs, messages erreur)
 - ✅ **Contexte JavaScript** : Ajout `|e('js')` pour chaînes insérées dans code JS inline
-- ✅ **Nettoyage** : Suppression de tous les commentaires DEBUG exposant la logique interne
-- ✅ **Fichiers modifiés** :
-  - `templates/syncfilter_form.html.twig` (9 corrections)
-  - `templates/syncfilters_list.html.twig` (2 corrections)
 - ✅ **Protection complète** : Prévention XSS sur toutes les données user-provided et LDAP
-- ✅ **Documentation** : Section "Protection XSS dans les Templates Twig" ajoutée
-- ✅ **Respect SECURITY_AUDIT.md** : Partie 2 (XSS Templates) complétée
 
 #### **02/10/2025 - Sécurité : Protection Injections LDAP (RFC 4515/4514)**
 - ✅ **Nouveau service** : `LdapFilterSanitizer` - Protection complète anti-injection LDAP
 - ✅ **Nouveau contrat** : `LdapFilterSanitizerInterface` - 4 méthodes (escape, validate DN/filter)
-- ✅ **66 tests unitaires** : `tests/LdapFilterSanitizerTest.php` - Couverture complète injections
+- ✅ **Tests unitaires complets** : Couverture complète des cas d'injection
 - ✅ **3 points de protection** :
   - Validation avant test LDAP (`front/syncfilter.form.php`)
-  - Validation avant sauvegarde BDD (`src/Models/SyncFilter.php`)
+  - Validation avant sauvegarde BDD (`src/Models/SyncFilter.php` via `SyncFilterValidationService`)
   - Validation avant recherche LDAP (`src/Services/GlpiLdapConnectionService.php`)
 - ✅ **Conformité RFC** : RFC 4515 (filtres) + RFC 4514 (Distinguished Names)
 - ✅ **Cas bloqués** : Injection parenthèses, wildcards, DN malformés, métacaractères
-- ✅ **Documentation sécurité** : `tests/SECURITY_TEST_CASES.md` avec 19 cas de test
-- ✅ Actualisation statistiques : 17 services (au lieu de 16), 10 contrats (au lieu de 9)
-- ✅ Décompte précis des fichiers : 35 fichiers src/ + 2 front/ + 1 ajax/
-- ✅ Ajout informations manquantes (repositories, providers, factory)
-- ✅ Vérification cohérence de l'architecture
 
 #### **30/09/2025 - Documentation complète + Nettoyage**
-- ✅ Analyse exhaustive de l'architecture (35 fichiers)
-- ✅ Mise à jour `advancedldap_developer_notes.md` (650+ lignes)
+- ✅ Analyse exhaustive de l'architecture
+- ✅ Mise à jour documentation développeur complète
 - ✅ Cartographie complète : modèles, services, repositories, providers, infra
-- ✅ Identification et suppression fichiers deprecated (2 fichiers)
-- ✅ Statistiques détaillées du plugin
-- ✅ Code base nettoyée : 35 fichiers PHP actifs (hors tests)
+- ✅ Identification et suppression fichiers deprecated
+- ✅ Code base nettoyée
 
-#### **Refactorisation SRP - SyncFilter (septembre 2025)**
+#### **Septembre 2025 - Refactorisation SRP - SyncFilter**
 - ✅ Extraction 3 services spécialisés (LdapFilterParser, LdapAttributeMapper, SyncFilterFormHelper)
-- ✅ Réduction SyncFilter.php : 887 → 804 lignes (-9.3%)
+- ✅ Réduction du God Object SyncFilter
 - ✅ Respect principe SRP (Single Responsibility Principle)
-- ✅ Total services : 13 → 16 services
 
-#### **Audit de Code - Architecture Optimisée (septembre 2025)**
+#### **Septembre 2025 - Audit de Code - Architecture Optimisée**
 - ✅ Élimination doublons via centralisation (LdapDataExtractor, LdapParameterValidator)
 - ✅ Architecture hybride : Support double workflow justifié
 - ✅ Standards PHP 8.2+, PSR-12, typage strict respectés
@@ -1535,10 +1862,10 @@ docker-compose up -d
 3. Tester avec le plugin Advanced LDAP
 
 #### **Données de Test Disponibles**
-- **Users** : 100+ utilisateurs avec attributs variés
-- **Computers** : 50+ ordinateurs avec serialNumber, model, etc.
-- **Printers** : 30+ imprimantes avec attributs spécifiques
-- **Network Equipment** : 20+ équipements réseau
+- **Users** : Utilisateurs avec attributs variés
+- **Computers** : Ordinateurs avec serialNumber, model, etc.
+- **Printers** : Imprimantes avec attributs spécifiques
+- **Network Equipment** : Équipements réseau
 - **Groups** : Structures organisationnelles complexes
 
 Cette infrastructure de test permet de valider tous les cas d'usage du plugin sans avoir besoin d'un serveur LDAP de production.
@@ -1547,17 +1874,23 @@ Cette infrastructure de test permet de valider tous les cas d'usage du plugin sa
 
 ### **Workflow humain / IA**
 
-  🤖 Le développement de ce plugin a été fortement assisté par un LLM (Claude Code, Anthropic).
-  #### L’IA a contribué à :
+🤖 Le développement de ce plugin a été fortement assisté par un LLM (Claude Code, Anthropic).
 
-  - la génération de l’architecture initiale (organisation fichiers, services, interfaces),
-  - la production de portions de code récurrentes ou verbeuses (CRUD, formulaires, repositories),
-  - la rédaction et la mise à jour de la documentation technique,
-  - la création de tests unitaires et de scripts de tests (relus et ajustés par le développeur).
+#### L'IA a contribué à :
 
-  #### Rôle du développeur humain
+- la génération de l'architecture initiale (organisation fichiers, services, interfaces),
+- la production de portions de code récurrentes ou verbeuses (CRUD, formulaires, repositories),
+- la rédaction et la mise à jour de la documentation technique,
+- la création de tests unitaires et de scripts de tests (relus et ajustés par le développeur).
 
-  - Supervision de l’ensemble du code métier et des choix d’architecture,
-  - Relecture, ajustement et validation des tests unitaires existants,
-  - Refactorisation et adaptation du code généré pour respecter SOLID et PSR-12,
-  - Vérification de la cohérence avec GLPI et correction des anomalies,
+#### Rôle du développeur humain
+
+- Supervision de l'ensemble du code métier et des choix d'architecture,
+- Relecture, ajustement et validation des tests unitaires existants,
+- Refactorisation et adaptation du code généré pour respecter SOLID et PSR-12,
+- Vérification de la cohérence avec GLPI et correction des anomalies,
+- Validation des principes de sécurité et de performance.
+
+---
+
+**Documentation maintenue par l'équipe du plugin Advanced LDAP**

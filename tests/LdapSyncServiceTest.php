@@ -6,6 +6,8 @@ use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
+use GlpiPlugin\Advancedldap\Services\LdapDataExtractor;
+use GlpiPlugin\Advancedldap\Services\LdapParameterValidator;
 use DbTestCase;
 
 /**
@@ -28,11 +30,17 @@ class LdapSyncServiceTest extends DbTestCase
         $this->assetCreationService = $this->createMock(AssetCreationService::class);
         $this->assetTypeClassifier = $this->createMock(AssetTypeClassifier::class);
 
+        // Create mocks for new injected dependencies (refactoring)
+        $dataExtractor = $this->createMock(LdapDataExtractor::class);
+        $paramValidator = $this->createMock(LdapParameterValidator::class);
+
         // Create service instance with mocked dependencies
         $this->ldapSyncService = new LdapSyncService(
             $this->ldapConnection,
             $this->assetCreationService,
             $this->assetTypeClassifier,
+            $dataExtractor,
+            $paramValidator
         );
     }
 

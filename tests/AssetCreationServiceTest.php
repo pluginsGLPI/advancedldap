@@ -30,7 +30,8 @@ class AssetCreationServiceTest extends DbTestCase
         $this->database = $this->createMock(DatabaseInterface::class);
 
         // Create service instance with mocked dependency
-        $this->assetCreationService = new AssetCreationService($this->database);
+        // Empty array for field_handlers since we test the base functionality
+        $this->assetCreationService = new AssetCreationService($this->database, []);
     }
 
     /**

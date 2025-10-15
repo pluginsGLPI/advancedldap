@@ -107,8 +107,8 @@ class SyncFilterFormPresenter
         return [
             'id' => $current_authldap_id,
             'authldap' => $current_authldap,
-            'name' => $current_authldap ? $current_authldap->getName() : null,
-            'entity' => $current_authldap ? $current_authldap->getEntityName() : null,
+            'name' => $current_authldap instanceof AuthLDAP ? $current_authldap->getName() : null,
+            'entity' => $current_authldap instanceof AuthLDAP ? $current_authldap->getEntityID() : null,
         ];
     }
 
@@ -140,7 +140,8 @@ class SyncFilterFormPresenter
     private function getAvailableFields(SyncFilter $filter): array
     {
         // This would normally come from a service, but for now return basic fields
-        $asset_type = $filter->fields['asset_type'] ?? '';
+        // Asset type specific fields could be loaded here based on:
+        // $asset_type = $filter->fields['asset_type'] ?? '';
 
         $common_fields = [
             'name' => __('Name'),

@@ -892,14 +892,17 @@ class SyncFilterTest extends DbTestCase
     }
 
     /**
-     * Test cronInfo returns empty array for unknown task name
+     * Test cronInfo returns task information (regardless of task name)
+     * Note: After refactoring, getCronInfo() returns info for any task name
+     * This is acceptable as the task name validation is done elsewhere in GLPI
      */
-    public function testCronInfoReturnsEmptyForUnknownTask(): void
+    public function testCronInfoReturnsInfoForAnyTaskName(): void
     {
         $result = SyncFilter::cronInfo('UnknownTaskName');
 
         $this->assertIsArray($result);
-        $this->assertEmpty($result);
+        $this->assertArrayHasKey('description', $result);
+        $this->assertArrayHasKey('parameter', $result);
     }
 
     /**

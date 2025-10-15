@@ -39,7 +39,6 @@ use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
 use Session;
 
 use function Safe\json_encode;
-use function Safe\json_decode;
 
 /**
  * Service for validating and preparing SyncFilter inputs
