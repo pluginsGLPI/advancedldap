@@ -34,6 +34,8 @@
 namespace GlpiPlugin\Advancedldap\Models;
 
 use GlpiPlugin\Advancedldap\Services\LdapSyncService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterValidationService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterCronService;
 use Exception;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
@@ -312,119 +314,22 @@ class SyncFilter extends CommonDBTM
         ]);
     }
 
-    /**
-     * Validate LDAP inputs (Base DN and filter) before saving
-     *
-     * @param array<string, mixed> $input Input data
-     * @return array<string, mixed>|false Validated input or false on validation error
-     */
-    private function validateLdapInputs(array $input)
-    {
-        $container = Bootstrap::getContainer();
-        $sanitizer = $container->get(LdapFilterSanitizerInterface::class);
-
-        // Validate Base DN if present
-        if (isset($input['base_dn']) && !empty($input['base_dn']) && !$sanitizer->isValidDN($input['base_dn'])) {
-            Session::addMessageAfterRedirect(
-                __('Invalid LDAP Base DN syntax. Please check the format (example: ou=users,dc=example,dc=com)', 'advancedldap'),
-                false,
-                ERROR
-            );
-            return false;
-        }
-
-        // Validate LDAP filter if present
-        if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
-            $validatedFilter = $sanitizer->sanitizeFilter($input['ldap_filter']);
-            if ($validatedFilter === null) {
-                Session::addMessageAfterRedirect(
-                    __('Invalid LDAP filter syntax. Please check your filter format (example: (objectClass=person))', 'advancedldap'),
-                    false,
-                    ERROR
-                );
-                return false;
-            }
-            // Replace with validated filter
-            $input['ldap_filter'] = $validatedFilter;
-        }
-
-        return $input;
-    }
-
-    /**
-     * Prepare field mappings from input data
-     * Delegates to LdapFilterParser and LdapAttributeMapper services
-     *
-     * @param array<string, mixed> $input Input data
-     * @return array<string, mixed> Prepared input with field_mappings
-     */
-    private function prepareMappingsInput(array $input): array
-    {
-        // Handle field_mappings array conversion
-        if (isset($input['field_mappings']) && is_array($input['field_mappings'])) {
-            $input['field_mappings'] = json_encode($input['field_mappings']);
-        }
-
-        // Get services from container
-        $container = Bootstrap::getContainer();
-        $filter_parser = $container->get(LdapFilterParserInterface::class);
-        $attribute_mapper = $container->get(LdapAttributeMapperInterface::class);
-
-        // Create intelligent field mapping from asset_fields using LDAP filter analysis
-        if (isset($input['asset_fields']) && is_array($input['asset_fields']) && !empty($input['asset_fields'])) {
-            $field_mappings = [];
-
-            // Parse LDAP filter to get available attributes
-            $available_attributes = [];
-            if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
-                $available_attributes = $filter_parser->parseFilterAttributes($input['ldap_filter']);
-            }
-
-            // Map each selected asset field to corresponding LDAP attribute
-            foreach ($input['asset_fields'] as $glpi_field) {
-                if (!empty($glpi_field)) {
-                    $ldap_attribute = $attribute_mapper->findMatchingAttribute($glpi_field, $available_attributes);
-                    $field_mappings[$glpi_field] = $ldap_attribute;
-                }
-            }
-
-            if ($field_mappings !== []) {
-                $input['field_mappings'] = json_encode($field_mappings);
-            }
-        }
-
-        // Backward compatibility: Handle single asset_field (legacy)
-        elseif (isset($input['asset_field']) && !empty($input['asset_field']) && empty($input['field_mappings'])) {
-            $ldap_attribute = $input['asset_field']; // Fallback to same name
-
-            // If we have an LDAP filter, parse it to find the best matching attribute
-            if (isset($input['ldap_filter']) && !empty($input['ldap_filter'])) {
-                $available_attributes = $filter_parser->parseFilterAttributes($input['ldap_filter']);
-                $ldap_attribute = $attribute_mapper->findMatchingAttribute($input['asset_field'], $available_attributes);
-            }
-
-            $field_mappings = [$input['asset_field'] => $ldap_attribute];
-            $input['field_mappings'] = json_encode($field_mappings);
-        }
-
-        return $input;
-    }
+    // Methods validateLdapInputs() and prepareMappingsInput() have been moved to SyncFilterValidationService
+    // to respect Single Responsibility Principle
 
     /**
      * Prepare input data for add operation
+     * Delegates to SyncFilterValidationService
      *
      * @param array<string, mixed> $input Input data
      * @return array<string, mixed>|false Prepared input or false on error
      */
     public function prepareInputForAdd($input)
     {
-        // Validate LDAP inputs before saving
-        $input = $this->validateLdapInputs($input);
-        if ($input === false) {
-            return false;
-        }
+        $container = Bootstrap::getContainer();
+        $validator = $container->get(SyncFilterValidationService::class);
 
-        return $this->prepareMappingsInput($input);
+        return $validator->validateAndPrepare($input);
     }
 
 
@@ -470,19 +375,17 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Prepare input data for update operation
+     * Delegates to SyncFilterValidationService
      *
      * @param array<string, mixed> $input Input data
      * @return array<string, mixed>|false Prepared input or false on error
      */
     public function prepareInputForUpdate($input)
     {
-        // Validate LDAP inputs before saving
-        $input = $this->validateLdapInputs($input);
-        if ($input === false) {
-            return false;
-        }
+        $container = Bootstrap::getContainer();
+        $validator = $container->get(SyncFilterValidationService::class);
 
-        return $this->prepareMappingsInput($input);
+        return $validator->validateAndPrepare($input);
     }
 
     /**
@@ -993,204 +896,33 @@ class SyncFilter extends CommonDBTM
 
     /**
      * Provide information about cron tasks
+     * Delegates to SyncFilterCronService
      *
      * @param string $name Task name
      * @return array<string, string> Task information
      */
     public static function cronInfo(string $name): array
     {
-        if ($name === self::CRON_TASK_NAME) {
-            return [
-                'description' => __('Automatically synchronize active LDAP filters with GLPI assets', 'advancedldap'),
-                'parameter'   => __('Maximum number of filters to process per execution (0 = unlimited)', 'advancedldap'),
-            ];
-        }
-        return [];
+        return SyncFilterCronService::getCronInfo($name);
     }
 
     /**
      * Execute automatic LDAP synchronization cron task
+     * Delegates to SyncFilterCronService
      *
      * @param CronTask|null $task CronTask instance for logging (null in tests)
      * @return int 0 = nothing to do, 1 = success, -1 = need to run again
      */
     public static function cronSyncLdapFilters(?CronTask $task = null): int
     {
-        // Get max filters to process from task parameter (0 = unlimited)
-        $max_filters = 0;
-        if ($task !== null && isset($task->fields['param'])) {
-            $max_filters = (int) $task->fields['param'];
-        }
-
-        // Get container and required services
         $container = Bootstrap::getContainer();
-        $repository = $container->get(SyncFilterRepositoryInterface::class);
-        $sync_service = $container->get(LdapSyncService::class);
+        $cronService = $container->get(SyncFilterCronService::class);
 
-        // Get all active sync filters with their AuthLDAP servers
-        $filters_to_sync = self::getAllActiveSyncFiltersWithAuthLdap($repository);
-
-        if ($filters_to_sync === []) {
-            if ($task !== null) {
-                $task->log(__('No active LDAP sync filters found', 'advancedldap'));
-            }
-            return 0; // Nothing to do
-        }
-
-        $total_filters = count($filters_to_sync);
-        $processed_count = 0;
-        $success_count = 0;
-        $error_count = 0;
-        $total_assets_synced = 0;
-
-        if ($task !== null) {
-            $msg = sprintf(__('Found %d active filter(s) to synchronize', 'advancedldap'), $total_filters);
-            $task->log($msg);
-        }
-
-        // Process each filter (limit by max_filters if set)
-        foreach ($filters_to_sync as $filter_data) {
-            // Check if we've reached the max limit
-            if ($max_filters > 0 && $processed_count >= $max_filters) {
-                if ($task !== null) {
-                    $msg = sprintf(__('Reached maximum limit of %d filters per execution', 'advancedldap'), $max_filters);
-                    $task->log($msg);
-                }
-                break;
-            }
-
-            $syncfilter_id = (int) $filter_data['syncfilter_id'];
-            $authldap_id = (int) $filter_data['authldap_id'];
-            $filter_name = $filter_data['name'] ?? "ID {$syncfilter_id}";
-
-            $processed_count++;
-
-            try {
-                // Synchronize using the existing LdapSyncService
-                $sync_results = $sync_service->synchronizeFromFilter($syncfilter_id, $authldap_id);
-
-                if ($sync_results['success']) {
-                    $success_count++;
-                    $assets_created = $sync_results['stats']['created'] ?? 0;
-                    $assets_updated = $sync_results['stats']['updated'] ?? 0;
-                    $assets_errors = $sync_results['stats']['errors'] ?? 0;
-                    $total_assets_synced += ($assets_created + $assets_updated);
-
-                    $msg = sprintf(
-                        __('Filter "%s": %d created, %d updated, %d errors', 'advancedldap'),
-                        mb_substr($filter_name, 0, 50),
-                        $assets_created,
-                        $assets_updated,
-                        $assets_errors
-                    );
-
-                    if ($task !== null) {
-                        $task->log($msg);
-                    }
-                } else {
-                    $error_count++;
-                    $error_msg = $sync_results['error'] ?? __('Unknown error', 'advancedldap');
-                    $msg = sprintf(
-                        __('Filter "%s": Error - %s', 'advancedldap'),
-                        mb_substr($filter_name, 0, 50),
-                        mb_substr($error_msg, 0, 100)
-                    );
-
-                    if ($task !== null) {
-                        $task->log($msg);
-                    }
-                }
-            } catch (Exception $e) {
-                $error_count++;
-                $msg = sprintf(
-                    __('Filter "%s": Exception - %s', 'advancedldap'),
-                    mb_substr($filter_name, 0, 50),
-                    mb_substr($e->getMessage(), 0, 100)
-                );
-
-                if ($task !== null) {
-                    $task->log($msg);
-                }
-            }
-        }
-
-        // Log final summary
-        $summary = sprintf(
-            __('Processed %d/%d filters: %d success, %d errors. Total assets: %d', 'advancedldap'),
-            $processed_count,
-            $total_filters,
-            $success_count,
-            $error_count,
-            $total_assets_synced
-        );
-
-        if ($task !== null) {
-            $task->log($summary);
-            $task->setVolume($total_assets_synced);
-        }
-
-        // Return codes:
-        // -1 = need to run again (more filters to process)
-        // 0 = nothing to do
-        // 1 = success
-        if ($max_filters > 0 && $processed_count < $total_filters) {
-            // More filters to process in next run
-            return -1;
-        }
-
-        return $success_count > 0 ? 1 : 0;
+        return $cronService->executeSyncTask($task);
     }
 
-    /**
-     * Get all active sync filters with their associated AuthLDAP servers
-     * Uses existing repository methods to avoid SQL duplication
-     *
-     * @param SyncFilterRepositoryInterface $repository Repository instance
-     * @return array<int, array<string, mixed>> Array of filter data
-     */
-    private static function getAllActiveSyncFiltersWithAuthLdap(SyncFilterRepositoryInterface $repository): array
-    {
-        // Get all active sync filters from repository
-        $active_filters = $repository->getActiveSyncFilters();
-
-        if ($active_filters === []) {
-            return [];
-        }
-
-        // Get active AuthLDAP servers
-        $active_authldap_servers = $repository->getActiveAuthLdapServers();
-        $active_authldap_ids = array_column($active_authldap_servers, 'id');
-
-        $results = [];
-
-        // For each active filter, get its associated AuthLDAP servers
-        foreach ($active_filters as $filter) {
-            $syncfilter_id = (int) $filter['id'];
-
-            // Get associated AuthLDAP IDs for this filter (already filtered by is_active)
-            $authldap_ids = $repository->getAssociatedAuthLdaps($syncfilter_id);
-
-            if ($authldap_ids === []) {
-                continue;
-            }
-
-            // Only include filters that have at least one active AuthLDAP server
-            foreach ($authldap_ids as $authldap_id) {
-                if (in_array($authldap_id, $active_authldap_ids, true)) {
-                    $results[] = [
-                        'syncfilter_id' => $syncfilter_id,
-                        'name' => $filter['name'] ?? '',
-                        'base_dn' => $filter['base_dn'] ?? '',
-                        'ldap_filter' => $filter['ldap_filter'] ?? '',
-                        'asset_type' => $filter['asset_type'] ?? '',
-                        'authldap_id' => $authldap_id,
-                    ];
-                }
-            }
-        }
-
-        return $results;
-    }
+    // Method getAllActiveSyncFiltersWithAuthLdap() has been moved to SyncFilterCronService
+    // to respect Single Responsibility Principle
 
 }
 

@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -55,22 +55,26 @@ class LdapSyncService
     private LdapParameterValidator $parameter_validator;
 
     /**
+     * Constructor with full dependency injection
+     *
      * @param LdapConnectionInterface $ldap_connection
      * @param AssetCreationService $asset_creation_service
      * @param AssetTypeClassifier $asset_type_classifier
-     * @param LdapParameterValidator|null $parameter_validator
+     * @param LdapDataExtractor $data_extractor
+     * @param LdapParameterValidator $parameter_validator
      */
     public function __construct(
         LdapConnectionInterface $ldap_connection,
         AssetCreationService $asset_creation_service,
         AssetTypeClassifier $asset_type_classifier,
-        ?LdapParameterValidator $parameter_validator = null
+        LdapDataExtractor $data_extractor,
+        LdapParameterValidator $parameter_validator
     ) {
         $this->ldap_connection = $ldap_connection;
         $this->asset_creation_service = $asset_creation_service;
         $this->asset_type_classifier = $asset_type_classifier;
-        $this->data_extractor = new LdapDataExtractor();
-        $this->parameter_validator = $parameter_validator ?? new LdapParameterValidator();
+        $this->data_extractor = $data_extractor;
+        $this->parameter_validator = $parameter_validator;
     }
 
     /**

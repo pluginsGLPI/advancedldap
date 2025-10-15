@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -37,6 +37,7 @@ use CommonDBTM;
 use Exception;
 use Glpi\Asset\AssetDefinition;
 use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldHandlerInterface;
 use Location;
 use Session;
 
@@ -45,17 +46,34 @@ use Session;
  *
  * Handles the creation and updating of GLPI assets from synchronized LDAP data.
  * Supports various asset types (Computer, Printer, NetworkEquipment, User, etc.)
+ * Uses Strategy Pattern for asset-specific field handling
  */
 class AssetCreationService
 {
     private DatabaseInterface $database;
 
+    /** @var AssetFieldHandlerInterface[] */
+    private array $field_handlers = [];
+
     /**
      * @param DatabaseInterface $database
+     * @param array<AssetFieldHandlerInterface> $field_handlers Optional field handlers
      */
-    public function __construct(DatabaseInterface $database)
+    public function __construct(DatabaseInterface $database, array $field_handlers = [])
     {
         $this->database = $database;
+        $this->field_handlers = $field_handlers;
+    }
+
+    /**
+     * Add a field handler for a specific asset type
+     *
+     * @param AssetFieldHandlerInterface $handler
+     * @return void
+     */
+    public function addFieldHandler(AssetFieldHandlerInterface $handler): void
+    {
+        $this->field_handlers[] = $handler;
     }
 
     /**
@@ -164,6 +182,7 @@ class AssetCreationService
 
     /**
      * Handle special fields based on asset type
+     * Uses Strategy Pattern for extensibility
      *
      * @param array<string, mixed> $data Asset data
      * @param string $asset_type Asset type
@@ -181,101 +200,19 @@ class AssetCreationService
             $data['entities_id'] = Session::getActiveEntity();
         }
 
-        // Asset type specific handling
-        switch ($asset_type) {
-            case 'Computer':
-                $data = $this->handleComputerFields($data);
-                break;
-
-            case 'Printer':
-                $data = $this->handlePrinterFields($data);
-                break;
-
-            case 'NetworkEquipment':
-                $data = $this->handleNetworkEquipmentFields($data);
-                break;
-
-            case 'User':
-                $data = $this->handleUserFields($data);
-                break;
+        // Asset type specific handling using Strategy Pattern
+        foreach ($this->field_handlers as $handler) {
+            if ($handler->supports($asset_type)) {
+                return $handler->handle($data);
+            }
         }
 
+        // No specific handler found, return data as-is
         return $data;
     }
 
-    /**
-     * Handle Computer-specific fields
-     *
-     * @param array<string, mixed> $data Asset data
-     * @return array<string, mixed> Modified data
-     */
-    private function handleComputerFields(array $data): array
-    {
-        // Set default computer type if not specified
-        if (!isset($data['computertypes_id'])) {
-            $data['computertypes_id'] = 0; // Will be handled by GLPI defaults
-        }
-
-        // Set default state
-        if (!isset($data['states_id'])) {
-            $data['states_id'] = 0; // Default state
-        }
-
-        return $data;
-    }
-
-    /**
-     * Handle Printer-specific fields
-     *
-     * @param array<string, mixed> $data Asset data
-     * @return array<string, mixed> Modified data
-     */
-    private function handlePrinterFields(array $data): array
-    {
-        // Set default printer type if not specified
-        if (!isset($data['printertypes_id'])) {
-            $data['printertypes_id'] = 0;
-        }
-
-        return $data;
-    }
-
-    /**
-     * Handle NetworkEquipment-specific fields
-     *
-     * @param array<string, mixed> $data Asset data
-     * @return array<string, mixed> Modified data
-     */
-    private function handleNetworkEquipmentFields(array $data): array
-    {
-        // Set default network equipment type if not specified
-        if (!isset($data['networkequipmenttypes_id'])) {
-            $data['networkequipmenttypes_id'] = 0;
-        }
-
-        return $data;
-    }
-
-    /**
-     * Handle User-specific fields
-     *
-     * @param array<string, mixed> $data Asset data
-     * @return array<string, mixed> Modified data
-     */
-    private function handleUserFields(array $data): array
-    {
-        // Handle email field (GLPI uses different field name)
-        if (isset($data['emails']) && !isset($data['_useremails'])) {
-            $data['_useremails'] = [$data['emails']];
-        }
-
-        // Set default user category if not specified
-        if (!isset($data['usercategories_id'])) {
-            $data['usercategories_id'] = 0;
-        }
-
-        return $data;
-    }
+    // Asset-specific field handling methods removed in favor of Strategy Pattern
+    // See AssetFieldHandlerInterface implementations in Services/AssetFieldHandlers/
 
     /**
      * Set default values for required fields

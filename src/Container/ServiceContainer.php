@@ -25,7 +25,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
  * @license   MIT https://opensource.org/licenses/mit-license.php
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
@@ -48,18 +48,26 @@ use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
+use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\ComputerFieldHandler;
+use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\PrinterFieldHandler;
+use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\NetworkEquipmentFieldHandler;
+use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\UserFieldHandler;
 use GlpiPlugin\Advancedldap\Services\GlpiConfigurationService;
 use GlpiPlugin\Advancedldap\Services\GlpiDatabaseService;
 use GlpiPlugin\Advancedldap\Services\GlpiLdapConnectionService;
 use GlpiPlugin\Advancedldap\Services\LdapFilterParser;
 use GlpiPlugin\Advancedldap\Services\LdapAttributeMapper;
 use GlpiPlugin\Advancedldap\Services\LdapFilterSanitizer;
+use GlpiPlugin\Advancedldap\Services\LdapDataExtractor;
+use GlpiPlugin\Advancedldap\Services\LdapParameterValidator;
 use GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper;
 use GlpiPlugin\Advancedldap\Services\LdapSyncService;
 use GlpiPlugin\Advancedldap\Services\LdapTestService;
 use GlpiPlugin\Advancedldap\Services\LdapToInventoryConverter;
 use GlpiPlugin\Advancedldap\Services\LdapInventoryService;
 use GlpiPlugin\Advancedldap\Services\SyncFilterService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterValidationService;
+use GlpiPlugin\Advancedldap\Services\SyncFilterCronService;
 use GlpiPlugin\Advancedldap\Repositories\SyncFilterRepository;
 use GlpiPlugin\Advancedldap\Repositories\AuthLdapSyncFilterRepository;
 
@@ -197,6 +205,19 @@ class ServiceContainer
             $container->get(AuthLdapSyncFilterRepositoryInterface::class),
         ));
 
+        // SyncFilter validation service
+        $this->register(SyncFilterValidationService::class, fn(ServiceContainer $container) => new SyncFilterValidationService(
+            $container->get(LdapFilterSanitizerInterface::class),
+            $container->get(LdapFilterParserInterface::class),
+            $container->get(LdapAttributeMapperInterface::class)
+        ));
+
+        // SyncFilter cron service
+        $this->register(SyncFilterCronService::class, fn(ServiceContainer $container) => new SyncFilterCronService(
+            $container->get(SyncFilterRepositoryInterface::class),
+            $container->get(LdapSyncService::class)
+        ));
+
         // SyncFilter form helper service
         $this->register(SyncFilterFormHelperInterface::class, fn(ServiceContainer $container) => new SyncFilterFormHelper(
             $container->get(SyncFilterRepositoryInterface::class),
@@ -208,9 +229,16 @@ class ServiceContainer
             $container->get(ConfigurationInterface::class)
         ));
 
-        // Asset creation service
+        // Asset creation service with Strategy Pattern handlers
         $this->register(AssetCreationService::class, fn(ServiceContainer $container) => new AssetCreationService(
             $container->get(DatabaseInterface::class),
+            [
+                // Register all asset field handlers
+                new ComputerFieldHandler(),
+                new PrinterFieldHandler(),
+                new NetworkEquipmentFieldHandler(),
+                new UserFieldHandler(),
+            ]
         ));
 
         // LDAP to inventory converter service
@@ -221,12 +249,18 @@ class ServiceContainer
             $container->get(LdapToInventoryConverter::class),
         ));
 
-        // LDAP synchronization service
+        // LDAP support services (now properly registered)
+        $this->register(LdapDataExtractor::class, fn() => new LdapDataExtractor());
+        $this->register(LdapParameterValidator::class, fn() => new LdapParameterValidator());
+
+        // LDAP synchronization service with full dependency injection
         $this->register(LdapSyncService::class, function (ServiceContainer $container) {
             $service = new LdapSyncService(
                 $container->get(LdapConnectionInterface::class),
                 $container->get(AssetCreationService::class),
                 $container->get(AssetTypeClassifier::class),
+                $container->get(LdapDataExtractor::class),
+                $container->get(LdapParameterValidator::class)
             );
 
             // Only inject the inventory service if GLPI inventory is enabled
