@@ -1,6 +1,39 @@
+# Test data
+*.ldif
+*.sql
+
+# Dependencies
+vendor/
+
+# Build & Cache
+var/
+*.cache
+.php-cs-fixer.cache
+.phpunit.result.cache
+composer.lock
 dist/
 node_modules/
 vendor/
 .gh_token
 *.min.*
-var
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# AI
+CLAUDE.md
+.claude/
+
+#misc
+ldap-notes.md

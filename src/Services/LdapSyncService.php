@@ -1,0 +1,340 @@
+<?php
+
+/**
+ * -------------------------------------------------------------------------
+ * advancedldap plugin for GLPI
+ * -------------------------------------------------------------------------
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * -------------------------------------------------------------------------
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
+ * @license   MIT https://opensource.org/licenses/mit-license.php
+ * @link      https://github.com/pluginsGLPI/advancedldap
+ * -------------------------------------------------------------------------
+ */
+
+namespace GlpiPlugin\Advancedldap\Services;
+
+use AuthLDAP;
+use Exception;
+use GlpiPlugin\Advancedldap\Contracts\LdapConnectionInterface;
+use GlpiPlugin\Advancedldap\Models\SyncFilter;
+use Toolbox;
+
+/**
+ * LDAP synchronization service for production use
+ *
+ * This service handles the actual synchronization of LDAP data to GLPI assets.
+ * Separated from LdapTestService which is only for testing and preview.
+ */
+class LdapSyncService
+{
+    private LdapConnectionInterface $ldap_connection;
+    private AssetCreationService $asset_creation_service;
+    private AssetTypeClassifier $asset_type_classifier;
+    private ?LdapInventoryService $ldap_inventory_service = null;
+    private LdapDataExtractor $data_extractor;
+    private LdapParameterValidator $parameter_validator;
+
+    /**
+     * Constructor with full dependency injection
+     *
+     * @param LdapConnectionInterface $ldap_connection
+     * @param AssetCreationService $asset_creation_service
+     * @param AssetTypeClassifier $asset_type_classifier
+     * @param LdapDataExtractor $data_extractor
+     * @param LdapParameterValidator $parameter_validator
+     */
+    public function __construct(
+        LdapConnectionInterface $ldap_connection,
+        AssetCreationService $asset_creation_service,
+        AssetTypeClassifier $asset_type_classifier,
+        LdapDataExtractor $data_extractor,
+        LdapParameterValidator $parameter_validator
+    ) {
+        $this->ldap_connection = $ldap_connection;
+        $this->asset_creation_service = $asset_creation_service;
+        $this->asset_type_classifier = $asset_type_classifier;
+        $this->data_extractor = $data_extractor;
+        $this->parameter_validator = $parameter_validator;
+    }
+
+    /**
+     * Set the LDAP inventory service (optional dependency)
+     *
+     * @param LdapInventoryService $service
+     * @return void
+     */
+    public function setLdapInventoryService(LdapInventoryService $service): void
+    {
+        $this->ldap_inventory_service = $service;
+    }
+
+    /**
+     * Synchronize LDAP data based on a sync filter
+     *
+     * @param int $syncfilter_id SyncFilter ID
+     * @param int $authldap_id AuthLDAP ID
+     * @return array<string, mixed> Synchronization results
+     */
+    public function synchronizeFromFilter(int $syncfilter_id, int $authldap_id): array
+    {
+        $results = [
+            'success' => false,
+            'error' => null,
+            'stats' => [
+                'processed' => 0,
+                'created' => 0,
+                'updated' => 0,
+                'errors' => 0,
+            ],
+            'details' => [],
+        ];
+
+        try {
+            // Load and validate sync filter
+            $sync_filter = new SyncFilter();
+            if (!$sync_filter->getFromDB($syncfilter_id)) {
+                $results['error'] = __('Sync filter not found', 'advancedldap');
+                return $results;
+            }
+
+            // Validate AuthLDAP configuration
+            $authldap = new AuthLDAP();
+            if (!$authldap->getFromDB($authldap_id)) {
+                $results['error'] = __('AuthLDAP configuration not found', 'advancedldap');
+                return $results;
+            }
+
+            // Validate sync filter configuration
+            $validation_error = $this->validateSyncFilter($sync_filter);
+            if ($validation_error) {
+                $results['error'] = $validation_error;
+                return $results;
+            }
+
+            // Get LDAP entries
+            $ldap_entries = $this->fetchLdapEntries(
+                $authldap_id,
+                $sync_filter->getField('base_dn'),
+                $sync_filter->getField('ldap_filter'),
+            );
+
+            if (isset($ldap_entries['error'])) {
+                $results['error'] = $ldap_entries['error'];
+                return $results;
+            }
+
+            // Process each LDAP entry
+            $field_mappings = $sync_filter->getFieldMappings();
+            $asset_type = $sync_filter->getField('asset_type');
+
+            // Determine synchronization method based on asset type
+            $sync_method = $this->asset_type_classifier->getSyncMethod($asset_type);
+
+            // Handle LDAP entries array properly (skip count and numeric indices)
+            $entries = $ldap_entries['entries'];
+            $entry_count = $entries['count'] ?? 0;
+
+            // Log synchronization start
+            Toolbox::logDebug("LdapSyncService: Starting synchronization of $entry_count entries");
+            $start_time = microtime(true);
+
+            for ($i = 0; $i < $entry_count; $i++) {
+                if (!isset($entries[$i]) || !is_array($entries[$i])) {
+                    continue;
+                }
+
+                $ldap_entry = $entries[$i];
+                $results['stats']['processed']++;
+
+                $entry_result = $this->processSingleEntry(
+                    $ldap_entry,
+                    $asset_type,
+                    $field_mappings,
+                    $sync_method,
+                );
+
+                if ($entry_result['success']) {
+                    if ($entry_result['action'] === 'created') {
+                        $results['stats']['created']++;
+                    } else {
+                        $results['stats']['updated']++;
+                    }
+                } else {
+                    $results['stats']['errors']++;
+                }
+
+                $results['details'][] = $entry_result;
+
+                // Log progress every 50 entries
+                if (($i + 1) % 50 === 0 || ($i + 1) === $entry_count) {
+                    $processed = $i + 1;
+                    $created = $results['stats']['created'];
+                    $updated = $results['stats']['updated'];
+                    $errors = $results['stats']['errors'];
+                    Toolbox::logDebug("LdapSyncService: Progress: $processed/$entry_count entries (created: $created, updated: $updated, errors: $errors)");
+                }
+            }
+
+            // Log synchronization completion
+            $elapsed_time = round(microtime(true) - $start_time, 2);
+            $created = $results['stats']['created'];
+            $updated = $results['stats']['updated'];
+            $errors = $results['stats']['errors'];
+            Toolbox::logDebug("LdapSyncService: Synchronization completed in {$elapsed_time}s - $entry_count entries (created: $created, updated: $updated, errors: $errors)");
+
+            $results['success'] = true;
+
+        } catch (Exception $e) {
+            $results['error'] = sprintf(__('Synchronization error: %s', 'advancedldap'), $e->getMessage());
+        }
+
+        return $results;
+    }
+
+    /**
+     * Validate sync filter configuration
+     *
+     * @param SyncFilter $sync_filter
+     * @return string|null Error message or null if valid
+     */
+    private function validateSyncFilter(SyncFilter $sync_filter): ?string
+    {
+        return $this->parameter_validator->validateSyncFilter($sync_filter);
+    }
+
+    /**
+     * Fetch entries from LDAP
+     *
+     * @param int $authldap_id AuthLDAP ID
+     * @param string $base_dn Base DN
+     * @param string $filter LDAP filter
+     * @return array<string, mixed> LDAP entries or error
+     */
+    private function fetchLdapEntries(int $authldap_id, string $base_dn, string $filter): array
+    {
+        return $this->ldap_connection->searchWithErrorHandling($authldap_id, $base_dn, $filter);
+    }
+
+    /**
+     * Process a single LDAP entry
+     *
+     * @param array<string, mixed> $ldap_entry LDAP entry data
+     * @param string $asset_type Asset type class name
+     * @param array<string, string> $field_mappings Field mappings (GLPI field => LDAP attribute)
+     * @param string $sync_method Synchronization method ('inventory' or 'traditional')
+     * @return array<string, mixed> Processing result
+     */
+    private function processSingleEntry(array $ldap_entry, string $asset_type, array $field_mappings, string $sync_method): array
+    {
+        $result = [
+            'success' => false,
+            'action' => null,
+            'asset_id' => null,
+            'asset_name' => '',
+            'dn' => $ldap_entry['dn'] ?? '',
+            'error' => null,
+        ];
+
+        try {
+            // Extract mapped data from LDAP entry
+            $asset_data = $this->extractAssetData($ldap_entry, $field_mappings);
+
+            if ($asset_data === []) {
+                $result['error'] = __('No valid data extracted from LDAP entry', 'advancedldap');
+                return $result;
+            }
+
+            $result['asset_name'] = $asset_data['name'] ?? '';
+
+            // Route to appropriate synchronization method
+            if ($sync_method === 'inventory') {
+                $creation_result = $this->processInventoryableAsset($asset_type, $asset_data, $ldap_entry, $field_mappings);
+            } else {
+                $creation_result = $this->processTraditionalAsset($asset_type, $asset_data);
+            }
+
+            $result['success'] = $creation_result['success'];
+            $result['action'] = $creation_result['action'];
+            $result['asset_id'] = $creation_result['asset_id'];
+            $result['error'] = $creation_result['error'];
+
+        } catch (Exception $e) {
+            $result['error'] = sprintf(__('Error processing entry: %s', 'advancedldap'), $e->getMessage());
+        }
+
+        return $result;
+    }
+
+    /**
+     * Extract asset data from LDAP entry using field mappings
+     *
+     * @param array<string, mixed> $ldap_entry LDAP entry
+     * @param array<string, string> $field_mappings Field mappings (GLPI field => LDAP attribute)
+     * @return array<string, mixed> Extracted asset data
+     */
+    private function extractAssetData(array $ldap_entry, array $field_mappings): array
+    {
+        return $this->data_extractor->extractAssetData($ldap_entry, $field_mappings);
+    }
+
+    /**
+     * Process inventoriable asset using new inventory workflow
+     *
+     * @param string $asset_type Asset type class name
+     * @param array<string, mixed> $asset_data Extracted asset data
+     * @param array<string, mixed> $ldap_entry Original LDAP entry
+     * @param array<string, string> $field_mappings Field mappings from sync filter
+     * @return array<string, mixed> Processing result
+     */
+    private function processInventoryableAsset(string $asset_type, array $asset_data, array $ldap_entry, array $field_mappings): array
+    {
+        // Use inventory workflow if service is available
+        if ($this->ldap_inventory_service !== null) {
+            // Pass field mappings to respect user configuration
+            return $this->ldap_inventory_service->syncInventoriableAsset(
+                $ldap_entry,
+                $asset_type,
+                $field_mappings,
+            );
+        }
+
+        // Fallback to traditional method if inventory service not available
+        return $this->processTraditionalAsset($asset_type, $asset_data);
+    }
+
+    /**
+     * Process asset using traditional GLPI workflow
+     *
+     * @param string $asset_type Asset type class name
+     * @param array<string, mixed> $asset_data Extracted asset data
+     * @return array<string, mixed> Processing result
+     */
+    private function processTraditionalAsset(string $asset_type, array $asset_data): array
+    {
+        return $this->asset_creation_service->createOrUpdateAsset(
+            $asset_type,
+            $asset_data,
+        );
+    }
+
+}

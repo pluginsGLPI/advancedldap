@@ -1,19 +1,16 @@
 <root>
-   <name>advancedldap</name>
+   <name>Advanced LDAP</name>
    <key>advancedldap</key>
-   <!-- stable, beta, development, alpha, ... -->
    <state>stable</state>
    <logo>https://raw.githubusercontent.com/pluginsGLPI/advancedldap/main/advancedldap.png</logo>
    <description>
       <short>
-         <!-- Add as many lang tag you want -->
-         <en>advancedldap GLPI plugin</en>
-         <fr>Plugin GLPI advancedldap</fr>
+         <en>Advanced LDAP synchronization options for GLPI</en>
+         <fr>Options de synchronisation LDAP avancées pour GLPI</fr>
       </short>
       <long>
-         <!-- Add as many lang tag you want -->
-         <en>A long description for advancedldap GLPI plugin.</en>
-         <fr>Une description longue pour le plugin GLPI advancedldap.</fr>
+         <en>This plugin extends GLPI's native LDAP authentication by adding advanced synchronization options. It adds a dedicated tab in AuthLDAP configuration to manage additional LDAP synchronization parameters.</en>
+         <fr>Ce plugin étend l'authentification LDAP native de GLPI en ajoutant des options de synchronisation avancées. Il ajoute un onglet dédié dans la configuration AuthLDAP pour gérer des paramètres de synchronisation LDAP supplémentaires.</fr>
       </long>
    </description>
    <homepage>https://github.com/pluginsGLPI/advancedldap</homepage>
@@ -21,35 +18,34 @@
    <issues>https://github.com/pluginsGLPI/advancedldap/issues</issues>
    <readme>https://github.com/pluginsGLPI/advancedldap/blob/main/README.md</readme>
    <authors>
-      <!-- Add as many author tag you want -->
       <author>Teclib'</author>
    </authors>
    <versions>
-      <!-- Add as many version tag you want -->
       <version>
          <num>0.0.1</num>
-         <!-- Add as many compatibility tag you want -->
          <compatibility>~11.0.0</compatibility>
       </version>
    </versions>
    <langs>
-      <!-- Add as many lang tag you want -->
       <lang>en_GB</lang>
       <lang>fr_FR</lang>
    </langs>
-   <license>MIT</license>
-   <!--tags>
+   <license>GPL v2+</license>
+   <tags>
       <en>
-         <tag>One tag</tag>
-         <tag>Another tag</tag>
+         <tag>ldap</tag>
+         <tag>authentication</tag>
+         <tag>synchronization</tag>
       </en>
       <fr>
-         <tag>Un tag</tag>
-         <tag>Un autre tag</tag>
+         <tag>ldap</tag>
+         <tag>authentification</tag>
+         <tag>synchronisation</tag>
       </fr>
-   </tags-->
-   <!--screenshots>
-      <screenshot>https://github.com/pluginsGLPI/advancedldap/raw/main/screenshot.png</screenshot>
-      <screenshot>https://github.com/pluginsGLPI/advancedldap/raw/main/screenshot2.png</screenshot>
-   </screenshots-->
+   </tags>
+   <!-- Uncomment when screenshots are available
+   <screenshots>
+      <screenshot>https://raw.githubusercontent.com/pluginsGLPI/advancedldap/main/misc/screenshots/authldap_tab.png</screenshot>
+   </screenshots>
+   -->
 </root>

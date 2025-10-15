@@ -1,0 +1,57 @@
+{#
+ # -------------------------------------------------------------------------
+ # advancedldap plugin for GLPI
+ # -------------------------------------------------------------------------
+ #
+ # MIT License
+ #
+ # Permission is hereby granted, free of charge, to any person obtaining a copy
+ # of this software and associated documentation files (the "Software"), to deal
+ # in the Software without restriction, including without limitation the rights
+ # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ # copies of the Software, and to permit persons to whom the Software is
+ # furnished to do so, subject to the following conditions:
+ #
+ # The above copyright notice and this permission notice shall be included in all
+ # copies or substantial portions of the Software.
+ #
+ # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ # SOFTWARE.
+ # -------------------------------------------------------------------------
+ # @copyright Copyright (C) 2025 by the advancedldap plugin team.
+ # @license   MIT https://opensource.org/licenses/mit-license.php
+ # @link      https://github.com/pluginsGLPI/advancedldap
+ # -------------------------------------------------------------------------
+#}
+
+{#
+ # Macro to generate common hidden input fields for forms
+ # @param csrf_token string CSRF token value
+ # @param id mixed Item ID value (can be empty string or integer)
+ # @param authldap_id mixed AuthLDAP ID value (optional)
+ # @param authldap_config object Configuration object with authldap_id property (optional)
+ #}
+{% macro hidden_form_inputs(csrf_token, id, authldap_id = null, authldap_config = null) %}
+    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="id" value="{{ id }}">
+    {% if authldap_id %}
+        <input type="hidden" name="authldap_id" value="{{ authldap_id }}">
+    {% elseif authldap_config is defined and authldap_config.authldap_id is defined and authldap_config.authldap_id %}
+        <input type="hidden" name="authldap_id" value="{{ authldap_config.authldap_id }}">
+    {% endif %}
+{% endmacro %}
+
+{#
+ # Macro to generate just the CSRF and ID hidden inputs (without authldap_id)
+ # @param csrf_token string CSRF token value
+ # @param id mixed Item ID value (can be empty string or integer)
+ #}
+{% macro base_hidden_inputs(csrf_token, id) %}
+    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="id" value="{{ id }}">
+{% endmacro %}

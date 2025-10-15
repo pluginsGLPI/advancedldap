@@ -31,6 +31,10 @@
  * -------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Advancedldap\AdvancedLdapSync;
+use GlpiPlugin\Advancedldap\Models\SyncFilter;
+use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
+
 /** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
 
@@ -46,7 +50,41 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
  * Init hooks of the plugin.
  * REQUIRED
  */
-function plugin_init_advancedldap(): void {}
+function plugin_init_advancedldap(): void
+{
+    global $PLUGIN_HOOKS;
+
+    $PLUGIN_HOOKS['csrf_compliant']['advancedldap'] = true;
+
+    // Enable massive actions for this plugin
+    $PLUGIN_HOOKS['use_massive_action']['advancedldap'] = true;
+
+    // Register addDefaultWhere hook for contextual filtering
+    $PLUGIN_HOOKS['addDefaultWhere']['advancedldap'] = 'plugin_advancedldap_addDefaultWhere';
+
+
+    // Register tab for AuthLDAP
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [
+        'addtabon' => AuthLDAP::class,
+    ]);
+
+    // Register modern namespace classes
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter');
+
+    // Register legacy names for Search compatibility (GLPI 11 bug)
+    Plugin::registerClass('PluginAdvancedldapSyncFilter');
+    Plugin::registerClass('PluginAdvancedldapAuthLdapSyncFilter');
+
+    // Force loading of classes to create aliases for getItemForItemtype() compatibility
+    // Workaround for GLPI namespace bug #8449
+    if (class_exists('GlpiPlugin\\Advancedldap\\Models\\SyncFilter')) {
+        // This will trigger the class_alias() in SyncFilter.php
+    }
+    if (class_exists('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter')) {
+        // This will trigger the class_alias() in AuthLdapSyncFilter.php
+    }
+}
 
 /**
  * Get the name and the version of the plugin
@@ -102,10 +140,4 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
 {
     // Your configuration check
     return true;
-
-    // Example:
-    // if ($verbose) {
-    //    echo __('Installed / not configured', 'advancedldap');
-    // }
-    // return false;
 }

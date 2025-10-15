@@ -1,0 +1,451 @@
+<?php
+
+/**
+ * -------------------------------------------------------------------------
+ * advancedldap plugin for GLPI
+ * -------------------------------------------------------------------------
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * -------------------------------------------------------------------------
+ * @copyright Copyright (C) 2025 by the advancedldap plugin team.
+ * @license   MIT https://opensource.org/licenses/mit-license.php
+ * @link      https://github.com/pluginsGLPI/advancedldap
+ * -------------------------------------------------------------------------
+ */
+
+namespace GlpiPlugin\Advancedldap\Services;
+
+use CommonDBTM;
+use Exception;
+use Glpi\Asset\AssetDefinition;
+use GlpiPlugin\Advancedldap\Contracts\DatabaseInterface;
+use GlpiPlugin\Advancedldap\Contracts\AssetFieldHandlerInterface;
+use Location;
+use Session;
+
+/**
+ * Asset creation and update service
+ *
+ * Handles the creation and updating of GLPI assets from synchronized LDAP data.
+ * Supports various asset types (Computer, Printer, NetworkEquipment, User, etc.)
+ * Uses Strategy Pattern for asset-specific field handling
+ */
+class AssetCreationService
+{
+    private DatabaseInterface $database;
+
+    /** @var AssetFieldHandlerInterface[] */
+    private array $field_handlers = [];
+
+    /**
+     * @param DatabaseInterface $database
+     * @param array<AssetFieldHandlerInterface> $field_handlers Optional field handlers
+     */
+    public function __construct(DatabaseInterface $database, array $field_handlers = [])
+    {
+        $this->database = $database;
+        $this->field_handlers = $field_handlers;
+    }
+
+    /**
+     * Add a field handler for a specific asset type
+     *
+     * @param AssetFieldHandlerInterface $handler
+     * @return void
+     */
+    public function addFieldHandler(AssetFieldHandlerInterface $handler): void
+    {
+        $this->field_handlers[] = $handler;
+    }
+
+    /**
+     * Create or update a GLPI asset
+     *
+     * @param string $asset_type Asset class name (Computer, Printer, etc.) or GenericAsset_ID
+     * @param array<string, mixed> $asset_data Asset data from LDAP
+     * @return array{success: bool, action: string|null, asset_id: int|null, error: string|null} Creation result
+     */
+    public function createOrUpdateAsset(string $asset_type, array $asset_data): array
+    {
+        $result = [
+            'success' => false,
+            'action' => null,
+            'asset_id' => null,
+            'error' => null,
+        ];
+
+        try {
+            // Validate required data
+            if (empty($asset_data['name'])) {
+                $result['error'] = __('Asset name is required', 'advancedldap');
+                return $result;
+            }
+
+            // Handle generic assets (format: GenericAsset_ID)
+            if (str_starts_with($asset_type, 'GenericAsset_')) {
+                return $this->handleGenericAsset($asset_type, $asset_data);
+            }
+
+            // Validate native asset type
+            if (!class_exists($asset_type)) {
+                $result['error'] = sprintf(__('Asset type %s not found', 'advancedldap'), $asset_type);
+                return $result;
+            }
+
+            // Create asset instance
+            /** @phpstan-ignore glpi.forbidDynamicInstantiation */
+            $asset = new $asset_type();
+            if (!$asset instanceof CommonDBTM) {
+                $result['error'] = sprintf(__('Invalid asset type %s', 'advancedldap'), $asset_type);
+                return $result;
+            }
+
+            // Prepare asset data for GLPI
+            $prepared_data = $this->prepareAssetData($asset_data, $asset_type);
+
+            // Check if asset already exists
+            $existing_asset = $this->findExistingAsset($asset, $prepared_data);
+
+            if ($existing_asset) {
+                // Update existing asset
+                $update_data = $prepared_data;
+                $update_data['id'] = $existing_asset['id'];
+
+                if ($asset->update($update_data)) {
+                    $result['success'] = true;
+                    $result['action'] = 'updated';
+                    $result['asset_id'] = $existing_asset['id'];
+                } else {
+                    $result['error'] = __('Failed to update asset', 'advancedldap');
+                }
+            } else {
+                // Create new asset
+                $asset_id = $asset->add($prepared_data);
+                if ($asset_id) {
+                    $result['success'] = true;
+                    $result['action'] = 'created';
+                    $result['asset_id'] = $asset_id;
+                } else {
+                    $result['error'] = __('Failed to create asset', 'advancedldap');
+                }
+            }
+
+        } catch (Exception $e) {
+            $result['error'] = sprintf(__('Asset creation error: %s', 'advancedldap'), $e->getMessage());
+        }
+
+        return $result;
+    }
+
+    /**
+     * Prepare asset data for GLPI standards
+     *
+     * @param array<string, mixed> $asset_data Raw asset data
+     * @param string $asset_type Asset type
+     * @return array<string, mixed> Prepared data
+     */
+    private function prepareAssetData(array $asset_data, string $asset_type): array
+    {
+        $prepared = [];
+
+        // Copy basic fields
+        foreach ($asset_data as $field => $value) {
+            $prepared[$field] = $this->sanitizeFieldValue($value);
+        }
+
+        // Handle special fields based on asset type
+        $prepared = $this->handleSpecialFields($prepared, $asset_type);
+
+        // Set default values for required fields
+        $prepared = $this->setDefaultValues($prepared, $asset_type);
+
+        return $prepared;
+    }
+
+    /**
+     * Handle special fields based on asset type
+     * Uses Strategy Pattern for extensibility
+     *
+     * @param array<string, mixed> $data Asset data
+     * @param string $asset_type Asset type
+     * @return array<string, mixed> Modified data
+     */
+    private function handleSpecialFields(array $data, string $asset_type): array
+    {
+        // Handle location field (convert location name to ID)
+        if (isset($data['locations_id']) && !is_numeric($data['locations_id'])) {
+            $data['locations_id'] = $this->getLocationId($data['locations_id']);
+        }
+
+        // Handle entity (use current session entity)
+        if (!isset($data['entities_id'])) {
+            $data['entities_id'] = Session::getActiveEntity();
+        }
+
+        // Asset type specific handling using Strategy Pattern
+        foreach ($this->field_handlers as $handler) {
+            if ($handler->supports($asset_type)) {
+                return $handler->handle($data);
+            }
+        }
+
+        // No specific handler found, return data as-is
+        return $data;
+    }
+
+    // Asset-specific field handling methods removed in favor of Strategy Pattern
+    // See AssetFieldHandlerInterface implementations in Services/AssetFieldHandlers/
+
+    /**
+     * Set default values for required fields
+     *
+     * @param array<string, mixed> $data Asset data
+     * @param string $asset_type Asset type
+     * @return array<string, mixed> Data with defaults
+     */
+    private function setDefaultValues(array $data, string $asset_type): array
+    {
+        // Ensure name is set
+        if (empty($data['name'])) {
+            $data['name'] = __('Unnamed Asset', 'advancedldap');
+        }
+
+        // Set creation date
+        if (!isset($data['date_creation'])) {
+            $data['date_creation'] = date('Y-m-d H:i:s');
+        }
+
+        return $data;
+    }
+
+    /**
+     * Sanitize field value
+     *
+     * @param mixed $value Field value
+     * @return mixed Sanitized value
+     */
+    private function sanitizeFieldValue($value): mixed
+    {
+        if (is_string($value)) {
+            return trim($value);
+        }
+        return $value;
+    }
+
+    /**
+     * Find existing asset by name
+     *
+     * @param CommonDBTM $asset Asset instance
+     * @param array<string, mixed> $asset_data Asset data
+     * @return array<string, mixed>|null Existing asset data or null
+     */
+    private function findExistingAsset(CommonDBTM $asset, array $asset_data): ?array
+    {
+        $table = $asset->getTable();
+        $name = $asset_data['name'];
+
+        $iterator = $this->database->request([
+            'FROM' => $table,
+            'WHERE' => ['name' => $name],
+            'LIMIT' => 1,
+        ]);
+
+        foreach ($iterator as $data) {
+            return $data;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get location ID by name, create if not exists
+     *
+     * @param string $location_name Location name
+     * @return int Location ID
+     */
+    private function getLocationId(string $location_name): int
+    {
+        if (empty($location_name)) {
+            return 0;
+        }
+
+        // Try to find existing location
+        $iterator = $this->database->request([
+            'FROM' => 'glpi_locations',
+            'WHERE' => ['name' => $location_name],
+            'LIMIT' => 1,
+        ]);
+
+        foreach ($iterator as $data) {
+            return (int) $data['id'];
+        }
+
+        // Create new location if not found
+        $location = new Location();
+        $location_id = $location->add([
+            'name' => $location_name,
+            'entities_id' => Session::getActiveEntity(),
+        ]);
+
+        return $location_id ?: 0;
+    }
+
+    /**
+     * Validate asset data before creation
+     *
+     * @param array<string, mixed> $asset_data Asset data
+     * @param string $asset_type Asset type
+     * @return array{valid: bool, errors: array<string>} Validation result
+     */
+    public function validateAssetData(array $asset_data, string $asset_type): array
+    {
+        $result = [
+            'valid' => true,
+            'errors' => [],
+        ];
+
+        // Check required fields
+        if (empty($asset_data['name'])) {
+            $result['valid'] = false;
+            $result['errors'][] = __('Asset name is required', 'advancedldap');
+        }
+
+        // Check asset type validity
+        if (!class_exists($asset_type)) {
+            $result['valid'] = false;
+            $result['errors'][] = sprintf(__('Invalid asset type: %s', 'advancedldap'), $asset_type);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Handle generic asset creation/update
+     *
+     * @param string $asset_type Generic asset type (format: GenericAsset_ID)
+     * @param array<string, mixed> $asset_data Asset data from LDAP
+     * @return array{success: bool, action: string|null, asset_id: int|null, error: string|null} Creation result
+     */
+    private function handleGenericAsset(string $asset_type, array $asset_data): array
+    {
+        $result = [
+            'success' => false,
+            'action' => null,
+            'asset_id' => null,
+            'error' => null,
+        ];
+
+        try {
+            // Extract asset definition ID from asset_type (GenericAsset_1 => 1)
+            $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+
+            // Load the asset definition directly from database
+            $definition = new AssetDefinition();
+            if (!$definition->getFromDB($asset_definition_id)) {
+                $result['error'] = sprintf(__('Asset definition %d not found', 'advancedldap'), $asset_definition_id);
+                return $result;
+            }
+
+            // Get the concrete asset class name
+            $concrete_class = $definition->getAssetClassName();
+
+            // Create asset instance using the concrete class
+            /** @phpstan-ignore glpi.forbidDynamicInstantiation */
+            $asset = new $concrete_class();
+            if (!$asset instanceof CommonDBTM) {
+                $result['error'] = sprintf(__('Invalid asset class %s', 'advancedldap'), $concrete_class);
+                return $result;
+            }
+
+            // Prepare asset data
+            $prepared_data = $this->prepareGenericAssetData($asset_data, $asset_definition_id);
+
+            // Check if asset already exists
+            $existing_asset = $this->findExistingAsset($asset, $prepared_data);
+
+            if ($existing_asset) {
+                // Update existing asset
+                $update_data = $prepared_data;
+                $update_data['id'] = $existing_asset['id'];
+
+                if ($asset->update($update_data)) {
+                    $result['success'] = true;
+                    $result['action'] = 'updated';
+                    $result['asset_id'] = $existing_asset['id'];
+                } else {
+                    $result['error'] = __('Failed to update asset', 'advancedldap');
+                }
+            } else {
+                // Create new asset
+                $asset_id = $asset->add($prepared_data);
+                if ($asset_id) {
+                    $result['success'] = true;
+                    $result['action'] = 'created';
+                    $result['asset_id'] = $asset_id;
+                } else {
+                    $result['error'] = __('Failed to create asset', 'advancedldap');
+                }
+            }
+
+        } catch (Exception $e) {
+            $result['error'] = sprintf(__('Generic asset error: %s', 'advancedldap'), $e->getMessage());
+        }
+
+        return $result;
+    }
+
+    /**
+     * Prepare generic asset data for GLPI
+     *
+     * @param array<string, mixed> $asset_data Raw asset data
+     * @param int $asset_definition_id Asset definition ID
+     * @return array<string, mixed> Prepared data
+     */
+    private function prepareGenericAssetData(array $asset_data, int $asset_definition_id): array
+    {
+        $prepared = [];
+
+        // Copy basic fields
+        foreach ($asset_data as $field => $value) {
+            $prepared[$field] = $this->sanitizeFieldValue($value);
+        }
+
+        // Handle location field (convert location name to ID)
+        if (isset($prepared['locations_id']) && !is_numeric($prepared['locations_id'])) {
+            $prepared['locations_id'] = $this->getLocationId($prepared['locations_id']);
+        }
+
+        // Handle entity (use current session entity)
+        if (!isset($prepared['entities_id'])) {
+            $prepared['entities_id'] = Session::getActiveEntity();
+        }
+
+        // Set asset definition ID
+        $prepared['assets_assetdefinitions_id'] = $asset_definition_id;
+
+        // Ensure name is set
+        if (empty($prepared['name'])) {
+            $prepared['name'] = __('Unnamed Asset', 'advancedldap');
+        }
+
+        return $prepared;
+    }
+}
