@@ -2,9 +2,11 @@
 
 Ce document présente l'architecture technique du plugin Advanced LDAP et les bonnes pratiques pour le développer.
 
-**Dernière mise à jour : 15 octobre 2025**
+**Dernière mise à jour : 17 octobre 2025**
 
 **Note** : Ce document reflète l'état du plugin après la refactorisation majeure d'octobre 2025. Pour le détail des changements appliqués, consulter [PRE-REVIEW/REFACTORING_DONE.md](PRE-REVIEW/REFACTORING_DONE.md).
+
+**Nouveauté octobre 2025** : Support complet des assets génériques inventoriables avec détection automatique de la capacité `IsInventoriableCapacity`.
 
 ## Vue d'Ensemble
 
@@ -311,8 +313,20 @@ Intégration avec le système d'inventaire natif GLPI :
 Conversion données LDAP vers format JSON attendu par `Inventory::sendInventory()` :
 - **Format** : Respect spec JSON inventaire GLPI
 - **Mapping** : Attributs LDAP → Sections inventaire
-- **Types supportés** : Computer, NetworkEquipment, Printer
+- **Types supportés** : Computer, NetworkEquipment, Printer, Phone, **Assets génériques**
 - **Respect strict des Field Mappings** : Seuls les champs LDAP configurés dans les field mappings sont utilisés
+
+**Gestion des assets génériques** (ajout octobre 2025) :
+- Détecte le format `GenericAsset_ID` (ex: `GenericAsset_5`)
+- Convertit l'ID en nom de classe réel via `AssetDefinition::getAssetClassName()`
+  - Exemple : `GenericAsset_5` → `Glpi\CustomAsset\TestinventoriableAsset`
+- Utilise le nom de classe réel dans le JSON d'inventaire (requis par le schema validator)
+- Construit des sections d'inventaire basiques (hardware, networks) pour les assets génériques
+
+**Méthodes clés** :
+- `convertToInventoryFormat()` - Conversion principale LDAP → JSON
+- `getGenericAssetClassName()` - Résolution classe réelle pour assets génériques
+- `buildGenericAssetSections()` - Construction sections inventaire pour assets génériques
 
 **Méthode de filtrage** : `isFieldAllowed(string $ldapField, array $fieldMappings): bool`
 
@@ -418,9 +432,18 @@ Gestion unifiée des champs disponibles pour tous types d'assets :
 
 ##### **AssetTypeClassifier** (`src/Services/AssetTypeClassifier.php`)
 Classification automatique des assets (inventoriables vs traditionnels) :
-- **Règles** : Computer, NetworkEquipment, Printer... = inventoriables
+- **Assets natifs** : Computer, NetworkEquipment, Printer, Phone → inventoriables (si dans `inventory_types`)
+- **Assets génériques** : Détection via format `GenericAsset_ID` (ex: `GenericAsset_5`)
+  - Charge l'`AssetDefinition` correspondante depuis la base de données
+  - Vérifie si la capacité `IsInventoriableCapacity` est activée
+  - Si activée → workflow inventaire, sinon → workflow traditionnel
 - **Exception** : Si inventaire désactivé → tous traditionnels
 - **Usage** : Décision workflow dans `LdapSyncService`
+
+**Méthodes clés** :
+- `isInventoriableAsset(string $asset_type): bool` - Détermine si inventoriable (natif ou générique)
+- `isGenericAssetInventoriable(string $asset_type): bool` - Vérifie capacité pour assets génériques
+- `getSyncMethod(string $asset_type): string` - Retourne 'inventory' ou 'traditional'
 
 ---
 

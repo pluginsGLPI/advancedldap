@@ -37,6 +37,8 @@ use Computer;
 use NetworkEquipment;
 use Phone;
 use Printer;
+use Glpi\Asset\AssetDefinition;
+use Glpi\Asset\Capacity\IsInventoriableCapacity;
 use GlpiPlugin\Advancedldap\Contracts\ConfigurationInterface;
 
 /**
@@ -58,12 +60,22 @@ class AssetTypeClassifier
     /**
      * Check if an asset type is inventoriable
      *
-     * @param string $asset_type Asset class name (e.g., 'Computer')
+     * @param string $asset_type Asset class name (e.g., 'Computer') or GenericAsset_ID format (e.g., 'GenericAsset_5')
      * @return bool True if asset is inventoriable
      */
     public function isInventoriableAsset(string $asset_type): bool
     {
-        if (empty($asset_type) || !class_exists($asset_type)) {
+        if (empty($asset_type)) {
+            return false;
+        }
+
+        // Handle generic assets with GenericAsset_ID format
+        if (str_starts_with($asset_type, 'GenericAsset_')) {
+            return $this->isGenericAssetInventoriable($asset_type);
+        }
+
+        // Handle native asset types
+        if (!class_exists($asset_type)) {
             return false;
         }
 
@@ -144,5 +156,35 @@ class AssetTypeClassifier
             'workflow' => $is_inventoriable ? 'inventory' : 'traditional',
             'use_inventory_php' => $is_inventoriable,
         ];
+    }
+
+    /**
+     * Check if a generic asset (GenericAsset_ID format) is inventoriable
+     *
+     * @param string $asset_type Generic asset identifier (e.g., 'GenericAsset_5')
+     * @return bool True if the generic asset has IsInventoriableCapacity enabled
+     */
+    private function isGenericAssetInventoriable(string $asset_type): bool
+    {
+        try {
+            // Extract asset definition ID from GenericAsset_5 format
+            $asset_definition_id = (int) str_replace('GenericAsset_', '', $asset_type);
+
+            if ($asset_definition_id <= 0) {
+                return false;
+            }
+
+            // Load the asset definition
+            $definition = new AssetDefinition();
+            if (!$definition->getFromDB($asset_definition_id)) {
+                return false;
+            }
+
+            // Check if IsInventoriableCapacity is enabled
+            return $definition->hasCapacityEnabled(new IsInventoriableCapacity());
+
+        } catch (\Exception) {
+            return false;
+        }
     }
 }

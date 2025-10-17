@@ -38,6 +38,8 @@ use Computer;
 use NetworkEquipment;
 use Printer;
 use Phone;
+use Glpi\Asset\AssetDefinition;
+use Toolbox;
 
 use function Safe\preg_match;
 
@@ -67,13 +69,26 @@ class LdapToInventoryConverter
      * Convert LDAP data to Inventory JSON format
      *
      * @param array<string, mixed> $ldapData LDAP attributes
-     * @param string $itemtype GLPI itemtype (Computer, NetworkEquipment, etc.)
+     * @param string $itemtype GLPI itemtype (Computer, NetworkEquipment, etc.) or GenericAsset_ID format
      * @param array<string, string> $fieldMappings Field mappings from sync filter (GLPI field => LDAP attribute)
      * @return array<string, mixed> JSON data compatible with Inventory.php
      */
     public function convertToInventoryFormat(array $ldapData, string $itemtype, array $fieldMappings = []): array
     {
-        if (!isset(self::SUPPORTED_ITEMTYPES[$itemtype])) {
+        // Check if it's a generic asset (GenericAsset_ID format)
+        $is_generic_asset = str_starts_with($itemtype, 'GenericAsset_');
+
+        // Convert GenericAsset_ID to real class name for inventory JSON
+        $inventory_itemtype = $itemtype;
+        if ($is_generic_asset) {
+            $inventory_itemtype = $this->getGenericAssetClassName($itemtype);
+            if ($inventory_itemtype === null) {
+                throw new InvalidArgumentException("Could not resolve class name for generic asset: $itemtype");
+            }
+        }
+
+        // Validate itemtype (native or generic)
+        if (!$is_generic_asset && !isset(self::SUPPORTED_ITEMTYPES[$itemtype])) {
             throw new InvalidArgumentException("Unsupported itemtype for inventory conversion: $itemtype");
         }
 
@@ -82,7 +97,7 @@ class LdapToInventoryConverter
         $baseInventory = [
             'action' => 'inventory',
             'deviceid' => $deviceId,
-            'itemtype' => $itemtype,
+            'itemtype' => $inventory_itemtype, // Use the real class name here
             'partial' => false,
             'content' => [
                 'versionclient' => '4.1',
@@ -90,17 +105,28 @@ class LdapToInventoryConverter
         ];
 
         // Add appropriate main section based on itemtype
-        if ($itemtype === NetworkEquipment::class) {
-            $baseInventory['content']['network_device'] = $this->buildNetworkDeviceSection($ldapData, $fieldMappings);
-        } else {
+        if ($is_generic_asset) {
+            // For generic assets, use a simple hardware section
             $baseInventory['content']['hardware'] = [
                 'name' => $this->extractDeviceName($ldapData),
             ];
-        }
+            // Add generic asset specific data if available
+            $sections = $this->buildGenericAssetSections($ldapData, $itemtype, $fieldMappings);
+            $baseInventory['content'] = array_merge($baseInventory['content'], $sections);
+        } else {
+            // For native asset types
+            if ($itemtype === NetworkEquipment::class) {
+                $baseInventory['content']['network_device'] = $this->buildNetworkDeviceSection($ldapData, $fieldMappings);
+            } else {
+                $baseInventory['content']['hardware'] = [
+                    'name' => $this->extractDeviceName($ldapData),
+                ];
+            }
 
-        // Add sections only if user has configured them or data exists
-        $sections = $this->buildSelectiveSections($ldapData, $itemtype, $fieldMappings);
-        $baseInventory['content'] = array_merge($baseInventory['content'], $sections);
+            // Add sections only if user has configured them or data exists
+            $sections = $this->buildSelectiveSections($ldapData, $itemtype, $fieldMappings);
+            $baseInventory['content'] = array_merge($baseInventory['content'], $sections);
+        }
 
         return $baseInventory;
     }
@@ -698,5 +724,62 @@ class LdapToInventoryConverter
     public function getSupportedItemtypes(): array
     {
         return array_keys(self::SUPPORTED_ITEMTYPES);
+    }
+
+    /**
+     * Build inventory sections for generic assets
+     *
+     * @param array<string, mixed> $ldapData LDAP attributes
+     * @param string $itemtype Generic asset itemtype (GenericAsset_ID)
+     * @param array<string, string> $fieldMappings Field mappings from sync filter
+     * @return array<string, mixed> Inventory sections
+     */
+    private function buildGenericAssetSections(array $ldapData, string $itemtype, array $fieldMappings): array
+    {
+        $sections = [];
+
+        // Build a basic hardware section with mapped fields
+        $hardware = $this->buildHardwareSection($ldapData, $itemtype, $fieldMappings);
+        if ($hardware !== []) {
+            $sections['hardware'] = $hardware;
+        }
+
+        // Add network section if network data is available
+        $networks = $this->buildNetworkSection($ldapData, $fieldMappings);
+        if ($networks !== []) {
+            $sections['networks'] = $networks;
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Get the real class name for a generic asset from GenericAsset_ID format
+     *
+     * @param string $generic_asset_id Generic asset identifier (e.g., 'GenericAsset_5')
+     * @return string|null Real class name (e.g., 'Glpi\CustomAsset\TestinventoriableAsset') or null if not found
+     */
+    private function getGenericAssetClassName(string $generic_asset_id): ?string
+    {
+        try {
+            // Extract asset definition ID from GenericAsset_5 format
+            $asset_definition_id = (int) str_replace('GenericAsset_', '', $generic_asset_id);
+
+            if ($asset_definition_id <= 0) {
+                return null;
+            }
+
+            // Load the asset definition
+            $definition = new AssetDefinition();
+            if (!$definition->getFromDB($asset_definition_id)) {
+                return null;
+            }
+
+            // Get the real class name
+            return $definition->getAssetClassName();
+
+        } catch (\Exception) {
+            return null;
+        }
     }
 }
