@@ -91,26 +91,6 @@
         <h3 class="mb-0">{{ item.isNewID(item.getID()) ? __('New Sync Filter', 'advancedldap') : __('Edit Sync Filter', 'advancedldap') }}</h3>
     </div>
     <div class="card-body">
-        <!-- AuthLDAP Server Information -->
-        {% if parent_authldap %}
-            <div class="alert alert-info d-flex align-items-center mb-3">
-                <i class="ti ti-info-circle me-2"></i>
-                <div>
-                    <strong>{{ __('Parent AuthLDAP Server:', 'advancedldap') }}</strong>
-                    <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ parent_authldap.getID() }}&forcetab=AuthLDAP$main" class="alert-link ms-2">
-                        <i class="ti ti-external-link me-1"></i>{{ parent_authldap.fields.name }}
-                    </a>
-                </div>
-            </div>
-        {% elseif current_config.authldap_id %}
-            <div class="alert alert-info d-flex align-items-center mb-3">
-                <i class="ti ti-info-circle me-2"></i>
-                <div>
-                    <strong>{{ __('AuthLDAP Server:', 'advancedldap') }}</strong>
-                    {{ get_item_link('AuthLDAP', current_config.authldap_id) }}
-                </div>
-            </div>
-        {% endif %}
         <!-- First row: Filter Name and Active Filter -->
         <div class="row">
             <div class="col-md-6">
