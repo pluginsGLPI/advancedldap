@@ -36,19 +36,16 @@ namespace GlpiPlugin\Advancedldap\Services\AssetFieldHandlers;
 use GlpiPlugin\Advancedldap\Contracts\AssetFieldHandlerInterface;
 
 /**
- * Handler for NetworkEquipment-specific fields
+ * Handler for Phone-specific fields
  *
- * NetworkEquipment assets require unique identification in GLPI inventory system:
- * - name: primary identifier (required)
- * - serial OR mac: at least one unique identifier is required for proper asset identification
- *
+ * Phones require name + serial number for unique identification in GLPI inventory system
  * @see LdapInventoryService::getMinimumFieldRequirements()
  */
-class NetworkEquipmentFieldHandler implements AssetFieldHandlerInterface
+class PhoneFieldHandler implements AssetFieldHandlerInterface
 {
     public function supports(string $assetType): bool
     {
-        return $assetType === 'NetworkEquipment';
+        return $assetType === 'Phone';
     }
 
     public function handle(array $data): array
@@ -65,27 +62,23 @@ class NetworkEquipmentFieldHandler implements AssetFieldHandlerInterface
     }
 
     /**
-     * Get required fields for NetworkEquipment assets
+     * Get required fields for Phone assets
      *
-     * Returns only the strictly required field (name).
-     * However, according to GLPI inventory system requirements,
-     * NetworkEquipment also needs at least ONE of: serial OR mac
-     * for proper unique identification.
+     * According to GLPI inventory system requirements, Phone needs:
+     * - name: primary identifier
+     * - serial: unique identifier (recommended for proper identification)
      *
-     * The AutoMappingService will suggest both 'serial' and 'mac' fields
-     * to ensure proper identification.
-     *
-     * @return array<int, string> Array of strictly required field names
+     * @return array<int, string> Array of required field names
      */
     public function getRequiredFields(): array
     {
-        return ['name'];
+        return ['name', 'serial'];
     }
 
     public function getDefaultValues(): array
     {
         return [
-            'networkequipmenttypes_id' => 0,
+            'phonetypes_id' => 0,
             'states_id' => 0,
         ];
     }

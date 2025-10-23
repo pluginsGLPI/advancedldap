@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Exception;
 use Computer;
 use NetworkEquipment;
 use Phone;
@@ -183,7 +184,7 @@ class AssetTypeClassifier
             // Check if IsInventoriableCapacity is enabled
             return $definition->hasCapacityEnabled(new IsInventoriableCapacity());
 
-        } catch (\Exception) {
+        } catch (Exception) {
             return false;
         }
     }

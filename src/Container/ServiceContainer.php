@@ -44,11 +44,14 @@ use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterFormHelperInterface;
 use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
 use GlpiPlugin\Advancedldap\Contracts\AuthLdapSyncFilterRepositoryInterface;
+use GlpiPlugin\Advancedldap\Contracts\AutoMappingServiceInterface;
 use GlpiPlugin\Advancedldap\Factories\AssetFieldProviderFactory;
 use GlpiPlugin\Advancedldap\Services\AssetFieldService;
 use GlpiPlugin\Advancedldap\Services\AssetCreationService;
 use GlpiPlugin\Advancedldap\Services\AssetTypeClassifier;
+use GlpiPlugin\Advancedldap\Services\AutoMappingService;
 use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\ComputerFieldHandler;
+use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\PhoneFieldHandler;
 use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\PrinterFieldHandler;
 use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\NetworkEquipmentFieldHandler;
 use GlpiPlugin\Advancedldap\Services\AssetFieldHandlers\UserFieldHandler;
@@ -205,11 +208,12 @@ class ServiceContainer
             $container->get(AuthLdapSyncFilterRepositoryInterface::class),
         ));
 
-        // SyncFilter validation service
+        // SyncFilter validation service (with auto-mapping support)
         $this->register(SyncFilterValidationService::class, fn(ServiceContainer $container) => new SyncFilterValidationService(
             $container->get(LdapFilterSanitizerInterface::class),
             $container->get(LdapFilterParserInterface::class),
-            $container->get(LdapAttributeMapperInterface::class)
+            $container->get(LdapAttributeMapperInterface::class),
+            $container->get(AutoMappingServiceInterface::class)
         ));
 
         // SyncFilter cron service
@@ -235,6 +239,20 @@ class ServiceContainer
             [
                 // Register all asset field handlers
                 new ComputerFieldHandler(),
+                new PhoneFieldHandler(),
+                new PrinterFieldHandler(),
+                new NetworkEquipmentFieldHandler(),
+                new UserFieldHandler(),
+            ]
+        ));
+
+        // Auto mapping service for automatic field mapping suggestions
+        $this->register(AutoMappingServiceInterface::class, fn(ServiceContainer $container) => new AutoMappingService(
+            $container->get(LdapAttributeMapperInterface::class),
+            [
+                // Register all asset field handlers for auto-mapping
+                new ComputerFieldHandler(),
+                new PhoneFieldHandler(),
                 new PrinterFieldHandler(),
                 new NetworkEquipmentFieldHandler(),
                 new UserFieldHandler(),

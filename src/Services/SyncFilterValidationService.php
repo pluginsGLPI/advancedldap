@@ -33,9 +33,12 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Toolbox;
+use Exception;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterSanitizerInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapFilterParserInterface;
 use GlpiPlugin\Advancedldap\Contracts\LdapAttributeMapperInterface;
+use GlpiPlugin\Advancedldap\Contracts\AutoMappingServiceInterface;
 use Session;
 
 use function Safe\json_encode;
@@ -49,15 +52,18 @@ class SyncFilterValidationService
     private LdapFilterSanitizerInterface $sanitizer;
     private LdapFilterParserInterface $filter_parser;
     private LdapAttributeMapperInterface $attribute_mapper;
+    private ?AutoMappingServiceInterface $autoMappingService;
 
     public function __construct(
         LdapFilterSanitizerInterface $sanitizer,
         LdapFilterParserInterface $filter_parser,
-        LdapAttributeMapperInterface $attribute_mapper
+        LdapAttributeMapperInterface $attribute_mapper,
+        ?AutoMappingServiceInterface $autoMappingService = null
     ) {
         $this->sanitizer = $sanitizer;
         $this->filter_parser = $filter_parser;
         $this->attribute_mapper = $attribute_mapper;
+        $this->autoMappingService = $autoMappingService;
     }
 
     /**
@@ -99,12 +105,34 @@ class SyncFilterValidationService
     /**
      * Prepare field mappings from input data
      * Delegates to LdapFilterParser and LdapAttributeMapper services
+     * Applies automatic mapping for inventoriable assets when no mappings provided
      *
      * @param array<string, mixed> $input Input data
      * @return array<string, mixed> Prepared input with field_mappings
      */
     public function prepareMappingsInput(array $input): array
     {
+        // Auto-mapping: If asset_type is defined and field_mappings is empty, apply default mappings
+        if (
+            !empty($input['asset_type'])
+            && empty($input['field_mappings'])
+            && empty($input['asset_fields'])
+            && empty($input['asset_field'])
+            && $this->autoMappingService !== null
+        ) {
+            try {
+                $defaultMappings = $this->autoMappingService->getDefaultMappings($input['asset_type']);
+                if ($defaultMappings !== []) {
+                    $input['field_mappings'] = json_encode($defaultMappings);
+                    // Add debug log
+                    Toolbox::logDebug("AdvancedLDAP: Applied automatic field mappings for {$input['asset_type']}: " . json_encode($defaultMappings));
+                }
+            } catch (Exception $e) {
+                // Silently continue if auto-mapping fails - user can still define mappings manually
+                Toolbox::logDebug("AdvancedLDAP: Auto-mapping failed for {$input['asset_type']}: " . $e->getMessage());
+            }
+        }
+
         // Handle field_mappings array conversion
         if (isset($input['field_mappings']) && is_array($input['field_mappings'])) {
             $input['field_mappings'] = json_encode($input['field_mappings']);

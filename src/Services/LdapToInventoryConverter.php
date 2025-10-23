@@ -33,13 +33,13 @@
 
 namespace GlpiPlugin\Advancedldap\Services;
 
+use Exception;
 use InvalidArgumentException;
 use Computer;
 use NetworkEquipment;
 use Printer;
 use Phone;
 use Glpi\Asset\AssetDefinition;
-use Toolbox;
 
 use function Safe\preg_match;
 
@@ -778,7 +778,7 @@ class LdapToInventoryConverter
             // Get the real class name
             return $definition->getAssetClassName();
 
-        } catch (\Exception) {
+        } catch (Exception) {
             return null;
         }
     }

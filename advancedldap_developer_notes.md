@@ -16,7 +16,7 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
 
 - **Architecture SOLID** : Respect des principes SRP, OCP, DIP, ISP avec injection complète de dépendances
 - **Pattern Strategy** : AssetFieldHandlers extensibles pour gérer différents types d'assets
-- **Services spécialisés** : Extraction du God Object SyncFilter en services dédiés (Validation, Cron, FormPresenter)
+- **Services spécialisés** : Extraction du God Object SyncFilter en services dédiés (Validation, Cron, FormHelper)
 - **Injection de dépendances** : Élimination totale des instanciations `new` dans les constructeurs
 - **Zero dépendance externe** : Utilise uniquement le core GLPI
 - **Double workflow** : Support traditionnel (CommonDBTM) + inventaire natif GLPI
@@ -46,7 +46,7 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │       ├── SyncFilter.php                 # Modèle principal filtres LDAP (façade déléguant aux services)
   │       │   • extends CommonDBTM           # → CRUD complet, massive actions
   │       │   • Alias legacy automatique     # → class_alias() pour Search GLPI 11
-  │       │   • Délégation services          # → Validation, Cron, FormPresenter
+  │       │   • Délégation services          # → Validation, Cron, FormHelper
   │       │
   │       └── AuthLdapSyncFilter.php         # Modèle relation many-to-many
   │           • extends CommonDBRelation     # → AuthLDAP ↔ SyncFilter
@@ -70,18 +70,20 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │       │   ├── AssetCreationService.php           # Création/MAJ assets GLPI (Pattern Strategy)
   │       │   └── AssetTypeClassifier.php            # Classification inventoriables vs traditionnels
   │       │
-  │       ├── 🎨 ASSET FIELD HANDLERS (4) - PATTERN STRATEGY ✨
+  │       ├── 🎨 ASSET FIELD HANDLERS (5) - PATTERN STRATEGY ✨
   │       │   └── AssetFieldHandlers/
   │       │       ├── ComputerFieldHandler.php       # Handler pour type Computer
+  │       │       ├── PhoneFieldHandler.php          # Handler pour type Phone (nouveau !)
   │       │       ├── PrinterFieldHandler.php        # Handler pour type Printer
   │       │       ├── NetworkEquipmentFieldHandler.php # Handler pour type NetworkEquipment
   │       │       └── UserFieldHandler.php           # Handler pour type User
   │       │
-  │       ├── 🔍 SERVICES SYNCFILTER (5)
+  │       ├── 🔍 SERVICES SYNCFILTER (6)
   │       │   ├── SyncFilterService.php              # Logique métier filtres
   │       │   ├── SyncFilterFormHelper.php           # Helpers formulaire (dropdown, config, connexion)
-  │       │   ├── SyncFilterValidationService.php    # ✨ Validation LDAP inputs & field mappings
-  │       │   └── SyncFilterCronService.php          # ✨ Exécution tâches cron automatiques
+  │       │   ├── SyncFilterValidationService.php    # ✨ Validation LDAP inputs & auto-mapping
+  │       │   ├── SyncFilterCronService.php          # ✨ Exécution tâches cron automatiques
+  │       │   └── AutoMappingService.php             # 🆕 Mapping automatique champs requis (RFC 4519)
   │       │
   │       ├── 🛡️ VALIDATION (1)
   │       │   └── LdapParameterValidator.php         # Validation centralisée paramètres LDAP
@@ -103,10 +105,6 @@ Le plugin **advancedldap** étend GLPI en ajoutant des capacités avancées de s
   │   │
   │   └── src/Factories/
   │       └── AssetFieldProviderFactory.php         # Factory création providers dynamiques
-  │
-  ├── 🎨 PRESENTERS (Préparation données pour vues)
-  │   └── src/Presenters/
-  │       └── SyncFilterFormPresenter.php           # ✨ Préparation données pour Twig
   │
   ├── 🔌 CONTRATS (11 interfaces)
   │   └── src/Contracts/
@@ -209,10 +207,12 @@ public static function cronSyncLdapFilters(?CronTask $task = null): int {
 
 // Affichage formulaire délégué
 public function showForm($ID, array $options = []) {
-    // Préparation des données déléguée au Presenter
+    // Préparation des données pour la vue
+    // Logique intégrée directement dans SyncFilter
     $container = Bootstrap::getContainer();
-    $presenter = $container->get(SyncFilterFormPresenter::class);
-    $viewModel = $presenter->prepareViewModel($this, $ID, $options);
+
+    // Collecte et préparation des données...
+    // (voir méthodes privées dans SyncFilter.php)
 
     // Rendu du template
     return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
@@ -222,7 +222,7 @@ public function showForm($ID, array $options = []) {
 **Services associés** :
 - **SyncFilterValidationService** : Validation LDAP inputs et field mappings
 - **SyncFilterCronService** : Exécution tâches cron automatiques
-- **SyncFilterFormPresenter** : Préparation données pour la vue Twig
+- **SyncFilterFormHelper** : Helper pour la gestion des formulaires
 
 **Bénéfices de la refactorisation** :
 - ✅ Respect du principe **Single Responsibility**
@@ -474,6 +474,12 @@ interface AssetFieldHandlerInterface
 - **Champs requis** : `name`
 - **Valeurs par défaut** : `computertypes_id`, `states_id`, `manufacturers_id`
 
+##### **PhoneFieldHandler** 🆕 (`src/Services/AssetFieldHandlers/PhoneFieldHandler.php`)
+- **Supporte** : `Phone` (type natif GLPI)
+- **Champs requis** : `name`, `serial`
+- **Valeurs par défaut** : `phonetypes_id`, `states_id`
+- **Note** : Phone requiert `name` + `serial` pour identification unique dans le système d'inventaire GLPI
+
 ##### **PrinterFieldHandler** (`src/Services/AssetFieldHandlers/PrinterFieldHandler.php`)
 - **Supporte** : `Printer` (type natif GLPI)
 - **Champs requis** : `name`
@@ -481,8 +487,9 @@ interface AssetFieldHandlerInterface
 
 ##### **NetworkEquipmentFieldHandler** (`src/Services/AssetFieldHandlers/NetworkEquipmentFieldHandler.php`)
 - **Supporte** : `NetworkEquipment` (type natif GLPI)
-- **Champs requis** : `name`, `serial` (ou `mac`)
+- **Champs requis** : `name` (strictement), `serial` OU `mac` (au moins un requis pour identification unique)
 - **Valeurs par défaut** : `networkequipmenttypes_id`, `states_id`, `manufacturers_id`
+- **Note** : NetworkEquipment nécessite un identifiant unique (serial OU mac) en plus du name selon le système d'inventaire GLPI
 
 ##### **UserFieldHandler** (`src/Services/AssetFieldHandlers/UserFieldHandler.php`)
 - **Supporte** : `User` (type natif GLPI)
@@ -565,36 +572,57 @@ public static function cronSyncLdapFilters(?CronTask $task = null): int {
 
 **Bénéfice** : Logique cron isolée, testable et maintenable
 
-##### **SyncFilterFormPresenter** ✨ (`src/Presenters/SyncFilterFormPresenter.php`)
-**Service extrait du God Object SyncFilter** - Responsable de la préparation des données pour la vue :
+##### **AutoMappingService** 🆕 (`src/Services/AutoMappingService.php`)
+**Service de mapping automatique des champs GLPI ↔ LDAP** :
 
 **Responsabilités** :
-- Préparation des données pour la vue Twig
-- Résolution du contexte AuthLDAP parent
-- Transformation modèle → vue
+- Génération automatique des mappings par défaut pour les assets inventoriables
+- Suggestion d'attributs LDAP basés sur les standards RFC 4519
+- Récupération des champs requis via AssetFieldHandlers
+
+**Interface** : `AutoMappingServiceInterface`
 
 **Méthodes publiques** :
-- `prepareViewModel(SyncFilter $filter, int $ID, array $options)` - Prépare les données pour Twig
+- `getDefaultMappings(string $itemtype): array` - Génère mappings par défaut (GLPI field => LDAP attribute)
+- `getRequiredFieldsForItemtype(string $itemtype): array` - Récupère champs requis pour un type d'asset
+- `suggestLdapAttribute(string $glpiField, array $availableLdapAttributes = []): ?string` - Suggère attribut LDAP pour un champ GLPI
 
-**Code migré depuis SyncFilter** :
+**Mappings par défaut générés** :
+
+| Asset Type | Mappings Automatiques |
+|------------|----------------------|
+| **Computer** | `name` → `cn` |
+| **Phone** | `name` → `cn`<br>`serial` → `serialNumber` |
+| **Printer** | `name` → `cn` |
+| **NetworkEquipment** | `name` → `cn`<br>`serial` → `serialNumber` |
+
+**Standards RFC 4519 utilisés** :
+- `name` → `cn` (Common Name)
+- `serial` → `serialNumber`
+- `mac` → `macAddress`
+- `comment` → `description`
+- `location` → `l` (Locality)
+
+**Intégration avec SyncFilterValidationService** :
 ```php
-// AVANT : Logique dans showForm()
-public function showForm($ID, array $options = []) {
-    // ... préparation données (résolution AuthLDAP, dropdowns, config)
-    return TemplateRenderer::getInstance()->display('...', $data);
-}
+// Dans prepareMappingsInput(), si asset_type défini et field_mappings vide
+if (!empty($input['asset_type']) && empty($input['field_mappings'])
+    && $this->autoMappingService !== null) {
 
-// APRÈS : Délégation au Presenter
-public function showForm($ID, array $options = []) {
-    $container = Bootstrap::getContainer();
-    $presenter = $container->get(SyncFilterFormPresenter::class);
-    $viewModel = $presenter->prepareViewModel($this, $ID, $options);
+    $defaultMappings = $this->autoMappingService->getDefaultMappings($input['asset_type']);
+    $input['field_mappings'] = json_encode($defaultMappings);
 
-    return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
+    Toolbox::logDebug("AdvancedLDAP: Applied automatic mappings for {$input['asset_type']}");
 }
 ```
 
-**Bénéfice** : Séparation claire entre logique métier et présentation (pattern MVC)
+**Workflow utilisateur** :
+1. Utilisateur crée un nouveau SyncFilter et sélectionne un asset_type (ex: Computer)
+2. Sans configurer manuellement les mappings, il sauvegarde
+3. `AutoMappingService` détecte l'asset type inventoriable et applique automatiquement les mappings minimaux requis
+4. L'utilisateur peut ensuite affiner ces mappings dans l'onglet "Mappings"
+
+**Bénéfice** : Accélère la configuration initiale pour les assets inventoriables en pré-remplissant automatiquement les champs obligatoires selon les standards LDAP.
 
 ---
 
@@ -733,7 +761,7 @@ LdapSyncService::class → new LdapSyncService(
 // Services extraits du God Object
 SyncFilterValidationService::class    // ✨ NOUVEAU
 SyncFilterCronService::class          // ✨ NOUVEAU
-SyncFilterFormPresenter::class        // ✨ NOUVEAU
+// Presenter supprimé - logique intégrée dans SyncFilter
 
 LdapToInventoryConverter::class
 LdapInventoryService::class (injecté si inventaire activé)
@@ -907,7 +935,7 @@ $this->register(AssetCreationService::class, fn($c) =>
 3. ❌ Validation LDAP inputs → **Extrait** vers SyncFilterValidationService
 4. ❌ Préparation field mappings → **Extrait** vers SyncFilterValidationService
 5. ❌ Exécution tâches cron → **Extrait** vers SyncFilterCronService
-6. ❌ Préparation données vue Twig → **Extrait** vers SyncFilterFormPresenter
+6. ✅ Préparation données vue Twig → Méthodes privées dans SyncFilter
 7. ✅ Gestion relations AuthLDAP → **Conservé** dans SyncFilter
 
 **Solution appliquée** : **Extraction de 3 services spécialisés**
@@ -1009,60 +1037,6 @@ class SyncFilterCronService
     {
         // Logique cron isolée et testable
         // ...
-    }
-}
-```
-
-#### 3. SyncFilterFormPresenter (Présentation)
-
-**Responsabilités extraites** :
-- Préparation des données pour la vue Twig
-- Résolution du contexte AuthLDAP parent
-- Transformation modèle → vue
-
-**Code AVANT** (dans SyncFilter) :
-```php
-class SyncFilter extends CommonDBTM
-{
-    public function showForm($ID, array $options = [])
-    {
-        // Grosse méthode mélangant logique et présentation
-        // Résolution AuthLDAP parent
-        // Préparation dropdowns
-        // Récupération config
-        // Test connexion LDAP
-        // Préparation données pour Twig
-        // ...
-        return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $data);
-    }
-}
-```
-
-**Code APRÈS** (délégation au Presenter) :
-```php
-class SyncFilter extends CommonDBTM
-{
-    public function showForm($ID, array $options = [])
-    {
-        // Délégation au Presenter
-        $container = Bootstrap::getContainer();
-        $presenter = $container->get(SyncFilterFormPresenter::class);
-        $viewModel = $presenter->prepareViewModel($this, $ID, $options);
-
-        return TemplateRenderer::getInstance()->display('syncfilter_form.html.twig', $viewModel);
-    }
-}
-
-// Presenter dédié pour préparation vue (pattern MVC)
-class SyncFilterFormPresenter
-{
-    public function prepareViewModel(SyncFilter $filter, int $ID, array $options): array
-    {
-        // Logique de présentation isolée
-        // Résolution contexte
-        // Préparation ViewModel
-        // ...
-        return $viewModel;
     }
 }
 ```
@@ -1782,7 +1756,7 @@ grep "SUMMARY" /path/to/files/_log/php-errors.log | grep SyncFilter
 - ✅ **Extraction God Object** : SyncFilter devient façade déléguant à 3 services spécialisés
   - SyncFilterValidationService : Validation LDAP inputs & field mappings
   - SyncFilterCronService : Exécution tâches cron automatiques
-  - SyncFilterFormPresenter : Préparation données pour vues Twig
+  - SyncFilterFormHelper : Helper pour gestion des formulaires
 - ✅ **Injection complète** : Élimination totale des `new` dans constructeurs
   - LdapSyncService : Injection de LdapDataExtractor et LdapParameterValidator
   - AssetCreationService : Injection d'un tableau de handlers

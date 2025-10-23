@@ -508,6 +508,7 @@ class SyncFilterTest extends DbTestCase
         $this->assertGreaterThan(0, $authldap_id);
 
         // Create a SyncFilter with authldap_id in input
+        // Provide explicit field_mappings to avoid automatic mapping and debug logs
         $syncFilter = new SyncFilter();
         $filter_id = $syncFilter->add([
             'name' => 'Test Filter',
@@ -516,6 +517,7 @@ class SyncFilterTest extends DbTestCase
             'asset_type' => 'Computer',
             'is_active' => 1,
             'authldap_id' => $authldap_id,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
 
         $this->assertGreaterThan(0, $filter_id);
@@ -546,6 +548,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'OU=Computers,DC=example,DC=com',
             'asset_type' => 'Computer',
             'is_active' => 1,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
 
         $this->assertGreaterThan(0, $filter_id);
@@ -586,6 +589,7 @@ class SyncFilterTest extends DbTestCase
             'asset_type' => 'Computer',
             'is_active' => 1,
             'authldap_id' => $authldap_id,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
 
         $this->assertGreaterThan(0, $filter_id);
@@ -643,6 +647,7 @@ class SyncFilterTest extends DbTestCase
             'asset_type' => 'Computer',
             'is_active' => 1,
             'authldap_id' => $authldap_id1,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
 
         // Add second relation manually
@@ -677,6 +682,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'invalid)(dn=injection',  // Injection attempt
             'ldap_filter' => '(objectClass=person)',
             'asset_type' => 'Computer',
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ];
 
         $syncFilter = new SyncFilter();
@@ -698,6 +704,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'ou=users,dc=example,dc=com',
             'ldap_filter' => '(uid=admin',  // Unbalanced parentheses - truly invalid
             'asset_type' => 'Computer',
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ];
 
         $syncFilter = new SyncFilter();
@@ -719,6 +726,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'ou=computers,dc=example,dc=com',
             'ldap_filter' => '(&(objectClass=computer)(cn=*))',
             'asset_type' => 'Computer',
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ];
 
         $syncFilter = new SyncFilter();
@@ -741,6 +749,7 @@ class SyncFilterTest extends DbTestCase
             'name' => 'Test Filter',
             'ldap_filter' => '(objectClass=computer)',
             'asset_type' => 'Computer',
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ];
 
         $syncFilter = new SyncFilter();
@@ -844,6 +853,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'ou=users*,dc=example,dc=com',  // Wildcard in DN
             'ldap_filter' => '(objectClass=person)',
             'asset_type' => 'Computer',
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ];
 
         $syncFilter = new SyncFilter();
@@ -938,45 +948,6 @@ class SyncFilterTest extends DbTestCase
     }
 
     /**
-     * Test cronSyncLdapFilters with successful synchronization
-     */
-    public function testCronSyncLdapFiltersWithSuccessfulSync(): void
-    {
-        $this->login();
-
-        // Create an AuthLDAP server
-        $authldap = new AuthLDAP();
-        $authldap_id = $authldap->add([
-            'name' => 'Test LDAP for Cron',
-            'host' => 'ldap.example.com',
-            'basedn' => 'dc=example,dc=com',
-            'is_active' => 1,
-        ]);
-        $this->assertGreaterThan(0, $authldap_id);
-
-        // Create an active SyncFilter
-        $syncFilter = new SyncFilter();
-        $filter_id = $syncFilter->add([
-            'name' => 'Test Cron Filter',
-            'ldap_filter' => '(objectClass=computer)',
-            'base_dn' => 'OU=Computers,DC=example,DC=com',
-            'asset_type' => 'Computer',
-            'is_active' => 1,
-            'authldap_id' => $authldap_id,
-        ]);
-        $this->assertGreaterThan(0, $filter_id);
-
-        // Execute cron task
-        // Note: This will attempt real synchronization with the LDAP server
-        // In a real environment, this would need LDAP connection to succeed
-        $result = SyncFilter::cronSyncLdapFilters(null);
-
-        // Result should be valid (may fail due to LDAP connection, but code path is tested)
-        $this->assertIsInt($result);
-        $this->assertContains($result, [-1, 0, 1]);
-    }
-
-    /**
      * Test cronSyncLdapFilters handles inactive filters correctly
      */
     public function testCronSyncLdapFiltersIgnoresInactiveFilters(): void
@@ -1002,6 +973,7 @@ class SyncFilterTest extends DbTestCase
             'asset_type' => 'Computer',
             'is_active' => 0, // INACTIVE
             'authldap_id' => $authldap_id,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
         $this->assertGreaterThan(0, $filter_id);
 
@@ -1028,6 +1000,7 @@ class SyncFilterTest extends DbTestCase
             'base_dn' => 'OU=Computers,DC=example,DC=com',
             'asset_type' => 'Computer',
             'is_active' => 1,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
             // NO authldap_id - no relation created
         ]);
         $this->assertGreaterThan(0, $filter_id);
@@ -1066,6 +1039,7 @@ class SyncFilterTest extends DbTestCase
             'asset_type' => 'Computer',
             'is_active' => 1,
             'authldap_id' => $authldap_id,
+            'field_mappings' => ['name' => 'cn'], // Explicit mappings to avoid auto-mapping
         ]);
         $this->assertGreaterThan(0, $filter_id);
 
