@@ -681,6 +681,7 @@ class SyncFilter extends CommonDBTM
             'inventory_config_url' => $metadata['inventory_config_url'],
             'ldap_connection_status' => $metadata['ldap_connection_status'],
             'authldap_active_status' => $metadata['authldap_active_status'],
+            'has_mapping' => $metadata['has_mapping'],
         ]);
 
         return true;
@@ -786,11 +787,18 @@ class SyncFilter extends CommonDBTM
         // Check AuthLDAP active status
         $authldap_active_status = $form_helper->checkAuthLdapActiveStatus($authldap_id);
 
+        // Check if filter has field mappings defined
+        $has_mapping = false;
+        if ($this->getID() > 0) {
+            $has_mapping = !empty($this->getFieldMappings());
+        }
+
         return [
             'inventory_enabled' => $inventory_enabled,
             'inventory_config_url' => $inventory_config_url,
             'ldap_connection_status' => $ldap_connection_status,
             'authldap_active_status' => $authldap_active_status,
+            'has_mapping' => $has_mapping,
         ];
     }
 
