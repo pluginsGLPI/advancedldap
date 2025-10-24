@@ -111,9 +111,25 @@
         <h3 class="mb-0">{{ item.isNewID(item.getID()) ? __('New Sync Filter', 'advancedldap') : __('Edit Sync Filter', 'advancedldap') }}</h3>
     </div>
     <div class="card-body">
-
-        <!-- First row: Filter Name and Active Filter -->
+    
+         <!-- First row: Parent AuthLDAP -->
         <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="form-field row align-items-center col-12 glpi-full-width mb-3">
+                    <label class="col-form-label col-xxl-5 text-xxl-end">
+                        {{ __('LDAP Server', 'advancedldap') }}
+                    </label>
+                    <div class="col-xxl-7 field-container col-form-label">
+                        <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ parent_authldap.getID() }}&forcetab=AuthLDAP$main">
+                            {{ parent_authldap.fields.name }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second row: Filter Name and Active Filter -->
+        <div class="row">
             <div class="col-md-6">
                 {{ fields.textField('name', current_config.filter_name|default(item.fields['name']|default('')),
                    __('Filter Name', 'advancedldap'), {
@@ -132,7 +148,7 @@
             </div>
         </div>
 
-        <!-- Second row: Base DN and LDAP Connection Filter -->
+        <!-- Third row: Base DN and LDAP Connection Filter -->
         <div class="row mt-3">
             <div class="col-md-6">
                 {{ fields.textField('base_dn', current_config.ldap_base_dn|default(item.fields['base_dn']|default('')),
@@ -152,7 +168,7 @@
             </div>
         </div>
 
-        <!-- Third row: Asset Type and CTA -->
+        <!-- Fourth row: Asset Type and CTA -->
         <div class="row mt-3">
             <div class="col-md-6">
                 {{ fields.dropdownArrayField('asset_type', current_config.asset_type, available_assets,
