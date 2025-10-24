@@ -62,6 +62,8 @@ function plugin_init_advancedldap(): void
     // Register addDefaultWhere hook for contextual filtering
     $PLUGIN_HOOKS['addDefaultWhere']['advancedldap'] = 'plugin_advancedldap_addDefaultWhere';
 
+    // Add config page link pointing to GLPI's AuthLDAP list
+    $PLUGIN_HOOKS['config_page']['advancedldap'] = '../../front/authldap.php';
 
     // Register tab for AuthLDAP
     Plugin::registerClass('GlpiPlugin\\Advancedldap\\AdvancedLdapSync', [
