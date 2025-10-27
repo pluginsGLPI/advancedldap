@@ -4,26 +4,30 @@
 {# Breadcrumb navigation #}
 {% if parent_authldap or current_authldap_id %}
     <div class="mb-3">
-        <div class="card-body py-2">
+        <div class="card-body py-2 px-2 px-lg-3">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item">
+                <ol class="breadcrumb mb-0 flex-nowrap overflow-auto small">
+                    <li class="breadcrumb-item text-nowrap">
                         <a href="{{ config('root_doc') }}/front/authldap.php">
-                            <i class="ti ti-server me-1"></i>{{ 'AuthLDAP'|itemtype_name(2) }}
+                            <i class="ti ti-server me-1"></i>
+                            <span class="d-none d-lg-inline">{{ 'AuthLDAP'|itemtype_name(2) }}</span>
+                            <span class="d-inline d-lg-none">LDAP</span>
                         </a>
                     </li>
                     {% if parent_authldap %}
-                        <li class="breadcrumb-item">
+                        <li class="breadcrumb-item text-nowrap">
                             <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ parent_authldap.getID() }}&forcetab=AuthLDAP$main">
-                                <i class="ti ti-settings me-1"></i>{{ parent_authldap.fields.name }}
+                                <i class="ti ti-settings me-1"></i>
+                                <span class="d-none d-lg-inline">{{ parent_authldap.fields.name }}</span>
+                                <span class="d-inline d-lg-none">Config</span>
                             </a>
                         </li>
                     {% elseif current_authldap_id %}
-                        <li class="breadcrumb-item">
+                        <li class="breadcrumb-item text-nowrap">
                             {{ get_item_link('AuthLDAP', current_authldap_id) }}
                         </li>
                     {% endif %}
-                    <li class="breadcrumb-item active">
+                    <li class="breadcrumb-item active text-nowrap">
                         <i class="ti ti-filter me-1"></i>{{ __('Sync Filter', 'advancedldap') }}
                     </li>
                 </ol>
