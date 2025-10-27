@@ -107,14 +107,15 @@
 
 <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" data-submit-once="true">
 <div>
-    <div class="card-header d-flex align-items-center">
+    <div class="card-header">
         <h3 class="mb-0">{{ item.isNewID(item.getID()) ? __('New Sync Filter', 'advancedldap') : __('Edit Sync Filter', 'advancedldap') }}</h3>
     </div>
-    <div class="card-body">
-    
-        <!-- First row: Parent AuthLDAP -->
-        <div class="row mt-3">
-            <div class="col-md-6">
+    <div class="card-body row">
+
+        <div class="col-12 col-lg-11">
+
+            <!-- First row: Parent AuthLDAP -->
+            <div class="row mt-3">
                 <div class="form-field row align-items-center col-12 col-md-6 col-sm-6 mb-3">
                     <label class="col-form-label col-xxl-5 text-xxl-end">
                         {{ __('LDAP Server', 'advancedldap') }}
@@ -126,94 +127,87 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Second row: Filter Name and Active Filter -->
-        <div class="row">
-            <div class="col-md-6">
+            <!-- Second row: Filter Name and Active Filter -->
+            <div class="row">
                 {{ fields.textField('name', current_config.filter_name|default(item.fields['name']|default('')),
-                   __('Filter Name', 'advancedldap'), {
-                       'mb': 'mb-3'
-                   })
+                    __('Filter Name', 'advancedldap'), {
+                        'mb': 'mb-3'
+                    })
                 }}
-            </div>
-            <div class="col-md-6">
+
                 {{ fields.sliderField('is_active', current_config.is_active|default(item.fields['is_active']|default(0)),
-                   __('Active Filter', 'advancedldap'), {
-                       'mb': 'mb-3'
-                   })
+                    __('Active Filter', 'advancedldap'), {
+                        'mb': 'mb-3'
+                    })
                 }}
             </div>
-        </div>
 
-        <!-- Third row: Base DN and LDAP Connection Filter -->
-        <div class="row mt-3">
-            <div class="col-md-6">
+            <!-- Third row: Base DN and LDAP Connection Filter -->
+            <div class="row mt-3">
                 {{ fields.textField('base_dn', current_config.ldap_base_dn|default(item.fields['base_dn']|default('')),
-                   __('Base DN', 'advancedldap'), {
-                       'mb': 'mb-3'
-                   })
+                    __('Base DN', 'advancedldap'), {
+                        'mb': 'mb-3'
+                    })
                 }}
-            </div>
-            <div class="col-md-6">
-                {{ fields.textField('ldap_filter', current_config.ldap_connection_filter|default(item.fields['ldap_filter']|default('')),
-                   __('Connection Filter', 'advancedldap'), {
-                       'mb': 'mb-3'
-                   })
-                }}
-            </div>
-        </div>
 
-        <!-- Fourth row: Asset Type and CTA -->
-        <div class="row mt-3">
-            <div class="col-md-6">
-                {{ fields.dropdownArrayField('asset_type', current_config.asset_type, available_assets,
-                   __('Asset Type'), {
-                       'display_emptychoice': true,
-                       'emptylabel': __('Select an asset type'),
-                       'mb': 'mb-3'
-                   })
+                {{ fields.textField('ldap_filter', current_config.ldap_connection_filter|default(item.fields['ldap_filter']|default('')),
+                    __('Connection Filter', 'advancedldap'), {
+                        'mb': 'mb-3'
+                    })
                 }}
             </div>
-            <div class="col-md-6">
+
+            <!-- Fourth row: Asset Type and CTA -->
+            <div class="row mt-3">
+                {{ fields.dropdownArrayField('asset_type', current_config.asset_type, available_assets,
+                    __('Asset Type'), {
+                        'display_emptychoice': true,
+                        'emptylabel': __('Select an asset type'),
+                        'mb': 'mb-3'
+                    })
+                }}
                 <div class="form-field row align-items-center col-12 mb-3">
                     <div class="col-form-label col-xxl-5"></div>
                     <div class="col-xxl-7 field-container text-end">
-                            {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
+                        {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
 
-                            {% if item.fields['id'] > 0 and item.canPurge() %}
-                                <button type="submit" name="purge" class="btn btn-outline-danger me-2"
-                                        onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
-                                    <i class="ti ti-trash"></i>
-                                    <span>{{ __('Delete permanently') }}</span>
-                                </button>
-                            {% endif %}
-
-                            {% if item.fields['id'] > 0 %}
-                                {% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
-                                {% if current_authldap_id %}
-                                    {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
-                                {% endif %}
-                                <a href="{{ test_url }}" class="btn btn-info me-2">
-                                    <i class="ti ti-test-pipe"></i>
-                                    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
-                                </a>
-                            {% endif %}
-
-                            <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary me-2">
-                                <i class="fas fa-save"></i>
-                                <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
+                        {% if item.fields['id'] > 0 and item.canPurge() %}
+                            <button type="submit" name="purge" class="btn btn-outline-danger me-2"
+                                    onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
+                                <i class="ti ti-trash"></i>
+                                <span>{{ __('Delete permanently') }}</span>
                             </button>
+                        {% endif %}
 
-                            {% if item.fields['id'] > 0 %}
-                                <div class="form-text text-info mt-2">
-                                    <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
-                                </div>
+                        {% if item.fields['id'] > 0 %}
+                            {% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
+                            {% if current_authldap_id %}
+                                {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
                             {% endif %}
+                            <a href="{{ test_url }}" class="btn btn-info me-2">
+                                <i class="ti ti-test-pipe"></i>
+                                <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+                            </a>
+                        {% endif %}
+
+                        <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary me-2">
+                            <i class="fas fa-save"></i>
+                            <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
+                        </button>
+
+                        {% if item.fields['id'] > 0 %}
+                            <div class="form-text text-info mt-2">
+                                <i class="ti ti-info-circle me-1"></i>{{ __('Save your changes before testing to ensure accurate results', 'advancedldap') }}
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="col-xxl-1"></div>
+
     </div>
 </div>
 </form>
