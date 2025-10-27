@@ -115,11 +115,11 @@
         <!-- First row: Parent AuthLDAP -->
         <div class="row mt-3">
             <div class="col-md-6">
-                <div class="form-field row align-items-center col-12 glpi-full-width mb-3">
+                <div class="form-field row align-items-center col-12 col-md-6 col-sm-6 mb-3">
                     <label class="col-form-label col-xxl-5 text-xxl-end">
                         {{ __('LDAP Server', 'advancedldap') }}
                     </label>
-                    <div class="col-xxl-7 field-container col-form-label">
+                    <div class="col-form-label col-xxl-7 field-container">
                         <a href="{{ config('root_doc') }}/front/authldap.form.php?id={{ parent_authldap.getID() }}&forcetab=AuthLDAP$main">
                             {{ parent_authldap.fields.name }}
                         </a>
@@ -133,7 +133,6 @@
             <div class="col-md-6">
                 {{ fields.textField('name', current_config.filter_name|default(item.fields['name']|default('')),
                    __('Filter Name', 'advancedldap'), {
-                       'full_width': true,
                        'mb': 'mb-3'
                    })
                 }}
@@ -141,7 +140,6 @@
             <div class="col-md-6">
                 {{ fields.sliderField('is_active', current_config.is_active|default(item.fields['is_active']|default(0)),
                    __('Active Filter', 'advancedldap'), {
-                       'full_width': true,
                        'mb': 'mb-3'
                    })
                 }}
@@ -153,7 +151,6 @@
             <div class="col-md-6">
                 {{ fields.textField('base_dn', current_config.ldap_base_dn|default(item.fields['base_dn']|default('')),
                    __('Base DN', 'advancedldap'), {
-                       'full_width': true,
                        'mb': 'mb-3'
                    })
                 }}
@@ -161,7 +158,6 @@
             <div class="col-md-6">
                 {{ fields.textField('ldap_filter', current_config.ldap_connection_filter|default(item.fields['ldap_filter']|default('')),
                    __('Connection Filter', 'advancedldap'), {
-                       'full_width': true,
                        'mb': 'mb-3'
                    })
                 }}
@@ -175,13 +171,12 @@
                    __('Asset Type'), {
                        'display_emptychoice': true,
                        'emptylabel': __('Select an asset type'),
-                       'full_width': true,
                        'mb': 'mb-3'
                    })
                 }}
             </div>
             <div class="col-md-6">
-                <div class="form-field row align-items-center col-12 glpi-full-width mb-3">
+                <div class="form-field row align-items-center col-12 mb-3">
                     <div class="col-form-label col-xxl-5"></div>
                     <div class="col-xxl-7 field-container text-end">
                             {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
