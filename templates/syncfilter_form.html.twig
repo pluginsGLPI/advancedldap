@@ -176,29 +176,31 @@
                     <div class="col-xxl-7 field-container text-end">
                         {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
 
-                        {% if item.fields['id'] > 0 and item.canPurge() %}
-                            <button type="submit" name="purge" class="btn btn-outline-danger me-2"
-                                    onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
-                                <i class="ti ti-trash"></i>
-                                <span>{{ __('Delete permanently') }}</span>
-                            </button>
-                        {% endif %}
-
-                        {% if item.fields['id'] > 0 %}
-                            {% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
-                            {% if current_authldap_id %}
-                                {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
+                        <div class="d-flex flex-column flex-lg-row justify-content-end gap-2">
+                            {% if item.fields['id'] > 0 and item.canPurge() %}
+                                <button type="submit" name="purge" class="btn btn-outline-danger w-100 w-lg-auto"
+                                        onclick="return confirm('{{ __('Confirm the final deletion?', 'advancedldap') }}')">
+                                    <i class="ti ti-trash"></i>
+                                    <span>{{ __('Delete permanently') }}</span>
+                                </button>
                             {% endif %}
-                            <a href="{{ test_url }}" class="btn btn-info me-2">
-                                <i class="ti ti-test-pipe"></i>
-                                <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
-                            </a>
-                        {% endif %}
 
-                        <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary me-2">
-                            <i class="fas fa-save"></i>
-                            <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
-                        </button>
+                            {% if item.fields['id'] > 0 %}
+                                {% set test_url = config('root_doc') ~ '/plugins/advancedldap/front/syncfilter.form.php?id=' ~ item.fields['id'] ~ '&test_ldap=1' %}
+                                {% if current_authldap_id %}
+                                    {% set test_url = test_url ~ '&authldap_id=' ~ current_authldap_id %}
+                                {% endif %}
+                                <a href="{{ test_url }}" class="btn btn-outline-info w-100 w-lg-auto">
+                                    <i class="ti ti-test-pipe"></i>
+                                    <span>{{ __('Test LDAP Filter', 'advancedldap') }}</span>
+                                </a>
+                            {% endif %}
+
+                            <button type="submit" name="{{ item.isNewID(item.getID()) ? 'add' : 'update' }}" class="btn btn-primary w-100 w-lg-auto">
+                                <i class="fas fa-save"></i>
+                                <span>{{ item.isNewID(item.getID()) ? __('Add') : __('Update') }}</span>
+                            </button>
+                        </div>
 
                         {% if item.fields['id'] > 0 %}
                             <div class="form-text text-info mt-2">
@@ -230,7 +232,7 @@
         {% else %}
             
             <!-- Résultats LDAP -->
-            <div class="alert alert-success d-flex justify-content-between align-items-center">
+            <div class="alert alert-success d-flex flex-column flex-lg-row justify-content-between align-items-center gap-2">
                 <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>{{ test_results.entries|length }} {{ __('entries found in LDAP', 'advancedldap') }}</h5>
                 <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/syncfilter.form.php" class="d-inline">
                     {{ form_helpers.hidden_form_inputs(csrf_token(), item.fields['id'], current_authldap_id, current_config) }}
