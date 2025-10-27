@@ -145,6 +145,14 @@ if (isset($_POST["add"])) {
         exit;
     }
 
+    // Validate field mappings are defined (protection against data pollution)
+    $field_mappings = $syncfilter->getFieldMappings();
+    if (empty($field_mappings)) {
+        Session::addMessageAfterRedirect(__('Field mappings are required for synchronization', 'advancedldap'), false, ERROR);
+        Html::back();
+        exit;
+    }
+
     try {
         // Get service container and sync service
         $container = Bootstrap::getContainer();
