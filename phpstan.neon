@@ -6,8 +6,8 @@ includes:
 parameters:
     level: max
     paths:
-        - front
         - src
+        - tests
         - hook.php
         - setup.php
     scanDirectories:

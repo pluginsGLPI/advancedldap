@@ -32,6 +32,7 @@ require_once __DIR__ . '/../../src/Plugin.php';
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\ValueObject\PhpVersion;
+
 return RectorConfig::configure()
     ->withPaths([
         __DIR__ . '/src',
