@@ -25,7 +25,7 @@
  * along with advancedldap. If not, see <http://www.gnu.org/licenses/>.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv2 https://www.gnu.org/licenses/gpl-2.0.html
+ * @license   GPLv3e https://www.gnu.org/licenses/gpl-3.0.html
  * @link      https://services.glpi-network.com
  * -------------------------------------------------------------------------
  */
