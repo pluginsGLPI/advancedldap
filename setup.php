@@ -43,6 +43,7 @@ function plugin_init_advancedldap(): void {}
 /**
  * Plugin declaration
  *
+ * @return array<string, mixed>
  */
 function plugin_version_advancedldap(): array
 {
