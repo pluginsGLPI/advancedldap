@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help us improve oauthsso
+description: Create a report to help us improve AdvancedLDAP
 body:
   - type: markdown
     attributes:
@@ -7,7 +7,7 @@ body:
 
         Dear GLPI plugin user.
 
-        **⚠️ Please never use standard issues to report security problems. See [security policy](https://github.com/pluginsGLPI/oauthsso/security/policy) for more details. ⚠️**
+        **⚠️ Please never use standard issues to report security problems. See [security policy](https://github.com/pluginsGLPI/advancedldap/security/policy) for more details. ⚠️**
 
         BEFORE SUBMITTING YOUR ISSUE, please make sure to read and follow these steps:
 
@@ -54,7 +54,7 @@ body:
     id: plugin-version
     attributes:
       label: Plugin version
-      description: What version of `oauthsso` are you running?
+      description: What version of `AdvancedLDAP` are you running?
     validations:
       required: true
   - type: textarea

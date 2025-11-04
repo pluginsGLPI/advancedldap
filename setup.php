@@ -5,75 +5,53 @@
  * advancedldap plugin for GLPI
  * -------------------------------------------------------------------------
  *
- * MIT License
- *
  * LICENSE
- * 
+ *
  * This file is part of advancedldap.
- * 
- * advancedldap is free software; you can redistribute it and/or modify
+ *
+ * AdvancedLDAP is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
- * advancedldap is distributed in the hope that it will be useful,
+ *
+ * AdvancedLDAP is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with advancedldap. If not, see <http://www.gnu.org/licenses/>.
+ * along with AdvancedLDAP. If not, see <http://www.gnu.org/licenses/>.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3e https://www.gnu.org/licenses/gpl-3.0.html
+ * @copyright Copyright (C) 2018-2023 by Teclib'.
+ * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.html
  * @link      https://services.glpi-network.com
  * -------------------------------------------------------------------------
  */
 
+use function Safe\define;
 
-/** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
 
 // Minimal GLPI version, inclusive
-/** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define("PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION", "11.0.0");
 
 // Maximum GLPI version, exclusive
-/** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
-/**
- * Init hooks of the plugin.
- * REQUIRED
- */
 function plugin_init_advancedldap(): void {}
 
 /**
- * Get the name and the version of the plugin
- * REQUIRED
+ * Plugin declaration
  *
- * @return array{
- *      name: string,
- *      version: string,
- *      author: string,
- *      license: string,
- *      homepage: string,
- *      requirements: array{
- *          glpi: array{
- *              min: string,
- *              max: string,
- *          }
- *      }
- * }
  */
 function plugin_version_advancedldap(): array
 {
     return [
-        'name'           => 'advancedldap',
+        'name'           => 'Advanced LDAP',
         'version'        => PLUGIN_ADVANCEDLDAP_VERSION,
         'author'         => '<a href="http://www.teclib.com">Teclib\'</a>',
-        'license'        => '',
-        'homepage'       => '',
+        'license'        => 'GPL v3+',
+        'homepage'       => 'https://www.teclib.com',
         'requirements'   => [
             'glpi' => [
                 'min' => PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION,
