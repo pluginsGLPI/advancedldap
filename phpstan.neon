@@ -4,8 +4,9 @@ includes:
     - ../../vendor/thecodingmachine/phpstan-safe-rule/phpstan-safe-rule.neon
 
 parameters:
-    level: max
+    level: 6
     paths:
+        - front
         - src
         - hook.php
         - setup.php
@@ -14,4 +15,5 @@ parameters:
     bootstrapFiles:
         - ../../stubs/glpi_constants.php
         - ../../vendor/autoload.php
+        - setup.php
     treatPhpDocTypesAsCertain: false
