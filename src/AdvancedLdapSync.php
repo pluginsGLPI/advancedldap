@@ -33,12 +33,11 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use GlpiPlugin\Advancedldap\Contracts\SyncFilterRepositoryInterface;
-use GlpiPlugin\Advancedldap\Services\SyncFilterService;
+use GlpiPlugin\Advancedldap\Service\SyncFilterService;
+use GlpiPlugin\Advancedldap\Model\SyncFilter;
 use AuthLDAP;
 use CommonGLPI;
 use Glpi\Application\View\TemplateRenderer;
-use GlpiPlugin\Advancedldap\Container\ServiceContainer;
 use Session;
 
 /**
@@ -47,18 +46,6 @@ use Session;
 class AdvancedLdapSync extends CommonGLPI
 {
     public static $rightname = 'config';
-
-    private ServiceContainer $container;
-
-    /**
-     * @param ServiceContainer|null $container Optional service container
-     */
-    public function __construct(?ServiceContainer $container = null)
-    {
-        parent::__construct();
-
-        $this->container = $container ?? ServiceContainer::getInstance();
-    }
 
     /**
      * Get tab name for AuthLDAP item
@@ -116,8 +103,8 @@ class AdvancedLdapSync extends CommonGLPI
             return;
         }
 
-        // Get sync filters for this AuthLDAP
-        $sync_filters = $this->getSyncFiltersForAuthLdap($id);
+        // Get sync filters for this AuthLDAP using SyncFilter model method
+        $sync_filters = SyncFilter::getSyncFiltersForAuthLdapDetailed($id);
 
         TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
             'authldap' => $authldap,
@@ -125,8 +112,6 @@ class AdvancedLdapSync extends CommonGLPI
             'can_edit' => $authldap->can($id, \UPDATE),
         ]);
     }
-
-
 
     /**
      * Count sync filters for this AuthLDAP instance
@@ -146,28 +131,13 @@ class AdvancedLdapSync extends CommonGLPI
     }
 
     /**
-     * Get sync filters for this AuthLDAP instance
-     *
-     * @param int $authldap_id AuthLDAP ID
-     * @return array<int, array<string, mixed>>
-     */
-    public function getSyncFiltersForAuthLdap(int $authldap_id): array
-    {
-        $repository = $this->container->get(SyncFilterRepositoryInterface::class);
-        return $repository->getSyncFiltersForAuthLdapDetailed($authldap_id);
-    }
-
-    /**
      * Get all available sync filters
      *
      * @return array<int, array<string, mixed>>
      */
     public function getAvailableSyncFilters(): array
     {
-        $sync_filter_service = $this->container->get(SyncFilterService::class);
+        $sync_filter_service = SyncFilterService::getInstance();
         return $sync_filter_service->getAvailableSyncFilters();
     }
-
-
-
 }

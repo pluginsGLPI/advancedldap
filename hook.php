@@ -32,7 +32,7 @@
  */
 
 use Glpi\DBAL\QuerySubQuery;
-use GlpiPlugin\Advancedldap\Models\SyncFilter;
+use GlpiPlugin\Advancedldap\Model\SyncFilter;
 
 /**
  * Plugin install process
@@ -91,8 +91,8 @@ function plugin_advancedldap_install(): bool
 
     // Register cron task for automatic LDAP synchronization
     CronTask::register(
-        \GlpiPlugin\Advancedldap\Models\SyncFilter::class,
-        \GlpiPlugin\Advancedldap\Models\SyncFilter::CRON_TASK_NAME,
+        \GlpiPlugin\Advancedldap\Model\SyncFilter::class,
+        \GlpiPlugin\Advancedldap\Model\SyncFilter::CRON_TASK_NAME,
         HOUR_TIMESTAMP,
         [
             'comment' => __('Automatically synchronize active LDAP filters with GLPI assets', 'advancedldap'),
@@ -143,8 +143,8 @@ function plugin_advancedldap_addDefaultWhere($itemtype)
 {
     if ($itemtype === SyncFilter::class) {
 
-        // Clean and validate authldap_id parameter using helper method
-        $authldap_id = \GlpiPlugin\Advancedldap\Services\SyncFilterFormHelper::getAuthLdapIdFromRequest();
+        // Clean and validate authldap_id parameter from request
+        $authldap_id = (int) ($_GET['authldap_id'] ?? $_POST['authldap_id'] ?? 0);
 
         if ($authldap_id > 0) {
             // Return WHERE clause in iterator format with QuerySubQuery for SQL injection protection

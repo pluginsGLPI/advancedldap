@@ -32,8 +32,8 @@
  */
 
 use GlpiPlugin\Advancedldap\AdvancedLdapSync;
-use GlpiPlugin\Advancedldap\Models\SyncFilter;
-use GlpiPlugin\Advancedldap\Models\AuthLdapSyncFilter;
+use GlpiPlugin\Advancedldap\Model\SyncFilter;
+use GlpiPlugin\Advancedldap\Model\AuthLdapSyncFilter;
 
 /** @phpstan-ignore theCodingMachineSafe.function (safe to assume this isn't already defined) */
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
@@ -71,8 +71,8 @@ function plugin_init_advancedldap(): void
     ]);
 
     // Register modern namespace classes
-    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\SyncFilter');
-    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Model\\SyncFilter');
+    Plugin::registerClass('GlpiPlugin\\Advancedldap\\Model\\AuthLdapSyncFilter');
 
     // Register legacy names for Search and MassiveAction compatibility (GLPI 11 limitation)
     Plugin::registerClass('PluginAdvancedldapSyncFilter');
@@ -80,10 +80,10 @@ function plugin_init_advancedldap(): void
 
     // Force loading of classes to create aliases for getItemForItemtype() compatibility
     // Workaround for GLPI namespace limitation with Search engine
-    if (class_exists('GlpiPlugin\\Advancedldap\\Models\\SyncFilter')) {
+    if (class_exists('GlpiPlugin\\Advancedldap\\Model\\SyncFilter')) {
         // This will trigger the class_alias() in SyncFilter.php
     }
-    if (class_exists('GlpiPlugin\\Advancedldap\\Models\\AuthLdapSyncFilter')) {
+    if (class_exists('GlpiPlugin\\Advancedldap\\Model\\AuthLdapSyncFilter')) {
         // This will trigger the class_alias() in AuthLdapSyncFilter.php (if exists)
     }
 }
