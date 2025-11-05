@@ -154,43 +154,10 @@ class SyncFilter extends CommonDropdown
                 'itemtype_list' => 'inventory_types',
                 'form_params' => [
                     'disabled' => !$this->isNewItem(),
+                    'display_emptychoice' => false,
                 ],
             ],
         ];
-    }
-
-    public function post_getEmpty(): void
-    {
-        global $CFG_GLPI;
-
-        if (!empty($CFG_GLPI['inventory_types']) && is_array($CFG_GLPI['inventory_types'])) {
-            $this->fields['itemtype'] = $CFG_GLPI['inventory_types'][0];
-        }
-    }
-
-    public function prepareInputForAdd($input)
-    {
-        $input = parent::prepareInputForAdd($input);
-
-        if (empty($input['itemtype'])) {
-            Session::addMessageAfterRedirect(
-                __s('Asset type must be selected', 'advancedldap'),
-                false,
-                ERROR,
-            );
-            return false;
-        }
-
-        return $input;
-    }
-
-    public function prepareInputForUpdate($input)
-    {
-        if (isset($input['itemtype'])) {
-            unset($input['itemtype']);
-        }
-
-        return parent::prepareInputForUpdate($input);
     }
 
     public static function canCreate(): bool
