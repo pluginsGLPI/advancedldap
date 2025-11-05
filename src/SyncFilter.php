@@ -35,7 +35,7 @@ use AuthLDAP;
 use CommonGLPI;
 use Migration;
 use DBConnection;
-use Session;
+use DisplayPreference;
 
 class SyncFilter extends CommonDropdown
 {
@@ -75,6 +75,12 @@ class SyncFilter extends CommonDropdown
 
             $DB->doQuery($query);
         }
+
+        $migration->updateDisplayPrefs(
+            [
+                self::getType() => [34, 75, 87],
+            ],
+        );
     }
 
     public static function uninstall(Migration $migration): void
@@ -82,6 +88,9 @@ class SyncFilter extends CommonDropdown
         $table = self::getTable();
         $migration->displayMessage('Uninstalling ' . $table);
         $migration->dropTable($table);
+
+        $display_preferences = new DisplayPreference();
+        $display_preferences->deleteByCriteria(['itemtype' => self::getType()]);
     }
 
     public static function getTypeName($nb = 0)
@@ -158,6 +167,42 @@ class SyncFilter extends CommonDropdown
                 ],
             ],
         ];
+    }
+
+    /**
+     * @return array<string|int, array<string, mixed>>
+     */
+    public function rawSearchOptions(): array
+    {
+        /** @var array<string|int, array<string, mixed>> */
+        $tab = parent::rawSearchOptions();
+
+        $tab[] = [
+            'id'                 => '34',
+            'table'              => self::getTable(),
+            'field'              => 'connection_filter',
+            'name'               => __s('Connection filter', 'advancedldap'),
+            'datatype'           => 'string',
+        ];
+
+        $tab[] = [
+            'id'                 => '75',
+            'table'              => self::getTable(),
+            'field'              => 'basedn',
+            'name'               => __s('Base DN', 'advancedldap'),
+            'searchtype'         => ['equals', 'notequals'],
+            'datatype'           => 'string',
+        ];
+
+        $tab[] = [
+            'id'                 => '87',
+            'table'              => self::getTable(),
+            'field'              => 'itemtype',
+            'name'               => __s('Asset type', 'advancedldap'),
+            'datatype'           => 'string',
+        ];
+
+        return $tab;
     }
 
     public static function canCreate(): bool
