@@ -29,6 +29,7 @@
  */
 
 use GlpiPlugin\AdvancedLdap\SyncFilter;
+
 use function Safe\define;
 
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
@@ -39,7 +40,8 @@ define("PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION", "11.0.0");
 // Maximum GLPI version, exclusive
 define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
-function plugin_init_advancedldap(): void {
+function plugin_init_advancedldap(): void
+{
     global $PLUGIN_HOOKS;
 
     /** @var array<string, array<string, bool>> $PLUGIN_HOOKS */
@@ -47,7 +49,7 @@ function plugin_init_advancedldap(): void {
 
     // Register the SyncFilter class to add a tab on AuthLDAP items
     Plugin::registerClass(SyncFilter::class, [
-        'addtabon' => ['AuthLDAP']
+        'addtabon' => ['AuthLDAP'],
     ]);
 }
 

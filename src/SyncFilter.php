@@ -1,4 +1,5 @@
 <?php
+
 /**
  * -------------------------------------------------------------------------
  * advancedldap plugin for GLPI
@@ -33,7 +34,6 @@ use CommonDropdown;
 use AuthLDAP;
 use CommonGLPI;
 use Session;
-
 
 class SyncFilter extends CommonDropdown
 {
@@ -71,7 +71,7 @@ class SyncFilter extends CommonDropdown
                 __('Advanced sync', 'advancedldap'),
                 $nb,
                 $item::class,
-                static::getIcon()
+                static::getIcon(),
             );
         }
 

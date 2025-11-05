@@ -34,7 +34,7 @@ use GlpiPlugin\AdvancedLdap\SyncFilter;
  * Plugin install process
  */
 function plugin_advancedldap_install(): bool
-{   
+{
     global $DB;
 
     // Create syncfilters table
