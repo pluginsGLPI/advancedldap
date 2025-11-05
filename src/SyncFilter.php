@@ -53,11 +53,12 @@ class SyncFilter extends CommonDropdown
         // Create syncfilters table
         $table = static::getTable();
         if (!$DB->tableExists($table)) {
+            $migration->displayMessage('Installing ' . $table);
             $query = "CREATE TABLE `{$table}` (
                 `id` int {$default_key_sign} NOT NULL AUTO_INCREMENT,
                 `name` varchar(255) NOT NULL DEFAULT '',
                 `connection_filter` text,
-                `base_dn` varchar(255) NOT NULL DEFAULT '',
+                `basedn` varchar(255) NOT NULL DEFAULT '',
                 `itemtype` varchar(255) NOT NULL DEFAULT '',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
@@ -74,18 +75,9 @@ class SyncFilter extends CommonDropdown
 
     public static function uninstall(Migration $migration): void
     {
-        global $DB;
-
-        // Drop tables
-        $tables = [
-            static::getTable(),
-        ];
-
-        foreach ($tables as $table) {
-            if ($DB->tableExists($table)) {
-                $DB->doQuery(sprintf('DROP TABLE `%s`', $table));
-            }
-        }
+        $table = static::getTable();
+        $migration->displayMessage('Uninstalling ' . $table);
+        $migration->dropTable($table);
     }
 
     public static function getTypeName($nb = 0)
@@ -152,7 +144,7 @@ class SyncFilter extends CommonDropdown
                 'type'  => 'text',
             ],
             [
-                'name'  => 'base_dn',
+                'name'  => 'basedn',
                 'label' => __('Base DN', 'advancedldap'),
                 'type'  => 'text',
             ],
