@@ -89,7 +89,5 @@ function plugin_advancedldap_uninstall(): bool
  */
 function plugin_advancedldap_getDropdown(): array
 {
-    return [
-        SyncFilter::class => _n('Sync Filter', 'Sync Filters', Session::getPluralNumber(), 'advancedldap'),
-    ];
+    return [SyncFilter::class => __s('Sync Filter', 'advancedldap')];
 }
