@@ -150,11 +150,17 @@ class SyncFilter extends CommonDropdown
                 'name'  => 'connection_filter',
                 'label' => __('Connection filter', 'advancedldap'),
                 'type'  => 'text',
+                'form_params' => [
+                    'required' => true,
+                ],
             ],
             [
                 'name'  => 'basedn',
                 'label' => __('Base DN', 'advancedldap'),
                 'type'  => 'text',
+                'form_params' => [
+                    'required' => true,
+                ],
             ],
             [
                 'name'  => 'itemtype',
@@ -164,6 +170,7 @@ class SyncFilter extends CommonDropdown
                 'form_params' => [
                     'disabled' => !$this->isNewItem(),
                     'display_emptychoice' => false,
+                    'required' => true,
                 ],
             ],
         ];
