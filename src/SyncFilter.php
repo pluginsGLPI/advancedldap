@@ -28,18 +28,65 @@
  * -------------------------------------------------------------------------
  */
 
-namespace GlpiPlugin\AdvancedLdap;
+namespace GlpiPlugin\Advancedldap;
 
 use CommonDropdown;
 use AuthLDAP;
 use CommonGLPI;
-use Session;
+use Migration;
+use DBConnection;
 
 class SyncFilter extends CommonDropdown
 {
     public static $rightname = 'config';
 
     public $dohistory = true;
+
+    public static function install(Migration $migration): void
+    {
+        global $DB;
+
+        $default_charset   = DBConnection::getDefaultCharset();
+        $default_collation = DBConnection::getDefaultCollation();
+        $default_key_sign  = DBConnection::getDefaultPrimaryKeySignOption();
+
+        // Create syncfilters table
+        $table = static::getTable();
+        if (!$DB->tableExists($table)) {
+            $query = "CREATE TABLE `{$table}` (
+                `id` int {$default_key_sign} NOT NULL AUTO_INCREMENT,
+                `name` varchar(255) NOT NULL DEFAULT '',
+                `connection_filter` text,
+                `base_dn` varchar(255) NOT NULL DEFAULT '',
+                `itemtype` varchar(255) NOT NULL DEFAULT '',
+                `date_creation` timestamp NULL DEFAULT NULL,
+                `date_mod` timestamp NULL DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `name` (`name`),
+                KEY `itemtype` (`itemtype`),
+                KEY `date_creation` (`date_creation`),
+                KEY `date_mod` (`date_mod`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC";
+
+            $DB->doQuery($query);
+        }
+    }
+
+    public static function uninstall(Migration $migration): void
+    {
+        global $DB;
+
+        // Drop tables
+        $tables = [
+            static::getTable(),
+        ];
+
+        foreach ($tables as $table) {
+            if ($DB->tableExists($table)) {
+                $DB->doQuery(sprintf('DROP TABLE `%s`', $table));
+            }
+        }
+    }
 
     public static function getTypeName($nb = 0)
     {
@@ -60,12 +107,6 @@ class SyncFilter extends CommonDropdown
     {
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             $nb = 0;
-
-            //only for admin users ?
-            if (Session::getCurrentInterface() !== 'helpdesk') {
-                //to set later when filters can be created
-                $nb = 0;
-            }
 
             return self::createTabEntry(
                 __('Advanced sync', 'advancedldap'),
@@ -116,9 +157,10 @@ class SyncFilter extends CommonDropdown
                 'type'  => 'text',
             ],
             [
-                'name'  => 'asset_type',
+                'name'  => 'itemtype',
                 'label' => __('Asset type', 'advancedldap'),
-                'type'  => 'text', //select later
+                'type'  => 'itemtypename',
+                'itemtype_list' => 'inventory_types',
             ],
         ];
     }

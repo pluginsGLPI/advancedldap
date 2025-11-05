@@ -28,37 +28,15 @@
  * -------------------------------------------------------------------------
  */
 
-use GlpiPlugin\AdvancedLdap\SyncFilter;
+use GlpiPlugin\Advancedldap\SyncFilter;
 
 /**
  * Plugin install process
  */
 function plugin_advancedldap_install(): bool
 {
-    global $DB;
-
-    // Create syncfilters table
-    if (!$DB->tableExists('glpi_plugin_advancedldap_syncfilters')) {
-        $query = "CREATE TABLE `glpi_plugin_advancedldap_syncfilters` (
-            `id` int unsigned NOT NULL AUTO_INCREMENT,
-            `name` varchar(255) NOT NULL DEFAULT '',
-            `connection_filter` text,
-            `base_dn` varchar(255) NOT NULL DEFAULT '',
-            `asset_type` varchar(255) NOT NULL DEFAULT '',
-            `date_creation` timestamp NULL DEFAULT NULL,
-            `date_mod` timestamp NULL DEFAULT NULL,
-            PRIMARY KEY (`id`),
-            KEY `name` (`name`),
-            KEY `asset_type` (`asset_type`),
-            KEY `date_creation` (`date_creation`),
-            KEY `date_mod` (`date_mod`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC";
-
-        if (!$DB->doQuery($query)) {
-            Toolbox::logDebug("Advanced LDAP - Error creating table glpi_plugin_advancedldap_syncfilters: " . $DB->error());
-            return false;
-        }
-    }
+    $migration = new Migration(PLUGIN_ADVANCEDLDAP_VERSION);
+    SyncFilter::install($migration);
 
     return true;
 }
