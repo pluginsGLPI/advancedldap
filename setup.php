@@ -29,6 +29,7 @@
  */
 
 use GlpiPlugin\Advancedldap\SyncFilter;
+use Glpi\Plugin\Hooks;
 
 use function Safe\define;
 
@@ -42,7 +43,11 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
 function plugin_init_advancedldap(): void
 {
-    // Register the SyncFilter class to add a tab on AuthLDAP items
+    /** @var array<string, array<string, array<string, string>>> $PLUGIN_HOOKS */
+    global $PLUGIN_HOOKS;
+
+    $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
+
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP'],
     ]);

@@ -35,10 +35,14 @@ use AuthLDAP;
 use CommonGLPI;
 use Migration;
 use DBConnection;
+use Session;
 
 class SyncFilter extends CommonDropdown
 {
     public static $rightname = 'config';
+
+    /** @var bool */
+    public $can_be_translated = false;
 
     public $dohistory = true;
 
@@ -51,7 +55,7 @@ class SyncFilter extends CommonDropdown
         $default_key_sign  = DBConnection::getDefaultPrimaryKeySignOption();
 
         // Create syncfilters table
-        $table = static::getTable();
+        $table = self::getTable();
         if (!$DB->tableExists($table)) {
             $migration->displayMessage('Installing ' . $table);
             $query = "CREATE TABLE `{$table}` (
@@ -75,7 +79,7 @@ class SyncFilter extends CommonDropdown
 
     public static function uninstall(Migration $migration): void
     {
-        $table = static::getTable();
+        $table = self::getTable();
         $migration->displayMessage('Uninstalling ' . $table);
         $migration->dropTable($table);
     }
@@ -88,11 +92,6 @@ class SyncFilter extends CommonDropdown
     public static function getIcon(): string
     {
         return 'ti ti-filter';
-    }
-
-    public static function getTable($classname = null)
-    {
-        return 'glpi_plugin_advancedldap_syncfilters';
     }
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
@@ -133,7 +132,7 @@ class SyncFilter extends CommonDropdown
     }
 
     /**
-     * @return array<array<string, string>>
+     * @return array<array<string, mixed>>
      */
     public function getAdditionalFields(): array
     {
@@ -153,8 +152,45 @@ class SyncFilter extends CommonDropdown
                 'label' => __('Asset type', 'advancedldap'),
                 'type'  => 'itemtypename',
                 'itemtype_list' => 'inventory_types',
+                'form_params' => [
+                    'disabled' => !$this->isNewItem(),
+                ],
             ],
         ];
+    }
+
+    public function post_getEmpty(): void
+    {
+        global $CFG_GLPI;
+
+        if (!empty($CFG_GLPI['inventory_types']) && is_array($CFG_GLPI['inventory_types'])) {
+            $this->fields['itemtype'] = $CFG_GLPI['inventory_types'][0];
+        }
+    }
+
+    public function prepareInputForAdd($input)
+    {
+        $input = parent::prepareInputForAdd($input);
+
+        if (empty($input['itemtype'])) {
+            Session::addMessageAfterRedirect(
+                __s('Asset type must be selected', 'advancedldap'),
+                false,
+                ERROR,
+            );
+            return false;
+        }
+
+        return $input;
+    }
+
+    public function prepareInputForUpdate($input)
+    {
+        if (isset($input['itemtype'])) {
+            unset($input['itemtype']);
+        }
+
+        return parent::prepareInputForUpdate($input);
     }
 
     public static function canCreate(): bool
