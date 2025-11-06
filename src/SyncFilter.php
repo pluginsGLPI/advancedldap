@@ -105,6 +105,7 @@ class SyncFilter extends CommonDropdown
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        // Tab on AuthLDAP pages
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             $nb = 0;
 
@@ -116,15 +117,30 @@ class SyncFilter extends CommonDropdown
             );
         }
 
+        // Tab on SyncFilter itself
+        if ($item instanceof self && $item->can($item->getID(), \READ)) {
+            return self::createTabEntry(
+                __('Configuration', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-settings',
+            );
+        }
+
         return '';
     }
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-
+        // Display content for AuthLDAP pages
         if ($item instanceof AuthLDAP) {
             $instance = new self();
             $instance->showSyncFiltersList($item);
+        }
+
+        // Display content for SyncFilter pages
+        if ($item instanceof self) {
+            $item->showLdapConf();
         }
 
         return true;
@@ -137,6 +153,16 @@ class SyncFilter extends CommonDropdown
         echo "<h2>Hello World</h2>";
         echo "<p>Advanced LDAP Sync Configuration</p>";
         echo "<p>LDAP Server ID: " . $item->getID() . "</p>";
+        echo "</div>";
+    }
+
+    private function showLdapConf(): void
+    {
+        //to set later when LDAP association will be implemented
+        echo "<div class='center'>";
+        echo "<h2>" . __('Hello World', 'advancedldap') . "</h2>";
+        echo "<p>" . __('Custom tab content for SyncFilter', 'advancedldap') . "</p>";
+        echo "<p>" . sprintf(__('Filter ID: %d', 'advancedldap'), $this->getID()) . "</p>";
         echo "</div>";
     }
 

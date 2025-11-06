@@ -49,7 +49,7 @@ function plugin_init_advancedldap(): void
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
 
     Plugin::registerClass(SyncFilter::class, [
-        'addtabon' => ['AuthLDAP'],
+        'addtabon' => ['AuthLDAP', SyncFilter::class],
     ]);
 }
 
