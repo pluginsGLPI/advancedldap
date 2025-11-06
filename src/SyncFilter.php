@@ -78,7 +78,7 @@ class SyncFilter extends CommonDropdown
 
         $migration->updateDisplayPrefs(
             [
-                self::getType() => [34, 75, 87],
+                self::getType() => [3401, 3567, 3087],
             ],
         );
     }
@@ -185,7 +185,7 @@ class SyncFilter extends CommonDropdown
         $tab = parent::rawSearchOptions();
 
         $tab[] = [
-            'id'                 => '34',
+            'id'                 => '3401',
             'table'              => self::getTable(),
             'field'              => 'connection_filter',
             'name'               => __s('Connection filter', 'advancedldap'),
@@ -193,7 +193,7 @@ class SyncFilter extends CommonDropdown
         ];
 
         $tab[] = [
-            'id'                 => '75',
+            'id'                 => '3567',
             'table'              => self::getTable(),
             'field'              => 'basedn',
             'name'               => __s('Base DN', 'advancedldap'),
@@ -202,11 +202,11 @@ class SyncFilter extends CommonDropdown
         ];
 
         $tab[] = [
-            'id'                 => '87',
+            'id'                 => '3087',
             'table'              => self::getTable(),
             'field'              => 'itemtype',
             'name'               => __s('Asset type', 'advancedldap'),
-            'datatype'           => 'string',
+            'datatype'           => 'itemtypename',
         ];
 
         return $tab;
