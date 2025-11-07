@@ -106,7 +106,6 @@ class SyncFilter extends CommonDropdown
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        // Tab on AuthLDAP pages
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
             $nb = 0;
 
@@ -118,7 +117,6 @@ class SyncFilter extends CommonDropdown
             );
         }
 
-        // Tab on SyncFilter itself
         if ($item instanceof self && $item->can($item->getID(), \READ)) {
             return self::createTabEntry(
                 __('Configuration', 'advancedldap'),
@@ -133,13 +131,11 @@ class SyncFilter extends CommonDropdown
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        // Display content for AuthLDAP pages
         if ($item instanceof AuthLDAP) {
             $instance = new self();
             $instance->showSyncFiltersList($item);
         }
 
-        // Display content for SyncFilter pages
         if ($item instanceof self) {
             $item->showLdapConf();
         }
@@ -149,19 +145,90 @@ class SyncFilter extends CommonDropdown
 
     public function showSyncFiltersList(AuthLDAP $authldap): void
     {
-        $id = $authldap->getField('id');
+        global $DB;
+
+        $authldap_id = $authldap->getField('id');
+
+        $entries = [];
+        $iterator = $DB->request([
+            'SELECT' => ['sf.*'],
+            'FROM' => self::getTable() . ' AS sf',
+            'INNER JOIN' => [
+                AuthLdapSyncFilter::getTable() . ' AS rel' => [
+                    'ON' => [
+                        'rel' => 'syncfilter_id',
+                        'sf'  => 'id',
+                    ],
+                ],
+            ],
+            'WHERE' => [
+                'rel.authldap_id' => $authldap_id,
+            ],
+        ]);
+
+        //add html markup for consistency w/ RSO
+        foreach ($iterator as $row) {
+            /** @var array{name: string, basedn: string, connection_filter: string, itemtype: string} $row */
+            $entries[] = [
+                'name'              => $row['name'],
+                'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
+                'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
+                'itemtype'          => $row['itemtype'],
+            ];
+        }
 
         TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
-            'authldap_id' => $id,
+            'authldap_id' => $authldap_id,
+            'entries' => $entries,
         ]);
     }
 
     private function showLdapConf(): void
     {
-        $id = $this->getID();
+        global $DB;
+
+        $syncfilter_id = $this->getID();
+
+        $entries = [];
+        $iterator = $DB->request([
+            'SELECT' => ['al.*', 'rel.id as link_id'],
+            'FROM' => 'glpi_authldaps AS al',
+            'INNER JOIN' => [
+                AuthLdapSyncFilter::getTable() . ' AS rel' => [
+                    'ON' => [
+                        'rel' => 'authldap_id',
+                        'al' => 'id',
+                    ],
+                ],
+            ],
+            'WHERE' => ['rel.syncfilter_id' => $syncfilter_id],
+            'ORDER' => 'al.name',
+        ]);
+        foreach ($iterator as $row) {
+            /** @var array{name: string, host: string, port: int|string, basedn: string} $row */
+            $entries[] = [
+                'name'   => $row['name'],
+                'host'   => $row['host'],
+                'port'   => $row['port'],
+                'basedn' => $row['basedn'],
+            ];
+        }
+
+        $available_authldaps = [];
+        $iterator = $DB->request([
+            'FROM'  => 'glpi_authldaps',
+            'WHERE' => ['is_active' => 1],
+            'ORDER' => 'name',
+        ]);
+        foreach ($iterator as $row) {
+            /** @var array{id: int, name: string} $row */
+            $available_authldaps[$row['id']] = $row['name'];
+        }
 
         TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_conf.html.twig', [
-            'syncfilter_id' => $id,
+            'syncfilter_id'       => $syncfilter_id,
+            'entries'             => $entries,
+            'available_authldaps' => $available_authldaps,
         ]);
     }
 

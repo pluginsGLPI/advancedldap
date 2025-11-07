@@ -29,6 +29,7 @@
  */
 
 use GlpiPlugin\Advancedldap\SyncFilter;
+use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 
 /**
  * Plugin install process
@@ -37,6 +38,7 @@ function plugin_advancedldap_install(): bool
 {
     $migration = new Migration(PLUGIN_ADVANCEDLDAP_VERSION);
     SyncFilter::install($migration);
+    AuthLdapSyncFilter::install($migration);
 
     return true;
 }
@@ -48,6 +50,7 @@ function plugin_advancedldap_uninstall(): bool
 {
     $migration = new Migration(PLUGIN_ADVANCEDLDAP_VERSION);
     SyncFilter::uninstall($migration);
+    AuthLdapSyncFilter::uninstall($migration);
 
     return true;
 }
