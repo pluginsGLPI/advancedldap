@@ -27,8 +27,10 @@
  * @link      https://services.glpi-network.com
  * -------------------------------------------------------------------------
  */
+
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
 /**
@@ -38,7 +40,7 @@ use GlpiPlugin\Advancedldap\SyncFilter;
  * @method void assertNotFalse($condition, string $message = '')
  * @method void assertGreaterThan($expected, $actual, string $message = '')
  */
-final class SyncFilterTest extends \DbTestCase
+final class SyncFilterTest extends DbTestCase
 {
     public function testCreate(): void
     {
