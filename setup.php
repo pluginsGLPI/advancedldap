@@ -28,6 +28,9 @@
  * -------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Advancedldap\SyncFilter;
+use Glpi\Plugin\Hooks;
+
 use function Safe\define;
 
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
@@ -38,7 +41,17 @@ define("PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION", "11.0.0");
 // Maximum GLPI version, exclusive
 define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
-function plugin_init_advancedldap(): void {}
+function plugin_init_advancedldap(): void
+{
+    /** @var array<string, array<string, array<string, string>>> $PLUGIN_HOOKS */
+    global $PLUGIN_HOOKS;
+
+    $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
+
+    Plugin::registerClass(SyncFilter::class, [
+        'addtabon' => ['AuthLDAP', SyncFilter::class],
+    ]);
+}
 
 /**
  * Plugin declaration
