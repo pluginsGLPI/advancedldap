@@ -27,8 +27,32 @@
  #}
 
 {# Sync filters list for AuthLDAP #}
-<div class="card">
-    <div class="card-body">
-        <p>Hello from Authldap {{ authldap_id }}</p>
-    </div>
+<div class="card-header">
+    <h4 class="card-title">{{ __('Syncfilters associated', 'advancedldap') }}</h4>
+</div>
+<div class="card-body">
+    {% if entries is empty %}
+        <div class="alert alert-info">
+            {{ __('No sync filters linked to this LDAP connection', 'advancedldap') }}
+        </div>
+    {% else %}
+        {% include 'components/datatable.html.twig' with {
+            'datatable_id': 'authldap_syncfilters',
+            'columns': {
+                'name': __('Name'),
+                'basedn': __('Base DN', 'advancedldap'),
+                'connection_filter': __('Connection filter', 'advancedldap'),
+                'itemtype': __('Asset type', 'advancedldap'),
+            },
+            'formatters': {
+                'basedn': 'raw_html',
+                'connection_filter': 'raw_html',
+            },
+            'entries': entries,
+            'total_number': entries|length,
+            'filtered_number': entries|length,
+            'showmassiveactions': false,
+            'nofilter': true,
+        } only %}
+    {% endif %}
 </div>
