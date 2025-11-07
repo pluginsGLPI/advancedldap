@@ -36,6 +36,7 @@ use CommonGLPI;
 use Migration;
 use DBConnection;
 use DisplayPreference;
+use Glpi\Application\View\TemplateRenderer;
 
 class SyncFilter extends CommonDropdown
 {
@@ -146,24 +147,22 @@ class SyncFilter extends CommonDropdown
         return true;
     }
 
-    public function showSyncFiltersList(AuthLDAP $item): void
+    public function showSyncFiltersList(AuthLDAP $authldap): void
     {
-        //to set later when filters can be created : here will be displayed actions like test / sync / etc...
-        echo "<div class='center'>";
-        echo "<h2>Hello World</h2>";
-        echo "<p>Advanced LDAP Sync Configuration</p>";
-        echo "<p>LDAP Server ID: " . $item->getID() . "</p>";
-        echo "</div>";
+        $id = $authldap->getField('id');
+
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
+            'authldap_id' => $id,
+        ]);
     }
 
     private function showLdapConf(): void
     {
-        //to set later when LDAP association will be implemented
-        echo "<div class='center'>";
-        echo "<h2>" . __('Hello World', 'advancedldap') . "</h2>";
-        echo "<p>" . __('Custom tab content for SyncFilter', 'advancedldap') . "</p>";
-        echo "<p>" . sprintf(__('Filter ID: %d', 'advancedldap'), $this->getID()) . "</p>";
-        echo "</div>";
+        $id = $this->getID();
+
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_conf.html.twig', [
+            'syncfilter_id' => $id,
+        ]);
     }
 
     /**
@@ -234,6 +233,7 @@ class SyncFilter extends CommonDropdown
             'name'               => __s('Asset type', 'advancedldap'),
             'datatype'           => 'itemtypename',
         ];
+
 
         return $tab;
     }
