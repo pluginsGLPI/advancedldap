@@ -30,8 +30,6 @@
 
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 
-include(__DIR__ . '/../../../inc/includes.php');
-
 Session::checkCentralAccess();
 
 $relation = new AuthLdapSyncFilter();

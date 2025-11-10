@@ -34,6 +34,8 @@ use CommonDBTM;
 use Migration;
 use DBConnection;
 use Session;
+use AuthLDAP;
+use Glpi\Application\View\TemplateRenderer;
 
 class AuthLdapSyncFilter extends CommonDBTM
 {
@@ -65,6 +67,58 @@ class AuthLdapSyncFilter extends CommonDBTM
 
             $DB->doQuery($query);
         }
+    }
+
+    public function showSyncFiltersList(AuthLDAP $authldap): void
+    {
+        global $DB;
+
+        $authldap_id = $authldap->getField('id');
+
+        $entries = [];
+        $iterator = $DB->request([
+            'SELECT' => ['sf.*'],
+            'FROM' => SyncFilter::getTable() . ' AS sf',
+            'INNER JOIN' => [
+                self::getTable() . ' AS rel' => [
+                    'ON' => [
+                        'rel' => 'syncfilter_id',
+                        'sf'  => 'id',
+                    ],
+                ],
+            ],
+            'WHERE' => [
+                'rel.authldap_id' => $authldap_id,
+            ],
+        ]);
+
+        //add html markup for consistency w/ RSO
+        foreach ($iterator as $row) {
+            /** @var array{name: string, basedn: string, connection_filter: string, itemtype: string} $row */
+            $entries[] = [
+                'name'              => $row['name'],
+                'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
+                'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
+                'itemtype'          => $row['itemtype'],
+            ];
+        }
+
+        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
+            'authldap_id' => $authldap_id,
+            'entries' => $entries,
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getForbiddenStandardMassiveAction()
+    {
+        /** @var array<int, string> $forbidden */
+        $forbidden   = parent::getForbiddenStandardMassiveAction();
+        $forbidden[] = 'update';
+        $forbidden[] = 'clone';
+        return $forbidden;
     }
 
     public static function uninstall(Migration $migration): void

@@ -132,7 +132,7 @@ class SyncFilter extends CommonDropdown
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
         if ($item instanceof AuthLDAP) {
-            $instance = new self();
+            $instance = new AuthLdapSyncFilter();
             $instance->showSyncFiltersList($item);
         }
 
@@ -141,46 +141,6 @@ class SyncFilter extends CommonDropdown
         }
 
         return true;
-    }
-
-    public function showSyncFiltersList(AuthLDAP $authldap): void
-    {
-        global $DB;
-
-        $authldap_id = $authldap->getField('id');
-
-        $entries = [];
-        $iterator = $DB->request([
-            'SELECT' => ['sf.*'],
-            'FROM' => self::getTable() . ' AS sf',
-            'INNER JOIN' => [
-                AuthLdapSyncFilter::getTable() . ' AS rel' => [
-                    'ON' => [
-                        'rel' => 'syncfilter_id',
-                        'sf'  => 'id',
-                    ],
-                ],
-            ],
-            'WHERE' => [
-                'rel.authldap_id' => $authldap_id,
-            ],
-        ]);
-
-        //add html markup for consistency w/ RSO
-        foreach ($iterator as $row) {
-            /** @var array{name: string, basedn: string, connection_filter: string, itemtype: string} $row */
-            $entries[] = [
-                'name'              => $row['name'],
-                'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
-                'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
-                'itemtype'          => $row['itemtype'],
-            ];
-        }
-
-        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
-            'authldap_id' => $authldap_id,
-            'entries' => $entries,
-        ]);
     }
 
     private function showLdapConf(): void
@@ -205,12 +165,13 @@ class SyncFilter extends CommonDropdown
             'ORDER' => 'al.name',
         ]);
         foreach ($iterator as $row) {
-            /** @var array{name: string, host: string, port: int|string, basedn: string} $row */
+            /** @var array{name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
             $entries[] = [
-                'name'   => $row['name'],
-                'host'   => $row['host'],
-                'port'   => $row['port'],
-                'basedn' => $row['basedn'],
+                'id'       => $row['link_id'],
+                'itemtype' => AuthLdapSyncFilter::class,
+                'name'     => $row['name'],
+                'host'     => $row['host'],
+                'port'     => $row['port'],
             ];
         }
 
@@ -229,6 +190,10 @@ class SyncFilter extends CommonDropdown
             'syncfilter_id'       => $syncfilter_id,
             'entries'             => $entries,
             'available_authldaps' => $available_authldaps,
+            'massiveactionparams' => [
+                'num_displayed' => count($entries),
+                'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
+            ],
         ]);
     }
 
