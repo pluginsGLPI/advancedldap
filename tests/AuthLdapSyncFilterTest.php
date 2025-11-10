@@ -46,26 +46,29 @@ final class AuthLdapSyncFilterTest extends DbTestCase
 {
     public function testCreateRelation(): void
     {
-        $authldap_id = $this->createItem(AuthLDAP::class, [
+        $authldap = $this->createItem(AuthLDAP::class, [
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
             'basedn' => 'dc=example,dc=com',
             'is_active' => 1,
         ]);
+        $authldap_id = $authldap->getID();
         $this->assertGreaterThan(0, $authldap_id);
 
-        $syncfilter_id = $this->createItem(SyncFilter::class, [
+        $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
             'connection_filter' => '(objectClass=computer)',
             'basedn' => 'ou=computers,dc=example,dc=com',
             'itemtype' => 'Computer',
         ]);
+        $syncfilter_id = $syncfilter->getID();
         $this->assertGreaterThan(0, $syncfilter_id);
 
-        $relation_id = $this->createItem(AuthLdapSyncFilter::class, [
+        $relation = $this->createItem(AuthLdapSyncFilter::class, [
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
+        $relation_id = $relation->getID();
 
         $this->assertNotFalse($relation_id);
         $this->assertGreaterThan(0, $relation_id);
@@ -78,27 +81,31 @@ final class AuthLdapSyncFilterTest extends DbTestCase
 
     public function testPreventDuplicateRelation(): void
     {
-        $authldap_id = $this->createItem(AuthLDAP::class, [
+        $authldap = $this->createItem(AuthLDAP::class, [
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
             'basedn' => 'dc=example,dc=com',
             'is_active' => 1,
         ]);
+        $authldap_id = $authldap->getID();
 
-        $syncfilter_id = $this->createItem(SyncFilter::class, [
+        $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
             'connection_filter' => '(objectClass=user)',
             'basedn' => 'ou=users,dc=example,dc=com',
             'itemtype' => 'User',
         ]);
+        $syncfilter_id = $syncfilter->getID();
 
-        $relation1_id = $this->createItem(AuthLdapSyncFilter::class, [
+        $relation1 = $this->createItem(AuthLdapSyncFilter::class, [
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
+        $relation1_id = $relation1->getID();
         $this->assertGreaterThan(0, $relation1_id);
 
-        $relation2_id = $this->createItem(AuthLdapSyncFilter::class, [
+        $relation2 = new AuthLdapSyncFilter();
+        $relation2_id = $relation2->add([
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
