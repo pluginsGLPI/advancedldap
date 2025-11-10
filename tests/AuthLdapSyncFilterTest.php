@@ -44,14 +44,9 @@ use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
  */
 final class AuthLdapSyncFilterTest extends DbTestCase
 {
-    /**
-     * Test la création d'une relation valide entre AuthLDAP et SyncFilter
-     */
     public function testCreateRelation(): void
     {
-        // Créer un AuthLDAP de test
-        $authldap = new AuthLDAP();
-        $authldap_id = $authldap->add([
+        $authldap_id = $this->createItem(AuthLDAP::class, [
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
             'basedn' => 'dc=example,dc=com',
@@ -59,9 +54,7 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $this->assertGreaterThan(0, $authldap_id);
 
-        // Créer un SyncFilter de test
-        $syncFilter = new SyncFilter();
-        $syncfilter_id = $syncFilter->add([
+        $syncfilter_id = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
             'connection_filter' => '(objectClass=computer)',
             'basedn' => 'ou=computers,dc=example,dc=com',
@@ -69,9 +62,7 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $this->assertGreaterThan(0, $syncfilter_id);
 
-        // Créer la relation
-        $relation = new AuthLdapSyncFilter();
-        $relation_id = $relation->add([
+        $relation_id = $this->createItem(AuthLdapSyncFilter::class, [
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
@@ -79,57 +70,43 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         $this->assertNotFalse($relation_id);
         $this->assertGreaterThan(0, $relation_id);
 
-        // Vérifier que la relation existe bien en base
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
             ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
         ));
     }
 
-    /**
-     * Test la détection des doublons - ne doit pas créer deux fois la même relation
-     */
     public function testPreventDuplicateRelation(): void
     {
-        // Créer un AuthLDAP de test
-        $authldap = new AuthLDAP();
-        $authldap_id = $authldap->add([
+        $authldap_id = $this->createItem(AuthLDAP::class, [
             'name' => 'Test LDAP Server',
             'host' => 'ldap.example.com',
             'basedn' => 'dc=example,dc=com',
             'is_active' => 1,
         ]);
 
-        // Créer un SyncFilter de test
-        $syncFilter = new SyncFilter();
-        $syncfilter_id = $syncFilter->add([
+        $syncfilter_id = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
             'connection_filter' => '(objectClass=user)',
             'basedn' => 'ou=users,dc=example,dc=com',
             'itemtype' => 'User',
         ]);
 
-        // Créer la première relation
-        $relation1 = new AuthLdapSyncFilter();
-        $relation1_id = $relation1->add([
+        $relation1_id = $this->createItem(AuthLdapSyncFilter::class, [
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
         $this->assertGreaterThan(0, $relation1_id);
 
-        // Tenter de créer une relation identique (doit échouer)
-        $relation2 = new AuthLdapSyncFilter();
-        $relation2_id = $relation2->add([
+        $relation2_id = $this->createItem(AuthLdapSyncFilter::class, [
             'authldap_id' => $authldap_id,
             'syncfilter_id' => $syncfilter_id,
         ]);
 
         $this->assertFalse($relation2_id, 'La création d\'une relation en doublon devrait échouer');
 
-        // Vérifier que le message d'erreur approprié a été ajouté
         $this->hasSessionMessages(ERROR, ['Relationship already exists']);
 
-        // Vérifier qu'il n'y a toujours qu'une seule relation
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
             ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
