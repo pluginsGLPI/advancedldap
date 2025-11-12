@@ -77,7 +77,7 @@ class AuthLdapSyncFilter extends CommonDBTM
 
         $entries = [];
         $iterator = $DB->request([
-            'SELECT' => ['sf.*'],
+            'SELECT' => ['sf.*', 'rel.id as link_id'],
             'FROM' => SyncFilter::getTable() . ' AS sf',
             'INNER JOIN' => [
                 self::getTable() . ' AS rel' => [
@@ -87,25 +87,51 @@ class AuthLdapSyncFilter extends CommonDBTM
                     ],
                 ],
             ],
-            'WHERE' => [
-                'rel.authldap_id' => $authldap_id,
-            ],
+            'WHERE' => ['rel.authldap_id' => $authldap_id],
+            'ORDER' => 'sf.name',
         ]);
-
-        //add html markup for consistency w/ RSO
+        $syncfilter = new SyncFilter();
         foreach ($iterator as $row) {
-            /** @var array{name: string, basedn: string, connection_filter: string, itemtype: string} $row */
+            /** @var array{id: int, name: string, basedn: string, connection_filter: string, itemtype: string, link_id: int} $row */
+
+            $name = htmlescape(NOT_AVAILABLE);
+            if ($syncfilter->getFromDB($row['id'])) {
+                $name = $syncfilter->getLink();
+            }
+
+            $itemtype_name = $row['itemtype'];
+            if (class_exists($row['itemtype'])) {
+                $itemtype_name = $row['itemtype']::getTypeName(1);
+            }
+
             $entries[] = [
-                'name'              => $row['name'],
+                'id'                => $row['link_id'],
+                'itemtype'          => self::class,
+                'name'              => $name,
                 'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
                 'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
-                'itemtype'          => $row['itemtype'],
+                'itemtype_display'  => $itemtype_name,
             ];
         }
 
+        $available_syncfilters = [];
+        $iterator = $DB->request([
+            'FROM'  => SyncFilter::getTable(),
+            'ORDER' => 'name',
+        ]);
+        foreach ($iterator as $row) {
+            /** @var array{id: int, name: string} $row */
+            $available_syncfilters[$row['id']] = $row['name'];
+        }
+
         TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
-            'authldap_id' => $authldap_id,
-            'entries' => $entries,
+            'authldap_id'           => $authldap_id,
+            'entries'               => $entries,
+            'available_syncfilters' => $available_syncfilters,
+            'massiveactionparams'   => [
+                'num_displayed' => count($entries),
+                'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
+            ],
         ]);
     }
 

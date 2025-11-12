@@ -165,11 +165,18 @@ class SyncFilter extends CommonDropdown
             'ORDER' => 'al.name',
         ]);
         foreach ($iterator as $row) {
-            /** @var array{name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
+            /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
+
+            $authldap = new AuthLDAP();
+            $name = htmlescape(NOT_AVAILABLE);
+            if ($authldap->getFromDB($row['id'])) {
+                $name = $authldap->getLink();
+            }
+
             $entries[] = [
                 'id'       => $row['link_id'],
                 'itemtype' => AuthLdapSyncFilter::class,
-                'name'     => $row['name'],
+                'name'     => $name,
                 'host'     => $row['host'],
                 'port'     => $row['port'],
             ];

@@ -46,93 +46,88 @@ final class SyncFilterTest extends DbTestCase
     {
         $totalSyncFilters = countElementsInTable(SyncFilter::getTable());
 
-        $syncFilter = new SyncFilter();
-        $syncFilter_id = $syncFilter->add([
+        $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
             'connection_filter' => '(objectClass=computer)',
             'basedn' => 'ou=computers,dc=example,dc=com',
             'itemtype' => 'Computer',
         ]);
+        $syncfilter_id = $syncfilter->getID();
 
-        $this->assertNotFalse($syncFilter_id);
-        /** @var int $syncFilter_id */
-        $this->assertGreaterThan(0, $syncFilter_id);
+        $this->assertNotFalse($syncfilter_id);
+        $this->assertGreaterThan(0, $syncfilter_id);
         $this->assertEquals($totalSyncFilters + 1, countElementsInTable(SyncFilter::getTable()));
     }
 
     public function testRead(): void
     {
-        $syncFilter = new SyncFilter();
-        $syncFilter_id = $syncFilter->add([
+        $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Read Filter',
             'connection_filter' => '(objectClass=user)',
             'basedn' => 'ou=users,dc=example,dc=com',
             'itemtype' => 'User',
         ]);
+        $syncfilter_id = $syncfilter->getID();
 
-        $loadedFilter = new SyncFilter();
-        /** @var int $syncFilter_id */
-        $result = $loadedFilter->getFromDB($syncFilter_id);
+        $loadedfilter = new SyncFilter();
+        $result = $loadedfilter->getFromDB($syncfilter_id);
 
         $this->assertTrue($result);
-        $this->assertEquals($syncFilter_id, $loadedFilter->getID());
-        $this->assertEquals('Test Read Filter', $loadedFilter->getField('name'));
-        $this->assertEquals('(objectClass=user)', $loadedFilter->getField('connection_filter'));
-        $this->assertEquals('ou=users,dc=example,dc=com', $loadedFilter->getField('basedn'));
-        $this->assertEquals('User', $loadedFilter->getField('itemtype'));
+        $this->assertEquals($syncfilter_id, $loadedfilter->getID());
+        $this->assertEquals('Test Read Filter', $loadedfilter->getField('name'));
+        $this->assertEquals('(objectClass=user)', $loadedfilter->getField('connection_filter'));
+        $this->assertEquals('ou=users,dc=example,dc=com', $loadedfilter->getField('basedn'));
+        $this->assertEquals('User', $loadedfilter->getField('itemtype'));
     }
 
     public function testUpdate(): void
     {
-        $syncFilter = new SyncFilter();
-        $syncFilter_id = $syncFilter->add([
+        $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Original Name',
             'connection_filter' => '(objectClass=printer)',
             'basedn' => 'ou=printers,dc=example,dc=com',
             'itemtype' => 'Printer',
         ]);
+        $syncfilter_id = $syncfilter->getID();
 
-        $result = $syncFilter->update([
-            'id' => $syncFilter_id,
+        $this->updateItem(SyncFilter::class, $syncfilter_id, [
             'name' => 'Updated Name',
             'connection_filter' => '(objectClass=networkPrinter)',
             'basedn' => 'ou=network-printers,dc=example,dc=com',
         ]);
 
-        $this->assertTrue($result);
+        $updatedfilter = new SyncFilter();
+        $updatedfilter->getFromDB($syncfilter_id);
 
-        $updatedFilter = new SyncFilter();
-        /** @var int $syncFilter_id */
-        $updatedFilter->getFromDB($syncFilter_id);
-
-        $this->assertEquals('Updated Name', $updatedFilter->getField('name'));
-        $this->assertEquals('(objectClass=networkPrinter)', $updatedFilter->getField('connection_filter'));
-        $this->assertEquals('ou=network-printers,dc=example,dc=com', $updatedFilter->getField('basedn'));
-        $this->assertEquals('Printer', $updatedFilter->getField('itemtype'));
+        $this->assertEquals('Updated Name', $updatedfilter->getField('name'));
+        $this->assertEquals('(objectClass=networkPrinter)', $updatedfilter->getField('connection_filter'));
+        $this->assertEquals('ou=network-printers,dc=example,dc=com', $updatedfilter->getField('basedn'));
+        $this->assertEquals('Printer', $updatedfilter->getField('itemtype'));
     }
 
     public function testDelete(): void
     {
         $totalSyncFilters = countElementsInTable(SyncFilter::getTable());
 
-        $syncFilter = new SyncFilter();
-        $syncFilter_id = $syncFilter->add([
+        $syncfilter = new SyncFilter();
+        $syncfilter_id = $syncfilter->add([
             'name' => 'Filter to Delete',
             'connection_filter' => '(objectClass=monitor)',
             'basedn' => 'ou=monitors,dc=example,dc=com',
             'itemtype' => 'Monitor',
         ]);
 
+        $this->assertNotFalse($syncfilter_id);
+        /** @var int $syncfilter_id */
         $this->assertEquals($totalSyncFilters + 1, countElementsInTable(SyncFilter::getTable()));
 
-        $result = $syncFilter->delete(['id' => $syncFilter_id]);
+        $result = $syncfilter->delete(['id' => $syncfilter_id]);
 
         $this->assertTrue($result);
         $this->assertEquals($totalSyncFilters, countElementsInTable(SyncFilter::getTable()));
 
-        $deletedFilter = new SyncFilter();
-        /** @var int $syncFilter_id */
-        $loadResult = $deletedFilter->getFromDB($syncFilter_id);
+        $deletedfilter = new SyncFilter();
+        $loadResult = $deletedfilter->getFromDB($syncfilter_id);
         $this->assertFalse($loadResult);
     }
 }
