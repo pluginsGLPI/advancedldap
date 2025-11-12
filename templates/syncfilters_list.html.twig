@@ -28,7 +28,6 @@
 
 {% import 'components/form/fields_macros.html.twig' as fields %}
 
-{# Sync filters list for AuthLDAP #}
 <div class="card-header">
     <h4 class="card-title">{{ __('Syncfilters associated', 'advancedldap') }}</h4>
 </div>
@@ -54,7 +53,7 @@
                                 'required': true,
                                 'display_emptychoice': true,
                                 'emptylabel': __('Select a filter'),
-                                   'field_class' : 'col-12 pe-2'
+                                'field_class': 'col-12 pe-2'
                             }
                         ) }}
                     </div>
