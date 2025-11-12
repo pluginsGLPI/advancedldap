@@ -117,6 +117,8 @@ final class SyncFilterTest extends DbTestCase
             'itemtype' => 'Monitor',
         ]);
 
+        $this->assertNotFalse($syncfilter_id);
+        /** @var int $syncfilter_id */
         $this->assertEquals($totalSyncFilters + 1, countElementsInTable(SyncFilter::getTable()));
 
         $result = $syncfilter->delete(['id' => $syncfilter_id]);
