@@ -33,6 +33,40 @@
     <h4 class="card-title">{{ __('Syncfilters associated', 'advancedldap') }}</h4>
 </div>
 <div class="card-body">
+    <div class="mt-3 mb-2">
+        {% if available_syncfilters is empty %}
+            <div class="alert alert-warning">
+                {{ __('No sync filters available', 'advancedldap') }}
+            </div>
+        {% else %}
+            <form method="post" action="{{ path('/plugins/advancedldap/front/authldapsyncfilter.form.php') }}" class="row g-3 align-items-end">
+                <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="authldap_id" value="{{ authldap_id }}">
+                <div class="d-flex">
+                    <div class="col-3">
+                        {{ fields.dropdownArrayField(
+                            'syncfilter_id',
+                            '',
+                            available_syncfilters,
+                            '',
+                            {   
+                                'no_label': true,
+                                'required': true,
+                                'display_emptychoice': true,
+                                'emptylabel': __('Select a filter'),
+                                   'field_class' : 'col-12 pe-2'
+                            }
+                        ) }}
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" name="add" class="btn btn-primary">
+                            <i class="ti ti-link"></i> {{ __('Add', 'advancedldap') }}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        {% endif %}
+    </div>
     {% if entries is not empty %}
         <h3 class="mt-2 mb-3">{{ __('Linked sync filters', 'advancedldap') }}</h3>
         {% include 'components/datatable.html.twig' with {
@@ -60,35 +94,4 @@
             {{ __('No sync filters linked to this LDAP connection', 'advancedldap') }}
         </div>
     {% endif %}
-    <div class="mt-3 mb-2">
-        <h4 class="mb-3">{{ __('Add a sync filter association', 'advancedldap') }}</h4>
-        {% if available_syncfilters is empty %}
-            <div class="alert alert-warning">
-                {{ __('No sync filters available', 'advancedldap') }}
-            </div>
-        {% else %}
-            <form method="post" action="{{ path('/plugins/advancedldap/front/authldapsyncfilter.form.php') }}" class="row g-3 align-items-end">
-                <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="authldap_id" value="{{ authldap_id }}">
-                <div class="col-auto flex-grow-1">
-                    {{ fields.dropdownArrayField(
-                        'syncfilter_id',
-                        '',
-                        available_syncfilters,
-                        __('Select a sync filter', 'advancedldap'),
-                        {
-                            'required': true,
-                            'display_emptychoice': true,
-                            'emptylabel': __('Select...')
-                        }
-                    ) }}
-                </div>
-                <div class="col-auto">
-                    <button type="submit" name="add" class="btn btn-primary">
-                        <i class="ti ti-plus"></i> {{ __('Add sync filter', 'advancedldap') }}
-                    </button>
-                </div>
-            </form>
-        {% endif %}
-    </div>
 </div>
