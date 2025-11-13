@@ -149,6 +149,27 @@ class SyncFilter extends CommonDropdown
 
         $syncfilter_id = $this->getID();
 
+        $available_authldaps = [];
+        $iterator = $DB->request([
+            'FROM'  => 'glpi_authldaps',
+            'WHERE' => ['is_active' => 1],
+            'ORDER' => 'name',
+        ]);
+        foreach ($iterator as $row) {
+            /** @var array{id: int, name: string} $row */
+            $available_authldaps[$row['id']] = $row['name'];
+        }
+
+        TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
+            'title'               => __('LDAP Connections associated', 'advancedldap'),
+            'parent_field_name'   => 'syncfilter_id',
+            'parent_id'           => $syncfilter_id,
+            'dropdown_field_name' => 'authldap_id',
+            'available_items'     => $available_authldaps,
+            'empty_message'       => __('No active LDAP connections available', 'advancedldap'),
+            'empty_label'         => __('Select an LDAP'),
+        ]);
+
         $entries = [];
         $iterator = $DB->request([
             'SELECT' => ['al.*', 'rel.id as link_id'],
@@ -164,6 +185,7 @@ class SyncFilter extends CommonDropdown
             'WHERE' => ['rel.syncfilter_id' => $syncfilter_id],
             'ORDER' => 'al.name',
         ]);
+
         foreach ($iterator as $row) {
             /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
 
@@ -182,21 +204,22 @@ class SyncFilter extends CommonDropdown
             ];
         }
 
-        $available_authldaps = [];
-        $iterator = $DB->request([
-            'FROM'  => 'glpi_authldaps',
-            'WHERE' => ['is_active' => 1],
-            'ORDER' => 'name',
-        ]);
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string} $row */
-            $available_authldaps[$row['id']] = $row['name'];
-        }
-
-        TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_conf.html.twig', [
-            'syncfilter_id'       => $syncfilter_id,
-            'entries'             => $entries,
-            'available_authldaps' => $available_authldaps,
+        TemplateRenderer::getInstance()->display('components/datatable.html.twig', [
+            'is_tab' => true,
+            'datatable_id' => 'syncfilter_ldap_connections',
+            'nofilter' => true,
+            'columns' => [
+                'name' => __('Name'),
+                'host' => __('Server'),
+                'port' => __('Port'),
+            ],
+            'formatters' => [
+                'name' => 'raw_html',
+            ],
+            'entries' => $entries,
+            'total_number' => count($entries),
+            'filtered_number' => count($entries),
+            'showmassiveactions' => true,
             'massiveactionparams' => [
                 'num_displayed' => count($entries),
                 'container'     => 'massAuthLdapSyncFilter' . mt_rand(),

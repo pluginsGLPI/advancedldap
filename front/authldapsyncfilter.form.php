@@ -36,10 +36,7 @@ $relation = new AuthLdapSyncFilter();
 
 if (isset($_POST["add"])) {
     $relation->check(-1, CREATE, $_POST);
-    if ($relation->add($_POST)) {
-        Session::addMessageAfterRedirect(__('Relationship successfully added', 'advancedldap'));
-    }
-    Html::back();
+    $relation->add($_POST);
 }
 
 Html::back();

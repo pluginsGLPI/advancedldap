@@ -75,6 +75,26 @@ class AuthLdapSyncFilter extends CommonDBTM
 
         $authldap_id = $authldap->getField('id');
 
+        $available_syncfilters = [];
+        $iterator = $DB->request([
+            'FROM'  => SyncFilter::getTable(),
+            'ORDER' => 'name',
+        ]);
+        foreach ($iterator as $row) {
+            /** @var array{id: int, name: string} $row */
+            $available_syncfilters[$row['id']] = $row['name'];
+        }
+
+        TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
+            'title'               => __('Syncfilters associated', 'advancedldap'),
+            'parent_field_name'   => 'authldap_id',
+            'parent_id'           => $authldap_id,
+            'dropdown_field_name' => 'syncfilter_id',
+            'available_items'     => $available_syncfilters,
+            'empty_message'       => __('No sync filters available', 'advancedldap'),
+            'empty_label'         => __('Select a filter'),
+        ]);
+
         $entries = [];
         $iterator = $DB->request([
             'SELECT' => ['sf.*', 'rel.id as link_id'],
@@ -90,6 +110,7 @@ class AuthLdapSyncFilter extends CommonDBTM
             'WHERE' => ['rel.authldap_id' => $authldap_id],
             'ORDER' => 'sf.name',
         ]);
+
         $syncfilter = new SyncFilter();
         foreach ($iterator as $row) {
             /** @var array{id: int, name: string, basedn: string, connection_filter: string, itemtype: string, link_id: int} $row */
@@ -114,21 +135,26 @@ class AuthLdapSyncFilter extends CommonDBTM
             ];
         }
 
-        $available_syncfilters = [];
-        $iterator = $DB->request([
-            'FROM'  => SyncFilter::getTable(),
-            'ORDER' => 'name',
-        ]);
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string} $row */
-            $available_syncfilters[$row['id']] = $row['name'];
-        }
-
-        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
-            'authldap_id'           => $authldap_id,
-            'entries'               => $entries,
-            'available_syncfilters' => $available_syncfilters,
-            'massiveactionparams'   => [
+        TemplateRenderer::getInstance()->display('components/datatable.html.twig', [
+            'is_tab' => true,
+            'datatable_id' => 'authldap_syncfilters',
+            'nofilter' => true,
+            'columns' => [
+                'name' => __('Name'),
+                'basedn' => __('Base DN', 'advancedldap'),
+                'connection_filter' => __('Connection filter', 'advancedldap'),
+                'itemtype_display' => __('Asset type', 'advancedldap'),
+            ],
+            'formatters' => [
+                'name' => 'raw_html',
+                'basedn' => 'raw_html',
+                'connection_filter' => 'raw_html',
+            ],
+            'entries' => $entries,
+            'total_number' => count($entries),
+            'filtered_number' => count($entries),
+            'showmassiveactions' => true,
+            'massiveactionparams' => [
                 'num_displayed' => count($entries),
                 'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
             ],
