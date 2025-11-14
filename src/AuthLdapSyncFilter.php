@@ -88,7 +88,7 @@ class AuthLdapSyncFilter extends CommonDBTM
                 ],
             ], ['name']),
             'name',
-            'id'
+            'id',
         );
 
         TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [

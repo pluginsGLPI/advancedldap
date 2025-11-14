@@ -163,7 +163,7 @@ class SyncFilter extends CommonDropdown
                 ],
             ], ['name']),
             'name',
-            'id'
+            'id',
         );
 
         TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
