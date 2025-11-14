@@ -30,13 +30,13 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use CommonDBTM;
-use Migration;
-use DBConnection;
-use Session;
 use AuthLDAP;
+use CommonDBTM;
+use DBConnection;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
+use Migration;
+use Session;
 
 class AuthLdapSyncFilter extends CommonDBTM
 {
@@ -83,9 +83,9 @@ class AuthLdapSyncFilter extends CommonDBTM
                     'id' => new QuerySubQuery([
                         'SELECT' => 'syncfilter_id',
                         'FROM'   => self::getTable(),
-                        'WHERE'  => ['authldap_id' => $authldap_id]
-                    ])
-                ]
+                        'WHERE'  => ['authldap_id' => $authldap_id],
+                    ]),
+                ],
             ], ['name']),
             'name',
             'id'
