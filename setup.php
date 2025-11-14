@@ -28,6 +28,7 @@
  * -------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use Glpi\Plugin\Hooks;
 
@@ -47,6 +48,7 @@ function plugin_init_advancedldap(): void
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = 'plugin_advancedldap_item_purge';
 
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
@@ -104,4 +106,15 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
     //    echo __('Installed / not configured', 'advancedldap');
     // }
     // return false;
+}
+
+/**
+ * Hook called when an item is purged (deleted permanently)
+ * Clean all AuthLdapSyncFilter relations when an AuthLDAP or SyncFilter is purged
+ *
+ * @param CommonDBTM $item The item being purged
+ */
+function plugin_advancedldap_item_purge(CommonDBTM $item): void
+{
+    AuthLdapSyncFilter::cleanRelationsForItem($item->getType(), $item->getID());
 }
