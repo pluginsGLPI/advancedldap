@@ -36,6 +36,7 @@ use DBConnection;
 use Session;
 use AuthLDAP;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\DBAL\QuerySubQuery;
 
 class AuthLdapSyncFilter extends CommonDBTM
 {
@@ -75,15 +76,20 @@ class AuthLdapSyncFilter extends CommonDBTM
 
         $authldap_id = $authldap->getField('id');
 
-        $available_syncfilters = [];
-        $iterator = $DB->request([
-            'FROM'  => SyncFilter::getTable(),
-            'ORDER' => 'name',
-        ]);
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string} $row */
-            $available_syncfilters[$row['id']] = $row['name'];
-        }
+        $syncfilter = new SyncFilter();
+        $available_syncfilters = array_column(
+            $syncfilter->find([
+                'NOT' => [
+                    'id' => new QuerySubQuery([
+                        'SELECT' => 'syncfilter_id',
+                        'FROM'   => self::getTable(),
+                        'WHERE'  => ['authldap_id' => $authldap_id]
+                    ])
+                ]
+            ], ['name']),
+            'name',
+            'id'
+        );
 
         TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
             'title'               => __('Syncfilters associated', 'advancedldap'),
@@ -203,6 +209,22 @@ class AuthLdapSyncFilter extends CommonDBTM
             'authldap_id' => $input['authldap_id'],
             'syncfilter_id' => $input['syncfilter_id'],
         ]) > 0;
+    }
+
+    public static function cleanRelationsForItem(string $itemtype, int $items_id): void
+    {
+        global $DB;
+
+        $field = null;
+        if ($itemtype === 'AuthLDAP') {
+            $field = 'authldap_id';
+        } elseif ($itemtype === SyncFilter::class) {
+            $field = 'syncfilter_id';
+        }
+
+        if ($field !== null) {
+            $DB->delete(self::getTable(), [$field => $items_id]);
+        }
     }
 
     public static function canCreate(): bool

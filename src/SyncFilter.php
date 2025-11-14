@@ -37,6 +37,7 @@ use Migration;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\DBAL\QuerySubQuery;
 
 class SyncFilter extends CommonDropdown
 {
@@ -149,16 +150,21 @@ class SyncFilter extends CommonDropdown
 
         $syncfilter_id = $this->getID();
 
-        $available_authldaps = [];
-        $iterator = $DB->request([
-            'FROM'  => 'glpi_authldaps',
-            'WHERE' => ['is_active' => 1],
-            'ORDER' => 'name',
-        ]);
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string} $row */
-            $available_authldaps[$row['id']] = $row['name'];
-        }
+        $authldap = new AuthLDAP();
+        $available_authldaps = array_column(
+            $authldap->find([
+                'is_active' => 1,
+                'NOT' => [
+                    'id' => new QuerySubQuery([
+                        'SELECT' => 'authldap_id',
+                        'FROM'   => AuthLdapSyncFilter::getTable(),
+                        'WHERE'  => ['syncfilter_id' => $syncfilter_id]
+                    ])
+                ]
+            ], ['name']),
+            'name',
+            'id'
+        );
 
         TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
             'title'               => __('LDAP Connections associated', 'advancedldap'),
@@ -166,7 +172,7 @@ class SyncFilter extends CommonDropdown
             'parent_id'           => $syncfilter_id,
             'dropdown_field_name' => 'authldap_id',
             'available_items'     => $available_authldaps,
-            'empty_message'       => __('No active LDAP connections available', 'advancedldap'),
+            'empty_message'       => __('No LDAP connections available', 'advancedldap'),
             'empty_label'         => __('Select an LDAP'),
         ]);
 
