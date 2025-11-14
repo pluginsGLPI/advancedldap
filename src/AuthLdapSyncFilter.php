@@ -35,7 +35,6 @@ use Migration;
 use DBConnection;
 use Session;
 use AuthLDAP;
-use Toolbox;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
 
@@ -216,9 +215,6 @@ class AuthLdapSyncFilter extends CommonDBTM
     {
         global $DB;
 
-        // Debug : Logger les paramètres reçus
-        Toolbox::logDebug("cleanRelationsForItem appelé avec itemtype='$itemtype' et items_id=$items_id");
-
         $field = null;
         if ($itemtype === 'AuthLDAP') {
             $field = 'authldap_id';
@@ -226,12 +222,8 @@ class AuthLdapSyncFilter extends CommonDBTM
             $field = 'syncfilter_id';
         }
 
-        // Debug : Logger le champ déterminé
-        Toolbox::logDebug("Champ déterminé : " . ($field ?? 'NULL'));
-
         if ($field !== null) {
             $DB->delete(self::getTable(), [$field => $items_id]);
-            Toolbox::logDebug("Relations supprimées pour $field=$items_id");
         }
     }
 

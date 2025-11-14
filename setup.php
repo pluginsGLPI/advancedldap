@@ -117,8 +117,5 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
  */
 function plugin_advancedldap_item_purge(CommonDBTM $item): void
 {
-    // Debug : Logger l'appel du hook
-    Toolbox::logDebug("HOOK ITEM_PURGE appelé pour : " . $item->getType() . " #" . $item->getID());
-
     AuthLdapSyncFilter::cleanRelationsForItem($item->getType(), $item->getID());
 }
