@@ -44,12 +44,14 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
 function plugin_init_advancedldap(): void
 {
-    /** @var array<string, array<string, array<string, string>>> $PLUGIN_HOOKS */
+    /** @var array<string, array<string, string|array<string, string>>> $PLUGIN_HOOKS */
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
-    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap']['AuthLDAP'] = 'plugin_advancedldap_item_purge';
-    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'][SyncFilter::class] = 'plugin_advancedldap_item_purge';
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = [
+        'AuthLDAP' => 'plugin_advancedldap_item_purge',
+        SyncFilter::class => 'plugin_advancedldap_item_purge',
+    ];
 
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
