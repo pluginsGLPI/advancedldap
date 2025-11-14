@@ -48,7 +48,8 @@ function plugin_init_advancedldap(): void
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
-    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = 'plugin_advancedldap_item_purge';
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap']['AuthLDAP'] = 'plugin_advancedldap_item_purge';
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'][SyncFilter::class] = 'plugin_advancedldap_item_purge';
 
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
@@ -116,5 +117,8 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
  */
 function plugin_advancedldap_item_purge(CommonDBTM $item): void
 {
+    // Debug : Logger l'appel du hook
+    Toolbox::logDebug("HOOK ITEM_PURGE appelé pour : " . $item->getType() . " #" . $item->getID());
+
     AuthLdapSyncFilter::cleanRelationsForItem($item->getType(), $item->getID());
 }
