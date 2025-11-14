@@ -30,14 +30,14 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use CommonDropdown;
 use AuthLDAP;
+use CommonDropdown;
 use CommonGLPI;
-use Migration;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
+use Migration;
 
 class SyncFilter extends CommonDropdown
 {
@@ -158,9 +158,9 @@ class SyncFilter extends CommonDropdown
                     'id' => new QuerySubQuery([
                         'SELECT' => 'authldap_id',
                         'FROM'   => AuthLdapSyncFilter::getTable(),
-                        'WHERE'  => ['syncfilter_id' => $syncfilter_id]
-                    ])
-                ]
+                        'WHERE'  => ['syncfilter_id' => $syncfilter_id],
+                    ]),
+                ],
             ], ['name']),
             'name',
             'id'
