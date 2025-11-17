@@ -37,7 +37,9 @@ use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
+use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use Migration;
+use Session;
 
 class SyncFilter extends CommonDropdown
 {
@@ -66,6 +68,8 @@ class SyncFilter extends CommonDropdown
                 `connection_filter` text,
                 `basedn` varchar(255) NOT NULL DEFAULT '',
                 `itemtype` varchar(255) NOT NULL DEFAULT '',
+                `field_mappings` longtext,
+                `is_active` tinyint NOT NULL DEFAULT '1',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
@@ -119,12 +123,26 @@ class SyncFilter extends CommonDropdown
         }
 
         if ($item instanceof self && $item->can($item->getID(), \READ)) {
-            return self::createTabEntry(
+            $tabs = [];
+
+            // Configuration tab
+            $tabs[1] = self::createTabEntry(
                 __('Configuration', 'advancedldap'),
                 0,
                 $item::class,
                 'ti ti-settings',
             );
+
+            // Field Mapping tab
+            $tabs[2] = self::createTabEntry(
+                __('Field Mapping', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-arrows-exchange',
+            );
+            
+
+            return $tabs;
         }
 
         return '';
@@ -138,7 +156,14 @@ class SyncFilter extends CommonDropdown
         }
 
         if ($item instanceof self) {
-            $item->showLdapConf();
+            switch ($tabnum) {
+                case 1:
+                    $item->showLdapConf();
+                    break;
+                case 2:
+                    $item->showFieldMappingTab();
+                    break;
+            }
         }
 
         return true;
@@ -234,6 +259,33 @@ class SyncFilter extends CommonDropdown
     }
 
     /**
+     * Display the Field Mapping tab content
+     */
+    private function showFieldMappingTab(): void
+    {
+        $service = new FieldMappingService();
+        $itemtype = $this->fields['itemtype'] ?? null;
+
+        // Get current mappings
+        $current_mappings = $service->getMapping($this);
+
+        // Get available fields for the itemtype (empty array if no itemtype)
+        $available_fields = !empty($itemtype) ? $service->getAvailableFields($itemtype) : [];
+
+        // Convert mappings to indexed array for display
+        $indexed_mappings = $service->mappingsToIndexedArray($current_mappings);
+
+        // Display the form using Twig template - the template handles the itemtype warning
+        TemplateRenderer::getInstance()->display('@advancedldap/field_mapping.html.twig', [
+            'syncfilter_id' => $this->getID(),
+            'itemtype' => $itemtype,
+            'current_mappings' => $indexed_mappings,
+            'available_fields' => $available_fields,
+            '_glpi_csrf_token' => Session::getNewCSRFToken(),
+        ]);
+    }
+
+    /**
      * @return array<array<string, mixed>>
      */
     public function getAdditionalFields(): array
@@ -314,5 +366,39 @@ class SyncFilter extends CommonDropdown
     public static function canPurge(): bool
     {
         return static::canUpdate();
+    }
+
+    /**
+     * Prepare input data for update
+     *
+     * @param array $input Input data
+     * @return array|false Modified input data or false if invalid
+     */
+    public function prepareInputForUpdate($input)
+    {
+        // Check if we're updating field mappings from array format
+        if (isset($input['mappings'])) {
+            $service = new FieldMappingService();
+
+            // Clean and convert mappings to JSON
+            $cleaned_mappings = $service->cleanMappings($input['mappings']);
+            $input['field_mappings'] = json_encode($cleaned_mappings);
+
+            // Remove the raw mappings array from input
+            unset($input['mappings']);
+        }
+
+        // Check if we're receiving field_mappings as JSON string already
+        // Validate it's valid JSON
+        if (isset($input['field_mappings']) && is_string($input['field_mappings'])) {
+            $decoded = json_decode($input['field_mappings'], true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                // Invalid JSON, set to empty object
+                $input['field_mappings'] = '{}';
+            }
+            // If valid JSON, keep it as is
+        }
+
+        return parent::prepareInputForUpdate($input);
     }
 }

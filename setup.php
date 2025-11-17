@@ -49,9 +49,14 @@ function plugin_init_advancedldap(): void
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = [
-        'AuthLDAP' => 'plugin_advancedldap_item_purge',
+        AuthLDAP::class => 'plugin_advancedldap_item_purge',
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
+
+    // Load field mapping JavaScript on syncfilter pages
+
+        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'][] = 'js/field_mapping.js';
+
 
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
