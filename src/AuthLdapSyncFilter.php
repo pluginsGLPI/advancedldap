@@ -215,15 +215,13 @@ class AuthLdapSyncFilter extends CommonDBTM
     {
         global $DB;
 
-        $field = null;
-        if ($itemtype === 'AuthLDAP') {
-            $field = 'authldap_id';
-        } elseif ($itemtype === SyncFilter::class) {
-            $field = 'syncfilter_id';
-        }
+        $map = [
+            AuthLDAP::class => 'authldap_id',
+            SyncFilter::class => 'syncfilter_id',
+        ];
 
-        if ($field !== null) {
-            $DB->delete(self::getTable(), [$field => $items_id]);
+        if (isset($map[$itemtype])) {
+            $DB->delete(self::getTable(), [$map[$itemtype] => $items_id]);
         }
     }
 
