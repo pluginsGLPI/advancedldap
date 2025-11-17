@@ -32,6 +32,7 @@ namespace GlpiPlugin\Advancedldap;
 
 use AuthLDAP;
 use CommonDBTM;
+use CommonGLPI;
 use DBConnection;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
@@ -70,101 +71,196 @@ class AuthLdapSyncFilter extends CommonDBTM
         }
     }
 
-    public function showSyncFiltersList(AuthLDAP $authldap): void
+    public function showRelationsForItem(CommonGLPI $item): void
     {
         global $DB;
 
-        $authldap_id = $authldap->getField('id');
+        if ($item instanceof AuthLDAP) {
+            $parent_id = $item->getField('id');
+            $parent_field_name = 'authldap_id';
+            $child_field_name = 'syncfilter_id';
 
-        $syncfilter = new SyncFilter();
-        $available_syncfilters = array_column(
-            $syncfilter->find([
-                'NOT' => [
-                    'id' => new QuerySubQuery([
-                        'SELECT' => 'syncfilter_id',
-                        'FROM'   => self::getTable(),
-                        'WHERE'  => ['authldap_id' => $authldap_id],
-                    ]),
-                ],
-            ], ['name']),
-            'name',
-            'id',
-        );
+            $syncfilter = new SyncFilter();
+            $available_items = array_column(
+                $syncfilter->find([
+                    'NOT' => [
+                        'id' => new QuerySubQuery([
+                            'SELECT' => $child_field_name,
+                            'FROM'   => self::getTable(),
+                            'WHERE'  => [$parent_field_name => $parent_id],
+                        ]),
+                    ],
+                ], ['name']),
+                'name',
+                'id',
+            );
 
-        TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
-            'title'               => __('Syncfilters associated', 'advancedldap'),
-            'parent_field_name'   => 'authldap_id',
-            'parent_id'           => $authldap_id,
-            'dropdown_field_name' => 'syncfilter_id',
-            'available_items'     => $available_syncfilters,
-            'empty_message'       => __('No sync filters available', 'advancedldap'),
-            'empty_label'         => __('Select a filter'),
-        ]);
+            $form_config = [
+                'title'               => __('Syncfilters associated', 'advancedldap'),
+                'parent_field_name'   => $parent_field_name,
+                'parent_id'           => $parent_id,
+                'dropdown_field_name' => $child_field_name,
+                'available_items'     => $available_items,
+                'empty_message'       => __('No sync filters available', 'advancedldap'),
+                'empty_label'         => __('Select a filter'),
+            ];
 
-        $entries = [];
-        $iterator = $DB->request([
-            'SELECT' => ['sf.*', 'rel.id as link_id'],
-            'FROM' => SyncFilter::getTable() . ' AS sf',
-            'INNER JOIN' => [
-                self::getTable() . ' AS rel' => [
-                    'ON' => [
-                        'rel' => 'syncfilter_id',
-                        'sf'  => 'id',
+            $iterator = $DB->request([
+                'SELECT' => ['sf.*', 'rel.id as link_id'],
+                'FROM' => SyncFilter::getTable() . ' AS sf',
+                'INNER JOIN' => [
+                    self::getTable() . ' AS rel' => [
+                        'ON' => [
+                            'rel' => $child_field_name,
+                            'sf'  => 'id',
+                        ],
                     ],
                 ],
-            ],
-            'WHERE' => ['rel.authldap_id' => $authldap_id],
-            'ORDER' => 'sf.name',
-        ]);
+                'WHERE' => ['rel.' . $parent_field_name => $parent_id],
+                'ORDER' => 'sf.name',
+            ]);
 
-        $syncfilter = new SyncFilter();
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string, basedn: string, connection_filter: string, itemtype: string, link_id: int} $row */
+            $entries = [];
+            $syncfilter_obj = new SyncFilter();
+            foreach ($iterator as $row) {
+                /** @var array{id: int, name: string, basedn: string, connection_filter: string, itemtype: string, link_id: int} $row */
 
-            $name = htmlescape(NOT_AVAILABLE);
-            if ($syncfilter->getFromDB($row['id'])) {
-                $name = $syncfilter->getLink();
+                $name = htmlescape(NOT_AVAILABLE);
+                if ($syncfilter_obj->getFromDB($row['id'])) {
+                    $name = $syncfilter_obj->getLink();
+                }
+
+                $itemtype_name = $row['itemtype'];
+                if (class_exists($row['itemtype'])) {
+                    $itemtype_name = $row['itemtype']::getTypeName(1);
+                }
+
+                $entries[] = [
+                    'id'                => $row['link_id'],
+                    'itemtype'          => self::class,
+                    'name'              => $name,
+                    'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
+                    'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
+                    'itemtype_display'  => $itemtype_name,
+                ];
             }
 
-            $itemtype_name = $row['itemtype'];
-            if (class_exists($row['itemtype'])) {
-                $itemtype_name = $row['itemtype']::getTypeName(1);
-            }
-
-            $entries[] = [
-                'id'                => $row['link_id'],
-                'itemtype'          => self::class,
-                'name'              => $name,
-                'basedn'            => '<code>' . htmlspecialchars($row['basedn']) . '</code>',
-                'connection_filter' => '<code>' . htmlspecialchars($row['connection_filter']) . '</code>',
-                'itemtype_display'  => $itemtype_name,
+            $datatable_config = [
+                'is_tab' => true,
+                'datatable_id' => 'authldap_syncfilters',
+                'nofilter' => true,
+                'columns' => [
+                    'name' => __('Name'),
+                    'basedn' => __('Base DN', 'advancedldap'),
+                    'connection_filter' => __('Connection filter', 'advancedldap'),
+                    'itemtype_display' => __('Asset type', 'advancedldap'),
+                ],
+                'formatters' => [
+                    'name' => 'raw_html',
+                    'basedn' => 'raw_html',
+                    'connection_filter' => 'raw_html',
+                ],
+                'entries' => $entries,
+                'total_number' => count($entries),
+                'filtered_number' => count($entries),
+                'showmassiveactions' => true,
+                'massiveactionparams' => [
+                    'num_displayed' => count($entries),
+                    'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
+                ],
             ];
+        } elseif ($item instanceof SyncFilter) {
+            $parent_id = $item->getID();
+            $parent_field_name = 'syncfilter_id';
+            $child_field_name = 'authldap_id';
+
+            $authldap = new AuthLDAP();
+            $available_items = array_column(
+                $authldap->find([
+                    'is_active' => 1,
+                    'NOT' => [
+                        'id' => new QuerySubQuery([
+                            'SELECT' => $child_field_name,
+                            'FROM'   => self::getTable(),
+                            'WHERE'  => [$parent_field_name => $parent_id],
+                        ]),
+                    ],
+                ], ['name']),
+                'name',
+                'id',
+            );
+
+            $form_config = [
+                'title'               => __('LDAP Connections associated', 'advancedldap'),
+                'parent_field_name'   => $parent_field_name,
+                'parent_id'           => $parent_id,
+                'dropdown_field_name' => $child_field_name,
+                'available_items'     => $available_items,
+                'empty_message'       => __('No LDAP connections available', 'advancedldap'),
+                'empty_label'         => __('Select an LDAP'),
+            ];
+
+            $iterator = $DB->request([
+                'SELECT' => ['al.*', 'rel.id as link_id'],
+                'FROM' => 'glpi_authldaps AS al',
+                'INNER JOIN' => [
+                    self::getTable() . ' AS rel' => [
+                        'ON' => [
+                            'rel' => $child_field_name,
+                            'al' => 'id',
+                        ],
+                    ],
+                ],
+                'WHERE' => ['rel.' . $parent_field_name => $parent_id],
+                'ORDER' => 'al.name',
+            ]);
+
+            $entries = [];
+            foreach ($iterator as $row) {
+                /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
+
+                $authldap_obj = new AuthLDAP();
+                $name = htmlescape(NOT_AVAILABLE);
+                if ($authldap_obj->getFromDB($row['id'])) {
+                    $name = $authldap_obj->getLink();
+                }
+
+                $entries[] = [
+                    'id'       => $row['link_id'],
+                    'itemtype' => self::class,
+                    'name'     => $name,
+                    'host'     => $row['host'],
+                    'port'     => $row['port'],
+                ];
+            }
+
+            $datatable_config = [
+                'is_tab' => true,
+                'datatable_id' => 'syncfilter_ldap_connections',
+                'nofilter' => true,
+                'columns' => [
+                    'name' => __('Name'),
+                    'host' => __('Server'),
+                    'port' => __('Port'),
+                ],
+                'formatters' => [
+                    'name' => 'raw_html',
+                ],
+                'entries' => $entries,
+                'total_number' => count($entries),
+                'filtered_number' => count($entries),
+                'showmassiveactions' => true,
+                'massiveactionparams' => [
+                    'num_displayed' => count($entries),
+                    'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
+                ],
+            ];
+        } else {
+            return;
         }
 
-        TemplateRenderer::getInstance()->display('components/datatable.html.twig', [
-            'is_tab' => true,
-            'datatable_id' => 'authldap_syncfilters',
-            'nofilter' => true,
-            'columns' => [
-                'name' => __('Name'),
-                'basedn' => __('Base DN', 'advancedldap'),
-                'connection_filter' => __('Connection filter', 'advancedldap'),
-                'itemtype_display' => __('Asset type', 'advancedldap'),
-            ],
-            'formatters' => [
-                'name' => 'raw_html',
-                'basedn' => 'raw_html',
-                'connection_filter' => 'raw_html',
-            ],
-            'entries' => $entries,
-            'total_number' => count($entries),
-            'filtered_number' => count($entries),
-            'showmassiveactions' => true,
-            'massiveactionparams' => [
-                'num_displayed' => count($entries),
-                'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
-            ],
-        ]);
+        TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', $form_config);
+        TemplateRenderer::getInstance()->display('components/datatable.html.twig', $datatable_config);
     }
 
     /**

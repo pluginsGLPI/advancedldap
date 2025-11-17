@@ -35,8 +35,6 @@ use CommonDropdown;
 use CommonGLPI;
 use DBConnection;
 use DisplayPreference;
-use Glpi\Application\View\TemplateRenderer;
-use Glpi\DBAL\QuerySubQuery;
 use Migration;
 
 class SyncFilter extends CommonDropdown
@@ -132,105 +130,12 @@ class SyncFilter extends CommonDropdown
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        if ($item instanceof AuthLDAP) {
+        if ($item instanceof AuthLDAP || $item instanceof self) {
             $instance = new AuthLdapSyncFilter();
-            $instance->showSyncFiltersList($item);
-        }
-
-        if ($item instanceof self) {
-            $item->showLdapConf();
+            $instance->showRelationsForItem($item);
         }
 
         return true;
-    }
-
-    private function showLdapConf(): void
-    {
-        global $DB;
-
-        $syncfilter_id = $this->getID();
-
-        $authldap = new AuthLDAP();
-        $available_authldaps = array_column(
-            $authldap->find([
-                'is_active' => 1,
-                'NOT' => [
-                    'id' => new QuerySubQuery([
-                        'SELECT' => 'authldap_id',
-                        'FROM'   => AuthLdapSyncFilter::getTable(),
-                        'WHERE'  => ['syncfilter_id' => $syncfilter_id],
-                    ]),
-                ],
-            ], ['name']),
-            'name',
-            'id',
-        );
-
-        TemplateRenderer::getInstance()->display('@advancedldap/relation_add_form.html.twig', [
-            'title'               => __('LDAP Connections associated', 'advancedldap'),
-            'parent_field_name'   => 'syncfilter_id',
-            'parent_id'           => $syncfilter_id,
-            'dropdown_field_name' => 'authldap_id',
-            'available_items'     => $available_authldaps,
-            'empty_message'       => __('No LDAP connections available', 'advancedldap'),
-            'empty_label'         => __('Select an LDAP'),
-        ]);
-
-        $entries = [];
-        $iterator = $DB->request([
-            'SELECT' => ['al.*', 'rel.id as link_id'],
-            'FROM' => 'glpi_authldaps AS al',
-            'INNER JOIN' => [
-                AuthLdapSyncFilter::getTable() . ' AS rel' => [
-                    'ON' => [
-                        'rel' => 'authldap_id',
-                        'al' => 'id',
-                    ],
-                ],
-            ],
-            'WHERE' => ['rel.syncfilter_id' => $syncfilter_id],
-            'ORDER' => 'al.name',
-        ]);
-
-        foreach ($iterator as $row) {
-            /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $row */
-
-            $authldap = new AuthLDAP();
-            $name = htmlescape(NOT_AVAILABLE);
-            if ($authldap->getFromDB($row['id'])) {
-                $name = $authldap->getLink();
-            }
-
-            $entries[] = [
-                'id'       => $row['link_id'],
-                'itemtype' => AuthLdapSyncFilter::class,
-                'name'     => $name,
-                'host'     => $row['host'],
-                'port'     => $row['port'],
-            ];
-        }
-
-        TemplateRenderer::getInstance()->display('components/datatable.html.twig', [
-            'is_tab' => true,
-            'datatable_id' => 'syncfilter_ldap_connections',
-            'nofilter' => true,
-            'columns' => [
-                'name' => __('Name'),
-                'host' => __('Server'),
-                'port' => __('Port'),
-            ],
-            'formatters' => [
-                'name' => 'raw_html',
-            ],
-            'entries' => $entries,
-            'total_number' => count($entries),
-            'filtered_number' => count($entries),
-            'showmassiveactions' => true,
-            'massiveactionparams' => [
-                'num_displayed' => count($entries),
-                'container'     => 'massAuthLdapSyncFilter' . mt_rand(),
-            ],
-        ]);
     }
 
     /**
