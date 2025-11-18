@@ -123,15 +123,17 @@ class AuthLdapSyncFilter extends CommonDBTM
         ];
 
         // Select config based on item type
-        $itemclass = get_class($item);
+        $itemclass = $item::class;
         if (!isset($configs[$itemclass])) {
             return;
         }
+
         $config = $configs[$itemclass];
 
         if (!($item instanceof CommonDBTM)) {
             return;
         }
+
         $parent_id = $item->getID();
 
         // get available items id=>name for select
