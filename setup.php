@@ -53,10 +53,9 @@ function plugin_init_advancedldap(): void
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
 
-    // Load field mapping JavaScript on syncfilter pages
-
+    if (strpos($_SERVER['REQUEST_URI'] ?? '', '/plugins/advancedldap/') !== false) {
         $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'][] = 'js/field_mapping.js';
-
+    }
 
     Plugin::registerClass(SyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
