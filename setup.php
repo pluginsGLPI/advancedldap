@@ -53,7 +53,7 @@ function plugin_init_advancedldap(): void
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
 
-    Plugin::registerClass(SyncFilter::class, [
+    Plugin::registerClass(AuthLdapSyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
     ]);
 }
