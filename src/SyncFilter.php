@@ -103,31 +103,6 @@ class SyncFilter extends CommonDropdown
         return 'ti ti-filter';
     }
 
-    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
-    {
-        if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
-            $nb = 0;
-
-            return self::createTabEntry(
-                __('Advanced sync', 'advancedldap'),
-                $nb,
-                $item::class,
-                static::getIcon(),
-            );
-        }
-
-        if ($item instanceof self && $item->can($item->getID(), \READ)) {
-            return self::createTabEntry(
-                __('Configuration', 'advancedldap'),
-                0,
-                $item::class,
-                'ti ti-settings',
-            );
-        }
-
-        return '';
-    }
-
     /**
      * @return array<array<string, mixed>>
      */

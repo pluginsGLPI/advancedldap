@@ -108,7 +108,7 @@ class AuthLdapSyncFilter extends CommonDBTM
                 'child_alias'       => 'al',
                 'child_criteria'    => ['is_active' => 1],
                 'title'             => __('LDAP Connections associated', 'advancedldap'),
-                'empty_message'     => __('No LDAP connections available', 'advancedldap'),
+                'empty_message'     => __('No LDAP connections available (only active and unlinked LDAP directories are displayed here).', 'advancedldap'),
                 'empty_label'       => __('Select an LDAP'),
                 'datatable_id'      => 'syncfilter_ldap_connections',
                 'columns'           => [
@@ -251,6 +251,29 @@ class AuthLdapSyncFilter extends CommonDBTM
         }
 
         return true;
+    }
+
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+    {
+        if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
+            return self::createTabEntry(
+                __('Advanced sync', 'advancedldap'),
+                0,
+                $item::class,
+                SyncFilter::getIcon(),
+            );
+        }
+
+        if ($item instanceof SyncFilter && $item->can($item->getID(), \READ)) {
+            return self::createTabEntry(
+                __('Configuration', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-settings',
+            );
+        }
+
+        return '';
     }
 
     /**
