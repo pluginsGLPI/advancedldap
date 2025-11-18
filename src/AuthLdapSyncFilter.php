@@ -150,12 +150,12 @@ class AuthLdapSyncFilter extends CommonDBTM
                                 'WHERE'  => [$config['parent_field_name'] => $parent_id],
                             ]),
                         ],
-                    ]
+                    ],
                 ),
-                ['name']
+                ['name'],
             ),
             'name',
-            'id'
+            'id',
         );
 
         // Add form configuration
