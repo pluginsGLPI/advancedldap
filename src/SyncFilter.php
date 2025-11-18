@@ -128,16 +128,6 @@ class SyncFilter extends CommonDropdown
         return '';
     }
 
-    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
-    {
-        if ($item instanceof AuthLDAP || $item instanceof self) {
-            $instance = new AuthLdapSyncFilter();
-            $instance->showRelationsForItem($item);
-        }
-
-        return true;
-    }
-
     /**
      * @return array<array<string, mixed>>
      */
