@@ -48,7 +48,7 @@ if (isset($_POST["add"])) {
     $syncfilter->update($_POST);
     Html::back();
 } else {
-    $menus = ["config", "plugin", "pluginadvancedldapsyncfilter"];
+    $menus = ["config", "commondropdown", SyncFilter::class];
     SyncFilter::displayFullPageForItem($_GET["id"] ?? "", $menus, [
         'formoptions' => "data-track-changes=true"
     ]);
