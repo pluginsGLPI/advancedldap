@@ -30,9 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use AuthLDAP;
 use CommonDropdown;
-use CommonGLPI;
 use DBConnection;
 use DisplayPreference;
 use Migration;
