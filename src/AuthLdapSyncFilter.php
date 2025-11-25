@@ -30,6 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap;
 
+use RuntimeException;
 use AuthLDAP;
 use CommonDBTM;
 use CommonGLPI;
@@ -97,7 +98,7 @@ class AuthLdapSyncFilter extends CommonDBTM
         $child_obj = match ($child_class) {
             SyncFilter::class => new SyncFilter(),
             AuthLDAP::class => new AuthLDAP(),
-            default => throw new \RuntimeException('Invalid child class'),
+            default => throw new RuntimeException('Invalid child class'),
         };
         /** @var array<array<string, mixed>> $found_items */
         $found_items = $child_obj->find(
@@ -157,7 +158,7 @@ class AuthLdapSyncFilter extends CommonDBTM
             $child_obj = match ($child_class) {
                 SyncFilter::class => new SyncFilter(),
                 AuthLDAP::class => new AuthLDAP(),
-                default => throw new \RuntimeException('Invalid child class'),
+                default => throw new RuntimeException('Invalid child class'),
             };
             $name = htmlescape(NOT_AVAILABLE);
             if ($child_obj->getFromDB($data['id'])) {

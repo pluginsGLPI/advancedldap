@@ -56,7 +56,7 @@ function plugin_init_advancedldap(): void
     // Register JavaScript assets (on plugin pages and AuthLDAP pages)
     /** @var string $request_uri */
     $request_uri = $_SERVER['REQUEST_URI'] ?? '';
-    if (strpos($request_uri, '/plugins/advancedldap/') !== false || strpos($request_uri, '/authldap.form.php') !== false) {
+    if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
         $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = ['js/relation_form.js'];
     }
 
