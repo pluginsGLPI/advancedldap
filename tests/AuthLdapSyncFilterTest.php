@@ -62,15 +62,18 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $syncfilter_id = $syncfilter->getID();
 
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
         $relation = $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
         $relation->getID();
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
+            [$authldap_fk => $authldap_id, $syncfilter_fk => $syncfilter_id],
         ));
     }
 
@@ -92,15 +95,18 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $syncfilter_id = $syncfilter->getID();
 
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
         $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
 
         $relation2 = new AuthLdapSyncFilter();
         $relation2_id = $relation2->add([
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
 
         $this->assertFalse($relation2_id);
@@ -109,7 +115,7 @@ final class AuthLdapSyncFilterTest extends DbTestCase
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
+            [$authldap_fk => $authldap_id, $syncfilter_fk => $syncfilter_id],
         ));
     }
 
@@ -131,21 +137,24 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $syncfilter_id = $syncfilter->getID();
 
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
         $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id],
+            [$authldap_fk => $authldap_id],
         ));
 
         $this->deleteItem(AuthLDAP::class, $authldap_id, true);
 
         $this->assertEquals(0, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id],
+            [$authldap_fk => $authldap_id],
         ));
     }
 
@@ -167,21 +176,24 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $authldap_id = $authldap->getID();
 
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
         $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['syncfilter_id' => $syncfilter_id],
+            [$syncfilter_fk => $syncfilter_id],
         ));
 
         $this->deleteItem(SyncFilter::class, $syncfilter_id, true);
 
         $this->assertEquals(0, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['syncfilter_id' => $syncfilter_id],
+            [$syncfilter_fk => $syncfilter_id],
         ));
     }
 }

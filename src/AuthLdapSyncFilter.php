@@ -55,15 +55,19 @@ class AuthLdapSyncFilter extends CommonDBTM
         $table = self::getTable();
         if (!$DB->tableExists($table)) {
             $migration->displayMessage('Installing ' . $table);
+
+            $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+            $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
             $query = "CREATE TABLE `{$table}` (
                 `id` int {$default_key_sign} NOT NULL AUTO_INCREMENT,
-                `authldap_id` int {$default_key_sign} NOT NULL DEFAULT '0',
-                `syncfilter_id` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `{$authldap_fk}` int {$default_key_sign} NOT NULL DEFAULT '0',
+                `{$syncfilter_fk}` int {$default_key_sign} NOT NULL DEFAULT '0',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
-                UNIQUE KEY `unicity` (`authldap_id`, `syncfilter_id`),
-                KEY `authldap_id` (`authldap_id`),
-                KEY `syncfilter_id` (`syncfilter_id`),
+                UNIQUE KEY `unicity` (`{$authldap_fk}`, `{$syncfilter_fk}`),
+                KEY `{$authldap_fk}` (`{$authldap_fk}`),
+                KEY `{$syncfilter_fk}` (`{$syncfilter_fk}`),
                 KEY `date_creation` (`date_creation`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC";
 
@@ -75,88 +79,43 @@ class AuthLdapSyncFilter extends CommonDBTM
     {
         global $DB;
 
-        // Configuration per item type
-        $configs = [
-            AuthLDAP::class => [
-                'parent_field_name' => 'authldap_id',
-                'child_field_name'  => 'syncfilter_id',
-                'child_class'       => SyncFilter::class,
-                'child_table'       => SyncFilter::getTable(),
-                'child_alias'       => 'sf',
-                'child_criteria'    => [],
-                'title'             => __('Syncfilters associated', 'advancedldap'),
-                'empty_message'     => __('No sync filters available (only active and unlinked filters are displayed here).', 'advancedldap'),
-                'empty_label'       => __('Select a filter'),
-                'datatable_id'      => 'authldap_syncfilters',
-                'columns'           => [
-                    'name'              => __('Name'),
-                    'basedn'            => __('Base DN', 'advancedldap'),
-                    'connection_filter' => __('Connection filter', 'advancedldap'),
-                    'itemtype_display'  => __('Asset type', 'advancedldap'),
-                ],
-                'formatters'        => [
-                    'name'              => 'raw_html',
-                    'basedn'            => 'raw_html',
-                    'connection_filter' => 'raw_html',
-                ],
-            ],
-            SyncFilter::class => [
-                'parent_field_name' => 'syncfilter_id',
-                'child_field_name'  => 'authldap_id',
-                'child_class'       => AuthLDAP::class,
-                'child_table'       => 'glpi_authldaps',
-                'child_alias'       => 'al',
-                'child_criteria'    => ['is_active' => 1],
-                'title'             => __('LDAP Connections associated', 'advancedldap'),
-                'empty_message'     => __('No LDAP connections available (only active and unlinked LDAP directories are displayed here).', 'advancedldap'),
-                'empty_label'       => __('Select an LDAP'),
-                'datatable_id'      => 'syncfilter_ldap_connections',
-                'columns'           => [
-                    'name' => __('Name'),
-                    'host' => __('Server'),
-                    'port' => __('Port'),
-                ],
-                'formatters'        => [
-                    'name' => 'raw_html',
-                ],
-            ],
-        ];
-
-        // Select config based on item type
-        $itemclass = $item::class;
-        if (!isset($configs[$itemclass])) {
+        // Get configuration for this item type
+        $config = $this->getRelationConfigForItem($item);
+        if ($config === null) {
             return;
         }
-
-        $config = $configs[$itemclass];
 
         if (!($item instanceof CommonDBTM)) {
             return;
         }
 
         $parent_id = $item->getID();
+        $itemclass = $item::class;
 
         // get available items id=>name for select
-        $child_obj = new $config['child_class']();
-        $available_items = array_column(
-            $child_obj->find(
-                array_merge(
-                    $config['child_criteria'],
-                    [
-                        'NOT' => [
-                            'id' => new QuerySubQuery([
-                                'SELECT' => $config['child_field_name'],
-                                'FROM'   => self::getTable(),
-                                'WHERE'  => [$config['parent_field_name'] => $parent_id],
-                            ]),
-                        ],
+        $child_class = $config['child_class'];
+        $child_obj = match ($child_class) {
+            SyncFilter::class => new SyncFilter(),
+            AuthLDAP::class => new AuthLDAP(),
+            default => throw new \RuntimeException('Invalid child class'),
+        };
+        /** @var array<array<string, mixed>> $found_items */
+        $found_items = $child_obj->find(
+            array_merge(
+                $config['child_criteria'],
+                [
+                    'NOT' => [
+                        'id' => new QuerySubQuery([
+                            'SELECT' => $config['child_field_name'],
+                            'FROM'   => self::getTable(),
+                            'WHERE'  => [$config['parent_field_name'] => $parent_id],
+                        ]),
                     ],
-                ),
-                ['name'],
+                ]
             ),
-            'name',
-            'id',
+            ['name']
         );
+        $available_items = array_column($found_items, 'name', 'id');
 
         // Add form configuration
         $form_config = [
@@ -165,24 +124,29 @@ class AuthLdapSyncFilter extends CommonDBTM
             'parent_id'           => $parent_id,
             'dropdown_field_name' => $config['child_field_name'],
             'available_items'     => $available_items,
-            'empty_message'       => $config['empty_message'],
-            'empty_label'         => $config['empty_label'],
+            'display_emptychoice' => $config['display_emptychoice'],
+            'form_url'            => self::getFormURL(),
         ];
 
         // Query existing relations
+        $child_alias = $config['child_alias'];
+        $child_table = $config['child_table'];
+        $child_field_name = $config['child_field_name'];
+        $parent_field_name = $config['parent_field_name'];
+
         $iterator = $DB->request([
-            'SELECT' => [$config['child_alias'] . '.*', 'rel.id as link_id'],
-            'FROM'   => $config['child_table'] . ' AS ' . $config['child_alias'],
+            'SELECT' => [$child_alias . '.*', 'rel.id as link_id'],
+            'FROM'   => $child_table . ' AS ' . $child_alias,
             'INNER JOIN' => [
                 self::getTable() . ' AS rel' => [
                     'ON' => [
-                        'rel' => $config['child_field_name'],
-                        $config['child_alias'] => 'id',
+                        'rel' => $child_field_name,
+                        $child_alias => 'id',
                     ],
                 ],
             ],
-            'WHERE' => ['rel.' . $config['parent_field_name'] => $parent_id],
-            'ORDER' => $config['child_alias'] . '.name',
+            'WHERE' => ['rel.' . $parent_field_name => $parent_id],
+            'ORDER' => $child_alias . '.name',
         ]);
 
         // Build datatable entries
@@ -190,7 +154,11 @@ class AuthLdapSyncFilter extends CommonDBTM
         foreach ($iterator as $data) {
             /** @var array{id: int, link_id: int} $data */
             // Get name with link (common to both cases)
-            $child_obj = new $config['child_class']();
+            $child_obj = match ($child_class) {
+                SyncFilter::class => new SyncFilter(),
+                AuthLDAP::class => new AuthLDAP(),
+                default => throw new \RuntimeException('Invalid child class'),
+            };
             $name = htmlescape(NOT_AVAILABLE);
             if ($child_obj->getFromDB($data['id'])) {
                 $name = $child_obj->getLink();
@@ -255,6 +223,82 @@ class AuthLdapSyncFilter extends CommonDBTM
         return true;
     }
 
+    /**
+     * @return array{
+     *     parent_field_name: string,
+     *     child_field_name: string,
+     *     child_class: class-string<CommonDBTM>,
+     *     child_table: string,
+     *     child_alias: string,
+     *     child_criteria: array<string, mixed>,
+     *     title: string,
+     *     datatable_id: string,
+     *     columns: array<string, string>,
+     *     formatters: array<string, string>,
+     *     display_emptychoice: bool
+     * }|null
+     */
+    private function getRelationConfigForItem(CommonGLPI $item): ?array
+    {
+        switch ($item::class) {
+            case AuthLDAP::class:
+                /** @var class-string<SyncFilter> $childClass */
+                $childClass       = SyncFilter::class;
+                $title            = __('Syncfilters associated', 'advancedldap');
+                $datatableId      = 'authldap_syncfilters';
+                $childAlias       = 'sf';
+                /** @var array<string, mixed> $childCriteria */
+                $childCriteria    = [];
+                $columns = [
+                    'name'              => __('Name'),
+                    'basedn'            => __('Base DN', 'advancedldap'),
+                    'connection_filter' => __('Connection filter', 'advancedldap'),
+                    'itemtype_display'  => __('Asset type', 'advancedldap'),
+                ];
+                $formatters = [
+                    'name'              => 'raw_html',
+                    'basedn'            => 'raw_html',
+                    'connection_filter' => 'raw_html',
+                ];
+                break;
+
+            case SyncFilter::class:
+                /** @var class-string<AuthLDAP> $childClass */
+                $childClass       = AuthLDAP::class;
+                $title            = __('LDAP Connections associated', 'advancedldap');
+                $datatableId      = 'syncfilter_ldap_connections';
+                $childAlias       = 'al';
+                /** @var array<string, mixed> $childCriteria */
+                $childCriteria    = ['is_active' => 1];
+                $columns = [
+                    'name' => __('Name'),
+                    'host' => __('Server'),
+                    'port' => __('Port'),
+                ];
+                $formatters = [
+                    'name' => 'raw_html',
+                ];
+                break;
+
+            default:
+                return null;
+        }
+
+        return [
+            'parent_field_name'   => getForeignKeyFieldForItemType($item::class),
+            'child_field_name'    => getForeignKeyFieldForItemType($childClass),
+            'child_class'         => $childClass,
+            'child_table'         => $childClass::getTable(),
+            'child_alias'         => $childAlias,
+            'child_criteria'      => $childCriteria,
+            'title'               => $title,
+            'datatable_id'        => $datatableId,
+            'columns'             => $columns,
+            'formatters'          => $formatters,
+            'display_emptychoice' => true,
+        ];
+    }
+
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
@@ -268,10 +312,10 @@ class AuthLdapSyncFilter extends CommonDBTM
 
         if ($item instanceof SyncFilter && $item->can($item->getID(), \READ)) {
             return self::createTabEntry(
-                __('Configuration', 'advancedldap'),
+                __('AuthLDAP', 'advancedldap'),
                 0,
                 $item::class,
-                'ti ti-settings',
+                AuthLDAP::getIcon(),
             );
         }
 
@@ -297,8 +341,30 @@ class AuthLdapSyncFilter extends CommonDBTM
         $migration->dropTable($table);
     }
 
+    /**
+     * @param array<string, mixed> $input
+     * @return false|array<string, mixed>
+     */
     public function prepareInputForAdd($input)
     {
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $authldap_value = $input[$authldap_fk] ?? null;
+        $authldaps_id = is_numeric($authldap_value) ? (int) $authldap_value : 0;
+
+        $syncfilter_value = $input[$syncfilter_fk] ?? null;
+        $syncfilters_id = is_numeric($syncfilter_value) ? (int) $syncfilter_value : 0;
+
+        if ($authldaps_id <= 0 || $syncfilters_id <= 0) {
+            Session::addMessageAfterRedirect(
+                __s('Please select a valid item', 'advancedldap'),
+                false,
+                ERROR,
+            );
+            return false;
+        }
+
         if ($this->alreadyExists($input)) {
             Session::addMessageAfterRedirect(
                 __s('Relationship already exists', 'advancedldap'),
@@ -316,9 +382,12 @@ class AuthLdapSyncFilter extends CommonDBTM
      */
     private function alreadyExists(array $input): bool
     {
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
         return countElementsInTable(self::getTable(), [
-            'authldap_id' => $input['authldap_id'],
-            'syncfilter_id' => $input['syncfilter_id'],
+            $authldap_fk => $input[$authldap_fk] ?? null,
+            $syncfilter_fk => $input[$syncfilter_fk] ?? null,
         ]) > 0;
     }
 
@@ -326,13 +395,12 @@ class AuthLdapSyncFilter extends CommonDBTM
     {
         global $DB;
 
-        $map = [
-            AuthLDAP::class => 'authldap_id',
-            SyncFilter::class => 'syncfilter_id',
-        ];
-
-        if (isset($map[$itemtype])) {
-            $DB->delete(self::getTable(), [$map[$itemtype] => $items_id]);
+        if ($itemtype === AuthLDAP::class || $itemtype === SyncFilter::class) {
+            /** @var class-string<CommonDBTM> $itemtype */
+            $field_name = getForeignKeyFieldForItemType($itemtype);
+            if ($field_name) {
+                $DB->delete(self::getTable(), [$field_name => $items_id]);
+            }
         }
     }
 
