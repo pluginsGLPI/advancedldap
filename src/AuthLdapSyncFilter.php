@@ -112,9 +112,9 @@ class AuthLdapSyncFilter extends CommonDBTM
                             'WHERE'  => [$config['parent_field_name'] => $parent_id],
                         ]),
                     ],
-                ]
+                ],
             ),
-            ['name']
+            ['name'],
         );
         $available_items = array_column($found_items, 'name', 'id');
 
