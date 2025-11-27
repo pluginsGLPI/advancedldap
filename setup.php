@@ -28,6 +28,7 @@
  * -------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use Glpi\Plugin\Hooks;
 
@@ -43,12 +44,24 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
 function plugin_init_advancedldap(): void
 {
-    /** @var array<string, array<string, array<string, string>>> $PLUGIN_HOOKS */
+    /** @var array<string, array<string, string|array<int|string, string>>> $PLUGIN_HOOKS */
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
+    $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = [
+        AuthLDAP::class => 'plugin_advancedldap_item_purge',
+        SyncFilter::class => 'plugin_advancedldap_item_purge',
+    ];
 
-    Plugin::registerClass(SyncFilter::class, [
+    // Register JavaScript assets (on plugin pages and AuthLDAP pages)
+    /** @var string $request_uri */
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
+        //load an empty file for now - will be renamed eventually
+        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = ['js/relation_form.js'];
+    }
+
+    Plugin::registerClass(AuthLdapSyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
     ]);
 }
@@ -104,4 +117,15 @@ function plugin_advancedldap_check_config(bool $verbose = false): bool
     //    echo __('Installed / not configured', 'advancedldap');
     // }
     // return false;
+}
+
+/**
+ * Hook called when an item is purged (deleted permanently)
+ * Clean all AuthLdapSyncFilter relations when an AuthLDAP or SyncFilter is purged
+ *
+ * @param CommonDBTM $item The item being purged
+ */
+function plugin_advancedldap_item_purge(CommonDBTM $item): void
+{
+    AuthLdapSyncFilter::cleanRelationsForItem($item->getType(), $item->getID());
 }

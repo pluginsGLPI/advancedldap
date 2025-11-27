@@ -31,12 +31,9 @@
 namespace GlpiPlugin\Advancedldap;
 
 use CommonDropdown;
-use AuthLDAP;
-use CommonGLPI;
-use Migration;
 use DBConnection;
 use DisplayPreference;
-use Glpi\Application\View\TemplateRenderer;
+use Migration;
 
 class SyncFilter extends CommonDropdown
 {
@@ -102,67 +99,6 @@ class SyncFilter extends CommonDropdown
     public static function getIcon(): string
     {
         return 'ti ti-filter';
-    }
-
-    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
-    {
-        // Tab on AuthLDAP pages
-        if ($item instanceof AuthLDAP && $item->can($item->getID(), \READ)) {
-            $nb = 0;
-
-            return self::createTabEntry(
-                __('Advanced sync', 'advancedldap'),
-                $nb,
-                $item::class,
-                static::getIcon(),
-            );
-        }
-
-        // Tab on SyncFilter itself
-        if ($item instanceof self && $item->can($item->getID(), \READ)) {
-            return self::createTabEntry(
-                __('Configuration', 'advancedldap'),
-                0,
-                $item::class,
-                'ti ti-settings',
-            );
-        }
-
-        return '';
-    }
-
-    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
-    {
-        // Display content for AuthLDAP pages
-        if ($item instanceof AuthLDAP) {
-            $instance = new self();
-            $instance->showSyncFiltersList($item);
-        }
-
-        // Display content for SyncFilter pages
-        if ($item instanceof self) {
-            $item->showLdapConf();
-        }
-
-        return true;
-    }
-
-    public function showSyncFiltersList(AuthLDAP $authldap): void
-    {
-        $id = $authldap->getField('id');
-
-        TemplateRenderer::getInstance()->display('@advancedldap/syncfilters_list.html.twig', [
-            'authldap_id' => $id,
-        ]);
-    }
-
-    private function showLdapConf(): void
-    {
-        $id = $this->getID();
-
-        TemplateRenderer::getInstance()->display('@advancedldap/syncfilter_conf.html.twig', [
-            'syncfilter_id' => $id,
-        ]);
     }
 
     /**
