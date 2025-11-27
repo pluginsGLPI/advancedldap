@@ -30,7 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
-use DbTestCase;
+use Glpi\Tests\DbTestCase;
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
