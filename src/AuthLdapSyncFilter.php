@@ -342,11 +342,28 @@ class AuthLdapSyncFilter extends CommonDBTM
         $migration->dropTable($table);
     }
 
+    public function prepareInputForAdd($input)
+    {
+        if (!$this->validateRelationInput($input)) {
+            return false;
+        }
+
+        return parent::prepareInputForAdd($input);
+    }
+
+    public function prepareInputForUpdate($input)
+    {
+        if (!$this->validateRelationInput($input)) {
+            return false;
+        }
+
+        return parent::prepareInputForUpdate($input);
+    }
+
     /**
      * @param array<string, mixed> $input
-     * @return false|array<string, mixed>
      */
-    public function prepareInputForAdd($input)
+    private function validateRelationInput(array $input): bool
     {
         $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
         $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
@@ -375,7 +392,7 @@ class AuthLdapSyncFilter extends CommonDBTM
             return false;
         }
 
-        return parent::prepareInputForAdd($input);
+        return true;
     }
 
     /**

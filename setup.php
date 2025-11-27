@@ -57,6 +57,7 @@ function plugin_init_advancedldap(): void
     /** @var string $request_uri */
     $request_uri = $_SERVER['REQUEST_URI'] ?? '';
     if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
+        //load an empty file for now - will be renamed eventually
         $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = ['js/relation_form.js'];
     }
 
