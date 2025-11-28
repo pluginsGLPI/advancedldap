@@ -30,8 +30,11 @@
 
 namespace GlpiPlugin\Advancedldap\Service;
 
+use CommonDBTM;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use Search;
+
+use function Safe\json_decode;
 
 class FieldMappingService
 {
@@ -39,57 +42,68 @@ class FieldMappingService
      * Get field mappings for a sync filter
      *
      * @param SyncFilter $syncfilter The sync filter instance
-     * @return array Associative array of GLPI field => LDAP attribute mappings
+     * @return array<string, string> Associative array of GLPI field => LDAP attribute mappings
      */
     public function getMapping(SyncFilter $syncfilter): array
     {
         $mappings_json = $syncfilter->fields['field_mappings'] ?? null;
 
-        if (empty($mappings_json)) {
+        if (empty($mappings_json) || !is_string($mappings_json)) {
             return $this->getDefaultMapping();
         }
 
-        $mappings = json_decode((string) $mappings_json, true);
+        $mappings = json_decode($mappings_json, true);
 
-        // Return default if JSON decode fails
         if (!is_array($mappings)) {
             return $this->getDefaultMapping();
         }
 
-        return $mappings;
+        // Ensure all keys and values are strings
+        $result = [];
+        foreach ($mappings as $key => $value) {
+            if (is_string($key) && is_string($value)) {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
     }
 
     /**
      * Get default field mapping preset
      *
-     * @return array Default field mappings
+     * @return array<string, string> Default field mappings
      */
     public function getDefaultMapping(): array
     {
         return [
             'name' => '',
-            'serial' => ''
+            'serial' => '',
         ];
     }
 
     /**
      * Get available fields for a given itemtype
      *
-     * @param string $itemtype The GLPI itemtype (Computer, Phone, Printer, NetworkEquipment)
-     * @return array Associative array of field_name => field_label
+     * @param string $itemtype The GLPI itemtype
+     * @return array<string, string> Associative array of field_name => field_label
      */
     public function getAvailableFields(string $itemtype): array
     {
-        if (!class_exists($itemtype)) {
+        if (!class_exists($itemtype) || !is_subclass_of($itemtype, CommonDBTM::class)) {
             return [];
         }
 
+        /** @var class-string<CommonDBTM> $itemtype */
         $search_options = Search::getOptions($itemtype);
         $available_fields = [];
 
         $main_table = getTableForItemType($itemtype);
 
         foreach ($search_options as $option) {
+            if (!is_array($option)) {
+                continue;
+            }
 
             if (!isset($option['field']) || !isset($option['table']) || !isset($option['name'])) {
                 continue;
@@ -99,11 +113,20 @@ class FieldMappingService
                 continue;
             }
 
-            if (in_array($option['field'], ['id', 'entities_id', 'is_recursive', 'is_deleted', 'is_template'])) {
+            $field = $option['field'];
+            if (!is_string($field)) {
                 continue;
             }
 
-            $available_fields[$option['field']] = $option['name'];
+            if (in_array($field, ['id', 'entities_id', 'is_recursive', 'is_deleted', 'is_template'])) {
+                continue;
+            }
+
+            $name = $option['name'];
+            if (!is_string($name)) {
+                continue;
+            }
+            $available_fields[$field] = $name;
         }
 
         asort($available_fields);
@@ -114,19 +137,26 @@ class FieldMappingService
     /**
      * Validate and clean field mappings
      *
-     * @param array $mappings Raw mappings from form
-     * @return array Cleaned mappings ready for storage
+     * @param array<int, array{glpi_field?: string, ldap_attr?: string}> $mappings Raw mappings from form
+     * @return array<string, string> Cleaned mappings ready for storage
      */
     public function cleanMappings(array $mappings): array
     {
         $cleaned = [];
 
         foreach ($mappings as $mapping) {
-            if (empty($mapping['glpi_field']) || empty($mapping['ldap_attr'])) {
+            if (!is_array($mapping)) {
                 continue;
             }
 
-            $cleaned[$mapping['glpi_field']] = $mapping['ldap_attr'];
+            $glpi_field = $mapping['glpi_field'] ?? '';
+            $ldap_attr = $mapping['ldap_attr'] ?? '';
+
+            if (empty($glpi_field) || empty($ldap_attr) || !is_string($glpi_field) || !is_string($ldap_attr)) {
+                continue;
+            }
+
+            $cleaned[$glpi_field] = $ldap_attr;
         }
 
         return $cleaned;
@@ -135,8 +165,8 @@ class FieldMappingService
     /**
      * Convert mappings to indexed array format for display
      *
-     * @param array $mappings Associative array of field => attribute
-     * @return array Indexed array of mapping objects
+     * @param array<string, string> $mappings Associative array of field => attribute
+     * @return array<int, array{glpi_field: string, ldap_attr: string}> Indexed array of mapping objects
      */
     public function mappingsToIndexedArray(array $mappings): array
     {
@@ -144,8 +174,8 @@ class FieldMappingService
 
         foreach ($mappings as $glpi_field => $ldap_attr) {
             $indexed[] = [
-                'glpi_field' => $glpi_field,
-                'ldap_attr' => $ldap_attr
+                'glpi_field' => (string) $glpi_field,
+                'ldap_attr' => (string) $ldap_attr,
             ];
         }
 
@@ -153,7 +183,7 @@ class FieldMappingService
         if (count($indexed) < 10) {
             $indexed[] = [
                 'glpi_field' => '',
-                'ldap_attr' => ''
+                'ldap_attr' => '',
             ];
         }
 

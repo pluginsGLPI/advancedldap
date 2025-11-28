@@ -30,7 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
-use DbTestCase;
+use Glpi\Tests\DbTestCase;
 use AuthLDAP;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
@@ -53,7 +53,6 @@ final class AuthLdapSyncFilterTest extends DbTestCase
             'is_active' => 1,
         ]);
         $authldap_id = $authldap->getID();
-        $this->assertGreaterThan(0, $authldap_id);
 
         $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Sync Filter',
@@ -62,20 +61,19 @@ final class AuthLdapSyncFilterTest extends DbTestCase
             'itemtype' => 'Computer',
         ]);
         $syncfilter_id = $syncfilter->getID();
-        $this->assertGreaterThan(0, $syncfilter_id);
+
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
 
         $relation = $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
-        $relation_id = $relation->getID();
-
-        $this->assertNotFalse($relation_id);
-        $this->assertGreaterThan(0, $relation_id);
+        $relation->getID();
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
+            [$authldap_fk => $authldap_id, $syncfilter_fk => $syncfilter_id],
         ));
     }
 
@@ -97,26 +95,105 @@ final class AuthLdapSyncFilterTest extends DbTestCase
         ]);
         $syncfilter_id = $syncfilter->getID();
 
-        $relation1 = $this->createItem(AuthLdapSyncFilter::class, [
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $this->createItem(AuthLdapSyncFilter::class, [
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
-        $relation1_id = $relation1->getID();
-        $this->assertGreaterThan(0, $relation1_id);
 
         $relation2 = new AuthLdapSyncFilter();
         $relation2_id = $relation2->add([
-            'authldap_id' => $authldap_id,
-            'syncfilter_id' => $syncfilter_id,
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
         ]);
 
-        $this->assertFalse($relation2_id, 'La création d\'une relation en doublon devrait échouer');
+        $this->assertFalse($relation2_id);
 
         $this->hasSessionMessages(ERROR, ['Relationship already exists']);
 
         $this->assertEquals(1, countElementsInTable(
             AuthLdapSyncFilter::getTable(),
-            ['authldap_id' => $authldap_id, 'syncfilter_id' => $syncfilter_id],
+            [$authldap_fk => $authldap_id, $syncfilter_fk => $syncfilter_id],
+        ));
+    }
+
+    public function testPurgeAuthLdapCleansRelations(): void
+    {
+        $authldap = $this->createItem(AuthLDAP::class, [
+            'name' => 'Test LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $authldap_id = $authldap->getID();
+
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name' => 'Test Sync Filter',
+            'connection_filter' => '(objectClass=computer)',
+            'basedn' => 'ou=computers,dc=example,dc=com',
+            'itemtype' => 'Computer',
+        ]);
+        $syncfilter_id = $syncfilter->getID();
+
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $this->createItem(AuthLdapSyncFilter::class, [
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
+        ]);
+
+        $this->assertEquals(1, countElementsInTable(
+            AuthLdapSyncFilter::getTable(),
+            [$authldap_fk => $authldap_id],
+        ));
+
+        $this->deleteItem(AuthLDAP::class, $authldap_id, true);
+
+        $this->assertEquals(0, countElementsInTable(
+            AuthLdapSyncFilter::getTable(),
+            [$authldap_fk => $authldap_id],
+        ));
+    }
+
+    public function testPurgeSyncFilterCleansRelations(): void
+    {
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name' => 'Test Sync Filter',
+            'connection_filter' => '(objectClass=user)',
+            'basedn' => 'ou=users,dc=example,dc=com',
+            'itemtype' => 'User',
+        ]);
+        $syncfilter_id = $syncfilter->getID();
+
+        $authldap = $this->createItem(AuthLDAP::class, [
+            'name' => 'Test LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+        $authldap_id = $authldap->getID();
+
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $this->createItem(AuthLdapSyncFilter::class, [
+            $authldap_fk => $authldap_id,
+            $syncfilter_fk => $syncfilter_id,
+        ]);
+
+        $this->assertEquals(1, countElementsInTable(
+            AuthLdapSyncFilter::getTable(),
+            [$syncfilter_fk => $syncfilter_id],
+        ));
+
+        $this->deleteItem(SyncFilter::class, $syncfilter_id, true);
+
+        $this->assertEquals(0, countElementsInTable(
+            AuthLdapSyncFilter::getTable(),
+            [$syncfilter_fk => $syncfilter_id],
         ));
     }
 }

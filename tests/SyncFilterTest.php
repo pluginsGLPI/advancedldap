@@ -30,7 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
-use DbTestCase;
+use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
 /**

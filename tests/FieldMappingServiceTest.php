@@ -30,9 +30,11 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
-use DbTestCase;
+use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use GlpiPlugin\Advancedldap\SyncFilter;
+
+use function Safe\json_encode;
 
 /**
  * @method void assertTrue($condition, string $message = '')
@@ -55,6 +57,7 @@ final class FieldMappingServiceTest extends DbTestCase
             'otherserial' => 'inventoryNumber'
         ];
 
+        /** @var SyncFilter $syncfilter */
         $syncfilter = $this->createItem(SyncFilter::class, [
             'name' => 'Test Mapping Filter',
             'connection_filter' => '(objectClass=computer)',

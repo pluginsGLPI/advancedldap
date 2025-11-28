@@ -44,7 +44,7 @@ define("PLUGIN_ADVANCEDLDAP_MAX_GLPI_VERSION", "11.0.99");
 
 function plugin_init_advancedldap(): void
 {
-    /** @var array<string, array<string, string|array<string, string>>> $PLUGIN_HOOKS */
+    /** @var array<string, array<string, string|array<int|string, string>>> $PLUGIN_HOOKS */
     global $PLUGIN_HOOKS;
 
     $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
@@ -53,11 +53,15 @@ function plugin_init_advancedldap(): void
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
 
-    if (strpos($_SERVER['REQUEST_URI'] ?? '', '/plugins/advancedldap/') !== false) {
-        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'][] = 'js/field_mapping.js';
+    /** @var string $request_uri */
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
+        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = [
+            'js/field_mapping.js',
+        ];
     }
 
-    Plugin::registerClass(SyncFilter::class, [
+    Plugin::registerClass(AuthLdapSyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],
     ]);
 }
