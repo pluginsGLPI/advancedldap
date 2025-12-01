@@ -66,5 +66,5 @@ Dropdown::showFromArray(
         'value' => $selected,
         'display_emptychoice' => false,
         'width' => '100%',
-    ]
+    ],
 );

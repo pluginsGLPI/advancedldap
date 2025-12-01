@@ -30,7 +30,6 @@
 
 use GlpiPlugin\Advancedldap\SyncFilter;
 
-
 Session::checkCentralAccess();
 
 $syncfilter = new SyncFilter();
@@ -43,13 +42,13 @@ if (isset($_POST["add"])) {
         }
     }
     Html::back();
-} else if (isset($_POST["update"])) {
+} elseif (isset($_POST["update"])) {
     $syncfilter->check($_POST['id'], UPDATE);
     $syncfilter->update($_POST);
     Html::back();
 } else {
     $menus = ["config", "commondropdown", SyncFilter::class];
     SyncFilter::displayFullPageForItem($_GET["id"] ?? "", $menus, [
-        'formoptions' => "data-track-changes=true"
+        'formoptions' => "data-track-changes=true",
     ]);
 }

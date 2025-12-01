@@ -55,7 +55,7 @@ final class FieldMappingServiceTest extends DbTestCase
         $mappings = [
             'name' => 'cn',
             'serial' => 'serialNumber',
-            'otherserial' => 'inventoryNumber'
+            'otherserial' => 'inventoryNumber',
         ];
 
         /** @var SyncFilter $syncfilter */
