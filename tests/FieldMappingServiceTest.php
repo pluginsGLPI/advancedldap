@@ -34,6 +34,7 @@ use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
+use function Safe\json_decode;
 use function Safe\json_encode;
 
 /**
@@ -49,7 +50,7 @@ final class FieldMappingServiceTest extends DbTestCase
 {
     public function testGetMapping(): void
     {
-        $service = new FieldMappingService();
+        $service = FieldMappingService::getInstance();
 
         $mappings = [
             'name' => 'cn',
@@ -76,7 +77,7 @@ final class FieldMappingServiceTest extends DbTestCase
 
     public function testGetAvailableFields(): void
     {
-        $service = new FieldMappingService();
+        $service = FieldMappingService::getInstance();
 
         $fields = $service->getAvailableFields('Computer');
 
@@ -88,7 +89,7 @@ final class FieldMappingServiceTest extends DbTestCase
 
     public function testCleanMappings(): void
     {
-        $service = new FieldMappingService();
+        $service = FieldMappingService::getInstance();
 
         $raw_mappings = [
             ['glpi_field' => 'name', 'ldap_attr' => 'cn'],
@@ -105,5 +106,73 @@ final class FieldMappingServiceTest extends DbTestCase
         $this->assertEquals('cn', $cleaned['name']);
         $this->assertEquals('serialNumber', $cleaned['serial']);
         $this->assertEquals('contactPerson', $cleaned['contact']);
+    }
+
+    public function testPrepareMappingsForStorageWithRawMappings(): void
+    {
+        $service = FieldMappingService::getInstance();
+
+        $input = [
+            'name' => 'Test Filter',
+            'mappings' => [
+                ['glpi_field' => 'name', 'ldap_attr' => 'cn'],
+                ['glpi_field' => 'serial', 'ldap_attr' => 'serialNumber'],
+                ['glpi_field' => '', 'ldap_attr' => ''],
+            ],
+        ];
+
+        $result = $service->prepareMappingsForStorage($input);
+
+        $this->assertArrayHasKey('field_mappings', $result);
+        $this->assertFalse(isset($result['mappings']));
+        $this->assertEquals('Test Filter', $result['name']);
+
+        /** @var string $field_mappings */
+        $field_mappings = $result['field_mappings'];
+        /** @var array<string, string> $decoded */
+        $decoded = json_decode($field_mappings, true);
+        $this->assertCount(2, $decoded);
+        $this->assertEquals('cn', $decoded['name']);
+        $this->assertEquals('serialNumber', $decoded['serial']);
+    }
+
+    public function testPrepareMappingsForStorageWithValidJson(): void
+    {
+        $service = FieldMappingService::getInstance();
+
+        $input = [
+            'field_mappings' => '{"name":"cn","serial":"serialNumber"}',
+        ];
+
+        $result = $service->prepareMappingsForStorage($input);
+
+        $this->assertEquals('{"name":"cn","serial":"serialNumber"}', $result['field_mappings']);
+    }
+
+    public function testPrepareMappingsForStorageWithInvalidJson(): void
+    {
+        $service = FieldMappingService::getInstance();
+
+        $input = [
+            'field_mappings' => '{invalid json}',
+        ];
+
+        $result = $service->prepareMappingsForStorage($input);
+
+        $this->assertEquals('{}', $result['field_mappings']);
+    }
+
+    public function testPrepareMappingsForStorageWithNoMappings(): void
+    {
+        $service = FieldMappingService::getInstance();
+
+        $input = [
+            'name' => 'Test Filter',
+            'connection_filter' => '(objectClass=computer)',
+        ];
+
+        $result = $service->prepareMappingsForStorage($input);
+
+        $this->assertEquals($input, $result);
     }
 }

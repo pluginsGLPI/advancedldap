@@ -37,7 +37,6 @@ use CommonGLPI;
 use DBConnection;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
-use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use Migration;
 use Session;
 
@@ -175,8 +174,8 @@ class AuthLdapSyncFilter extends CommonDBTM
                     $itemtype_name = $data['itemtype']::getTypeName(1);
                 }
 
-                $entry['basedn']            = '<code>' . htmlspecialchars($data['basedn']) . '</code>';
-                $entry['connection_filter'] = '<code>' . htmlspecialchars($data['connection_filter']) . '</code>';
+                $entry['basedn']            = '<code>' . htmlescape($data['basedn']) . '</code>';
+                $entry['connection_filter'] = '<code>' . htmlescape($data['connection_filter']) . '</code>';
                 $entry['itemtype_display']  = $itemtype_name;
             } elseif ($itemclass === SyncFilter::class) {
                 /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $data */
@@ -211,45 +210,12 @@ class AuthLdapSyncFilter extends CommonDBTM
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-        if ($item instanceof AuthLDAP) {
+        if ($item instanceof AuthLDAP || $item instanceof SyncFilter) {
             $instance = new self();
             $instance->showRelationsForItem($item);
         }
 
-        if ($item instanceof SyncFilter) {
-            $instance = new self();
-            switch ($tabnum) {
-                case 1:
-                    $instance->showRelationsForItem($item);
-                    break;
-                case 2:
-                    $instance->showFieldMappingTab($item);
-                    break;
-            }
-        }
-
         return true;
-    }
-
-    /**
-     * Display the Field Mapping tab content
-     */
-    public function showFieldMappingTab(SyncFilter $syncfilter): void
-    {
-        $service = new FieldMappingService();
-        $itemtype = $syncfilter->fields['itemtype'] ?? null;
-
-        $current_mappings = $service->getMapping($syncfilter);
-        $available_fields = (empty($itemtype) || !is_string($itemtype)) ? [] : $service->getAvailableFields($itemtype);
-        $indexed_mappings = $service->mappingsToIndexedArray($current_mappings);
-
-        TemplateRenderer::getInstance()->display('@advancedldap/field_mapping.html.twig', [
-            'syncfilter_id' => $syncfilter->getID(),
-            'itemtype' => $itemtype,
-            'current_mappings' => $indexed_mappings,
-            'available_fields' => $available_fields,
-            '_glpi_csrf_token' => Session::getNewCSRFToken(),
-        ]);
     }
 
     /**
@@ -340,22 +306,12 @@ class AuthLdapSyncFilter extends CommonDBTM
         }
 
         if ($item instanceof SyncFilter && $item->can($item->getID(), \READ)) {
-            return [
-                // Tab AuthLDAP (relations)
-                1 => self::createTabEntry(
-                    __('AuthLDAP', 'advancedldap'),
-                    0,
-                    $item::class,
-                    AuthLDAP::getIcon(),
-                ),
-                // Tab Field Mapping
-                2 => self::createTabEntry(
-                    __('Field Mapping', 'advancedldap'),
-                    0,
-                    $item::class,
-                    'ti ti-arrows-exchange',
-                ),
-            ];
+            return self::createTabEntry(
+                __('AuthLDAP', 'advancedldap'),
+                0,
+                $item::class,
+                AuthLDAP::getIcon(),
+            );
         }
 
         return '';

@@ -31,13 +31,13 @@
 namespace GlpiPlugin\Advancedldap;
 
 use CommonDropdown;
+use CommonGLPI;
 use DBConnection;
 use DisplayPreference;
+use Glpi\Application\View\TemplateRenderer;
 use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use Migration;
-
-use function Safe\json_decode;
-use function Safe\json_encode;
+use Session;
 
 class SyncFilter extends CommonDropdown
 {
@@ -191,40 +191,68 @@ class SyncFilter extends CommonDropdown
     }
 
     /**
-     * Prepare input data for update
+     * @return array<string, string>
+     */
+    public function defineTabs($options = [])
+    {
+        $ong = parent::defineTabs($options);
+        $this->addStandardTab(self::class, $ong, $options);
+        /** @var array<string, string> $ong */
+        return $ong;
+    }
+
+    /**
+     * Prepare mapping input data for update
      *
      * @param array<string, mixed> $input Input data
      * @return array<string, mixed>|false Modified input data or false if invalid
      */
     public function prepareInputForUpdate($input)
     {
-        // Check if we're updating field mappings from array format
-        if (isset($input['mappings']) && is_array($input['mappings'])) {
-            $service = new FieldMappingService();
-
-            // Filter to ensure proper array structure for cleanMappings
-            /** @var array<int, array{glpi_field?: string, ldap_attr?: string}> $raw_mappings */
-            $raw_mappings = array_values($input['mappings']);
-
-            // Clean and convert mappings to JSON
-            $cleaned_mappings = $service->cleanMappings($raw_mappings);
-            $input['field_mappings'] = json_encode($cleaned_mappings);
-
-            // Remove the raw mappings array from input
-            unset($input['mappings']);
-        }
-
-        // Check if we're receiving field_mappings as JSON string already
-        // Validate it's valid JSON
-        if (isset($input['field_mappings']) && is_string($input['field_mappings'])) {
-            try {
-                json_decode($input['field_mappings'], true);
-            } catch (\Safe\Exceptions\JsonException) {
-                // Invalid JSON, set to empty object
-                $input['field_mappings'] = '{}';
-            }
-        }
+        $service = FieldMappingService::getInstance();
+        $input = $service->prepareMappingsForStorage($input);
 
         return parent::prepareInputForUpdate($input);
+    }
+
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+    {
+        if ($item instanceof self && $item->can($item->getID(), \READ)) {
+            return self::createTabEntry(
+                __('Field Mapping', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-arrows-exchange',
+            );
+        }
+
+        return '';
+    }
+
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
+    {
+        if ($item instanceof self) {
+            $item->showFieldMappingTab();
+        }
+
+        return true;
+    }
+
+    public function showFieldMappingTab(): void
+    {
+        $service = FieldMappingService::getInstance();
+        $itemtype = $this->fields['itemtype'] ?? null;
+
+        $current_mappings = $service->getMapping($this);
+        $available_fields = (empty($itemtype) || !is_string($itemtype)) ? [] : $service->getAvailableFields($itemtype);
+        $indexed_mappings = $service->mappingsToIndexedArray($current_mappings);
+
+        TemplateRenderer::getInstance()->display('@advancedldap/field_mapping.html.twig', [
+            'syncfilter_id' => $this->getID(),
+            'itemtype' => $itemtype,
+            'current_mappings' => $indexed_mappings,
+            'available_fields' => $available_fields,
+            '_glpi_csrf_token' => Session::getNewCSRFToken(),
+        ]);
     }
 }

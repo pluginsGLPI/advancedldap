@@ -30,14 +30,19 @@
 
 namespace GlpiPlugin\Advancedldap\Service;
 
+use Safe\Exceptions\JsonException;
 use CommonDBTM;
+use Glpi\Toolbox\SingletonTrait;
 use GlpiPlugin\Advancedldap\SyncFilter;
 use Search;
 
 use function Safe\json_decode;
+use function Safe\json_encode;
 
-class FieldMappingService
+final class FieldMappingService
 {
+    use SingletonTrait;
+
     /**
      * Get field mappings for a sync filter
      *
@@ -126,6 +131,7 @@ class FieldMappingService
             if (!is_string($name)) {
                 continue;
             }
+
             $available_fields[$field] = $name;
         }
 
@@ -188,5 +194,32 @@ class FieldMappingService
         }
 
         return $indexed;
+    }
+
+    /**
+     * Prepare mappings input for database storage
+     *
+     * @param array<string, mixed> $input Raw input from form
+     * @return array<string, mixed> Input with field_mappings ready for storage
+     */
+    public function prepareMappingsForStorage(array $input): array
+    {
+        if (isset($input['mappings']) && is_array($input['mappings'])) {
+            /** @var array<int, array{glpi_field?: string, ldap_attr?: string}> $raw_mappings */
+            $raw_mappings = array_values($input['mappings']);
+            $cleaned_mappings = $this->cleanMappings($raw_mappings);
+            $input['field_mappings'] = json_encode($cleaned_mappings);
+            unset($input['mappings']);
+        }
+
+        if (isset($input['field_mappings']) && is_string($input['field_mappings'])) {
+            try {
+                json_decode($input['field_mappings'], true);
+            } catch (JsonException) {
+                $input['field_mappings'] = '{}';
+            }
+        }
+
+        return $input;
     }
 }
