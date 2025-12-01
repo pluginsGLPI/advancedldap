@@ -33,11 +33,15 @@ namespace GlpiPlugin\Advancedldap\Tests;
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
+use function Safe\json_decode;
+
 /**
  * @method void assertTrue($condition, string $message = '')
  * @method void assertFalse($condition, string $message = '')
  * @method void assertEquals($expected, $actual, string $message = '')
  * @method void assertNotFalse($condition, string $message = '')
+ * @method void assertNotEmpty($actual, string $message = '')
+ * @method void assertIsArray($actual, string $message = '')
  * @method void assertGreaterThan($expected, $actual, string $message = '')
  */
 final class SyncFilterTest extends DbTestCase
@@ -129,5 +133,39 @@ final class SyncFilterTest extends DbTestCase
         $deletedfilter = new SyncFilter();
         $loadResult = $deletedfilter->getFromDB($syncfilter_id);
         $this->assertFalse($loadResult);
+    }
+
+    public function testUpdateWithMappings(): void
+    {
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name' => 'Test Mapping Update',
+            'connection_filter' => '(objectClass=computer)',
+            'basedn' => 'ou=computers,dc=example,dc=com',
+            'itemtype' => 'Computer',
+        ]);
+        $syncfilter_id = $syncfilter->getID();
+
+        // Use update() directly because 'mappings' is transformed to 'field_mappings' by prepareInputForUpdate()
+        $result = $syncfilter->update([
+            'id' => $syncfilter_id,
+            'mappings' => [
+                ['glpi_field' => 'name', 'ldap_attr' => 'cn'],
+                ['glpi_field' => 'serial', 'ldap_attr' => 'serialNumber'],
+            ],
+        ]);
+        $this->assertTrue($result);
+
+        $updatedfilter = new SyncFilter();
+        $updatedfilter->getFromDB($syncfilter_id);
+
+        /** @var string $field_mappings */
+        $field_mappings = $updatedfilter->getField('field_mappings');
+        $this->assertNotEmpty($field_mappings);
+
+        /** @var array<string, string> $decoded */
+        $decoded = json_decode($field_mappings, true);
+        $this->assertIsArray($decoded);
+        $this->assertEquals('cn', $decoded['name']);
+        $this->assertEquals('serialNumber', $decoded['serial']);
     }
 }
