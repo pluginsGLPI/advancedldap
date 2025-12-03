@@ -36,24 +36,25 @@ use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 header('Content-Type: text/html; charset=UTF-8');
 Html::header_nocache();
 
-Session::checkLoginUser();
 Session::checkRight("config", READ);
 
 $itemtype = $_GET['itemtype'] ?? '';
 $name = $_GET['name'] ?? 'glpi_field';
 $selected = $_GET['selected'] ?? '';
 
-if (empty($itemtype)) {
-    echo '';
-    exit;
+if (!is_string($itemtype) || empty($itemtype)) {
+    return;
+}
+
+if (!is_string($name)) {
+    return;
 }
 
 $service = FieldMappingService::getInstance();
 $available_fields = $service->getAvailableFields($itemtype);
 
 if (empty($available_fields)) {
-    echo '';
-    exit;
+    return;
 }
 
 // Add empty option at the beginning

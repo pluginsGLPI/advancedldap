@@ -36,19 +36,21 @@ $syncfilter = new SyncFilter();
 
 if (isset($_POST["add"])) {
     $syncfilter->check(-1, CREATE, $_POST);
-    if ($newID = $syncfilter->add($_POST)) {
-        if ($_SESSION['glpibackcreated']) {
-            Html::redirect($syncfilter->getLinkURL());
-        }
+    /** @var array<string, mixed> $input */
+    $input = $_POST;
+    if ($newID = $syncfilter->add($input) && $_SESSION['glpibackcreated']) {
+        Html::redirect($syncfilter->getLinkURL());
     }
     Html::back();
 } elseif (isset($_POST["update"])) {
-    $syncfilter->check($_POST['id'], UPDATE);
+    $id = isset($_POST['id']) && is_numeric($_POST['id']) ? (int) $_POST['id'] : 0;
+    $syncfilter->check($id, UPDATE);
     $syncfilter->update($_POST);
     Html::back();
 } else {
     $menus = ["config", "commondropdown", SyncFilter::class];
-    SyncFilter::displayFullPageForItem($_GET["id"] ?? "", $menus, [
+    $id = isset($_GET["id"]) && is_numeric($_GET["id"]) ? (int) $_GET["id"] : 0;
+    SyncFilter::displayFullPageForItem($id, $menus, [
         'formoptions' => "data-track-changes=true",
     ]);
 }

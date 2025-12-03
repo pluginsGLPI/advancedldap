@@ -36,7 +36,9 @@ $relation = new AuthLdapSyncFilter();
 
 if (isset($_POST["add"])) {
     $relation->check(-1, CREATE, $_POST);
-    $relation->add($_POST);
+    /** @var array<string, mixed> $input */
+    $input = $_POST;
+    $relation->add($input);
 }
 
 Html::back();
