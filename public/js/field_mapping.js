@@ -36,7 +36,7 @@
      * Field Mapping Management
      * Handles the dynamic mapping interface between GLPI fields and LDAP attributes
      */
-    var FieldMapping = {
+    const FieldMapping = {
         rowIndex: 0,
         itemtype: '',
         syncfilterId: 0,
@@ -72,10 +72,10 @@
          * Load dropdowns for existing mapping rows
          */
         loadExistingDropdowns: function() {
-            var self = this;
+            const self = this;
             $('.field-mapping-row').each(function() {
-                var index = $(this).data('index');
-                var selectedField = $(this).find('[id^="glpi-field-dropdown-"]').data('selected');
+                const index = $(this).data('index');
+                const selectedField = $(this).find('[id^="glpi-field-dropdown-"]').data('selected');
                 self.loadFieldDropdown(index, selectedField);
             });
         },
@@ -84,7 +84,7 @@
          * Bind all event handlers
          */
         bindEvents: function() {
-            var self = this;
+            const self = this;
 
             // Handle remove button click
             $(document).on('click', '.remove-mapping-row', function() {
@@ -101,10 +101,10 @@
          * Update the hidden JSON input with current mappings
          */
         updateMappingsJson: function() {
-            var mappings = {};
+            const mappings = {};
             $('.field-mapping-row').each(function() {
-                var glpiField = $(this).find('select[name^="glpi_field_"]').val();
-                var ldapAttr = $(this).find('.ldap-attribute-input').val();
+                const glpiField = $(this).find('select[name^="glpi_field_"]').val();
+                const ldapAttr = $(this).find('.ldap-attribute-input').val();
 
                 if (glpiField && ldapAttr) {
                     mappings[glpiField] = ldapAttr;
@@ -122,9 +122,9 @@
          */
         syncWithParentForm: function(mappings) {
             if (window.parent && window.parent.document !== document) {
-                var mainForm = $(window.parent.document).find('form[name="asset_form"]');
+                const mainForm = $(window.parent.document).find('form[name="asset_form"]');
                 if (mainForm.length) {
-                    var hiddenField = mainForm.find('input[name="field_mappings"]');
+                    let hiddenField = mainForm.find('input[name="field_mappings"]');
                     if (hiddenField.length === 0) {
                         hiddenField = $('<input>').attr({
                             type: 'hidden',
@@ -143,9 +143,9 @@
          * Get all currently selected fields across all rows
          */
         getSelectedFields: function() {
-            var fields = [];
+            const fields = [];
             $('.field-mapping-row select[name^="glpi_field_"]').each(function() {
-                var value = $(this).val();
+                const value = $(this).val();
                 if (value) {
                     fields.push(value);
                 }
@@ -157,26 +157,26 @@
          * Load field dropdown for a specific row via AJAX
          */
         loadFieldDropdown: function(index, selectedField) {
-            var self = this;
-            var container = $('#glpi-field-dropdown-' + index);
-            var allSelectedFields = this.getSelectedFields();
+            const self = this;
+            const container = $(`#glpi-field-dropdown-${index}`);
+            const allSelectedFields = this.getSelectedFields();
 
             $.ajax({
-                url: CFG_GLPI.root_doc + '/plugins/advancedldap/ajax/getAssetFields.php',
+                url: `${CFG_GLPI.root_doc}/plugins/advancedldap/ajax/getAssetFields.php`,
                 type: 'GET',
                 data: {
                     itemtype: this.itemtype,
-                    name: 'glpi_field_' + index,
+                    name: `glpi_field_${index}`,
                     selected: selectedField || ''
                 },
-                success: function(data) {
+                success: (data) => {
                     container.html(data);
 
                     // Disable already selected options in other dropdowns
-                    var select = container.find('select');
-                    allSelectedFields.forEach(function(field) {
+                    const select = container.find('select');
+                    allSelectedFields.forEach((field) => {
                         if (field !== selectedField) {
-                            select.find('option[value="' + field + '"]').prop('disabled', true);
+                            select.find(`option[value="${field}"]`).prop('disabled', true);
                         }
                     });
 
@@ -189,11 +189,11 @@
                     self.bindDropdownChangeHandler(select, container, index);
 
                     // Add input handler for LDAP attribute
-                    container.closest('.field-mapping-row').find('.ldap-attribute-input').on('input', function() {
+                    container.closest('.field-mapping-row').find('.ldap-attribute-input').on('input', () => {
                         self.updateMappingsJson();
                     });
                 },
-                error: function(xhr, status, error) {
+                error: (xhr, status, error) => {
                     container.html('<div class="alert alert-danger">Error loading fields</div>');
                     console.error('Error loading field dropdown:', error);
                 }
@@ -204,14 +204,14 @@
          * Bind change handler to field dropdown
          */
         bindDropdownChangeHandler: function(select, container, index) {
-            var self = this;
+            const self = this;
 
             select.on('change', function() {
-                var row = container.closest('.field-mapping-row');
-                var ldapInput = row.find('.ldap-attribute-input');
-                var removeBtn = row.find('.remove-mapping-row');
-                var previousValue = $(this).data('previous-value');
-                var newValue = $(this).val();
+                const row = container.closest('.field-mapping-row');
+                const ldapInput = row.find('.ldap-attribute-input');
+                const removeBtn = row.find('.remove-mapping-row');
+                const previousValue = $(this).data('previous-value');
+                const newValue = $(this).val();
 
                 if (newValue) {
                     // Show LDAP input and remove button
@@ -252,14 +252,14 @@
         updateOtherDropdowns: function(currentIndex, newValue, previousValue) {
             $('.field-mapping-row').each(function() {
                 if ($(this).data('index') !== currentIndex) {
-                    var otherSelect = $(this).find('select[name^="glpi_field_"]');
+                    const otherSelect = $(this).find('select[name^="glpi_field_"]');
 
                     // Disable newly selected option
-                    otherSelect.find('option[value="' + newValue + '"]').prop('disabled', true);
+                    otherSelect.find(`option[value="${newValue}"]`).prop('disabled', true);
 
                     // Enable previously selected option
                     if (previousValue) {
-                        otherSelect.find('option[value="' + previousValue + '"]').prop('disabled', false);
+                        otherSelect.find(`option[value="${previousValue}"]`).prop('disabled', false);
                     }
                 }
             });
@@ -271,8 +271,8 @@
         enableOptionInOtherDropdowns: function(currentIndex, optionValue) {
             $('.field-mapping-row').each(function() {
                 if ($(this).data('index') !== currentIndex) {
-                    var otherSelect = $(this).find('select[name^="glpi_field_"]');
-                    otherSelect.find('option[value="' + optionValue + '"]').prop('disabled', false);
+                    const otherSelect = $(this).find('select[name^="glpi_field_"]');
+                    otherSelect.find(`option[value="${optionValue}"]`).prop('disabled', false);
                 }
             });
         },
@@ -318,7 +318,7 @@
          */
         addNewRow: function() {
             this.rowIndex++;
-            var newRow = $(this.getNewRowHtml(this.rowIndex));
+            const newRow = $(this.getNewRowHtml(this.rowIndex));
             $('#field-mappings-container').append(newRow);
             this.loadFieldDropdown(this.rowIndex, '');
         },
@@ -327,9 +327,9 @@
          * Handle remove row button click
          */
         handleRemoveRow: function(button) {
-            var row = button.closest('.field-mapping-row');
-            var select = row.find('select[name^="glpi_field_"]');
-            var fieldValue = select.val();
+            const row = button.closest('.field-mapping-row');
+            const select = row.find('select[name^="glpi_field_"]');
+            const fieldValue = select.val();
 
             // Enable this field in other dropdowns before removing
             if (fieldValue) {
@@ -349,18 +349,17 @@
          * Handle save button click
          */
         handleSave: function(button) {
-            var self = this;
             button.prop('disabled', true);
 
             // Update mappings JSON
             this.updateMappingsJson();
 
             // Prepare data
-            var mappingsData = JSON.parse($('#field_mappings_json').val());
+            const mappingsData = JSON.parse($('#field_mappings_json').val());
 
             // Submit via AJAX
             $.ajax({
-                url: CFG_GLPI.root_doc + '/plugins/advancedldap/front/syncfilter.form.php',
+                url: `${CFG_GLPI.root_doc}/plugins/advancedldap/front/syncfilter.form.php`,
                 type: 'POST',
                 data: {
                     id: this.syncfilterId,
@@ -368,11 +367,13 @@
                     update: 'update',
                     _glpi_csrf_token: this.csrfToken
                 },
-                success: function(response) {
+                success: () => {
+                    // eslint-disable-next-line no-undef
                     glpi_toast_info('Mappings saved successfully');
                     button.prop('disabled', false);
                 },
-                error: function(xhr, status, error) {
+                error: (xhr, status, error) => {
+                    // eslint-disable-next-line no-undef
                     glpi_toast_error('Error saving mappings');
                     button.prop('disabled', false);
                     console.error('Error saving mappings:', error);
