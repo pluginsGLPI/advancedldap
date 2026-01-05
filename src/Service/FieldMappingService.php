@@ -90,6 +90,11 @@ final class FieldMappingService
     /**
      * Get available fields for a given itemtype
      *
+     * Returns only fields that can be synchronized from LDAP:
+     * - Excludes foreign keys (dropdowns)
+     * - Excludes system/metadata fields
+     * - Excludes auto-generated fields
+     *
      * @param string $itemtype The GLPI itemtype
      * @return array<string, string> Associative array of field_name => field_label
      */
@@ -104,6 +109,24 @@ final class FieldMappingService
         $available_fields = [];
 
         $main_table = getTableForItemType($itemtype);
+
+        // Fields to exclude explicitly
+        $excluded_fields = [
+            // System fields
+            'id',
+            'entities_id',
+            'is_recursive',
+            'is_deleted',
+            'is_template',
+            'is_dynamic',
+            'template_name',
+            // Temporal metadata
+            'date_mod',
+            'date_creation',
+            // Auto-generated fields
+            'last_inventory_update',
+            'last_boot',
+        ];
 
         foreach ($search_options as $option) {
             if (!is_array($option)) {
@@ -123,7 +146,13 @@ final class FieldMappingService
                 continue;
             }
 
-            if (in_array($field, ['id', 'entities_id', 'is_recursive', 'is_deleted', 'is_template'])) {
+            // Exclude system and auto-generated fields
+            if (in_array($field, $excluded_fields, true)) {
+                continue;
+            }
+
+            // Exclude foreign keys (pattern *_id)
+            if (isForeignKeyField($field)) {
                 continue;
             }
 
