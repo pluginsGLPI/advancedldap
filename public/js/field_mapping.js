@@ -180,6 +180,9 @@
                         }
                     });
 
+                    // Reorder: disabled options at the end
+                    self.reorderSelectOptions(select);
+
                     // Store initial value
                     if (selectedField) {
                         select.data('previous-value', selectedField);
@@ -250,6 +253,7 @@
          * Update option states in other dropdowns
          */
         updateOtherDropdowns: function(currentIndex, newValue, previousValue) {
+            const self = this;
             $('.field-mapping-row').each(function() {
                 if ($(this).data('index') !== currentIndex) {
                     const otherSelect = $(this).find('select[name^="glpi_field_"]');
@@ -261,6 +265,9 @@
                     if (previousValue) {
                         otherSelect.find(`option[value="${previousValue}"]`).prop('disabled', false);
                     }
+
+                    // Reorder: disabled options at the end
+                    self.reorderSelectOptions(otherSelect);
                 }
             });
         },
@@ -269,12 +276,39 @@
          * Enable an option in all other dropdowns
          */
         enableOptionInOtherDropdowns: function(currentIndex, optionValue) {
+            const self = this;
             $('.field-mapping-row').each(function() {
                 if ($(this).data('index') !== currentIndex) {
                     const otherSelect = $(this).find('select[name^="glpi_field_"]');
                     otherSelect.find(`option[value="${optionValue}"]`).prop('disabled', false);
+                    self.reorderSelectOptions(otherSelect);
                 }
             });
+        },
+
+        /**
+         * Reorder select options: enabled first, disabled last
+         */
+        reorderSelectOptions: function(select) {
+            const options = select.find('option').toArray();
+
+            options.sort((a, b) => {
+                const aDisabled = $(a).prop('disabled');
+                const bDisabled = $(b).prop('disabled');
+
+                // Empty option always first
+                if ($(a).val() === '') return -1;
+                if ($(b).val() === '') return 1;
+
+                // Disabled options go to the end
+                if (aDisabled && !bDisabled) return 1;
+                if (!aDisabled && bDisabled) return -1;
+
+                // Same disabled state: sort alphabetically by text
+                return $(a).text().localeCompare($(b).text());
+            });
+
+            select.empty().append(options);
         },
 
         /**
