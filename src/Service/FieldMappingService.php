@@ -115,10 +115,6 @@ final class FieldMappingService
             // System fields
             'id',
             'entities_id',
-            'is_recursive',
-            'is_deleted',
-            'is_template',
-            'is_dynamic',
             'template_name',
             // Temporal metadata
             'date_mod',
@@ -153,6 +149,16 @@ final class FieldMappingService
 
             // Exclude foreign keys (pattern *_id)
             if (isForeignKeyField($field)) {
+                continue;
+            }
+
+            // Exclude virtual fields (pattern _*)
+            if (str_starts_with($field, '_')) {
+                continue;
+            }
+
+            // Exclude boolean flags (pattern is_*)
+            if (str_starts_with($field, 'is_')) {
                 continue;
             }
 
