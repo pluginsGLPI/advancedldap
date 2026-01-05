@@ -31,9 +31,13 @@
 namespace GlpiPlugin\Advancedldap;
 
 use CommonDropdown;
+use CommonGLPI;
 use DBConnection;
 use DisplayPreference;
+use Glpi\Application\View\TemplateRenderer;
+use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use Migration;
+use Session;
 
 class SyncFilter extends CommonDropdown
 {
@@ -62,6 +66,8 @@ class SyncFilter extends CommonDropdown
                 `connection_filter` text,
                 `basedn` varchar(255) NOT NULL DEFAULT '',
                 `itemtype` varchar(255) NOT NULL DEFAULT '',
+                `field_mappings` longtext,
+                `is_active` tinyint NOT NULL DEFAULT '1',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
@@ -182,5 +188,71 @@ class SyncFilter extends CommonDropdown
     public static function canPurge(): bool
     {
         return static::canUpdate();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function defineTabs($options = [])
+    {
+        $ong = parent::defineTabs($options);
+        $this->addStandardTab(self::class, $ong, $options);
+        /** @var array<string, string> $ong */
+        return $ong;
+    }
+
+    /**
+     * Prepare mapping input data for update
+     *
+     * @param array<string, mixed> $input Input data
+     * @return array<string, mixed>|false Modified input data or false if invalid
+     */
+    public function prepareInputForUpdate($input)
+    {
+        $service = FieldMappingService::getInstance();
+        $input = $service->prepareMappingsForStorage($input);
+
+        return parent::prepareInputForUpdate($input);
+    }
+
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+    {
+        if ($item instanceof self && $item->can($item->getID(), \READ)) {
+            return self::createTabEntry(
+                __('Field Mapping', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-arrows-exchange',
+            );
+        }
+
+        return '';
+    }
+
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
+    {
+        if ($item instanceof self) {
+            $item->showFieldMappingTab();
+        }
+
+        return true;
+    }
+
+    public function showFieldMappingTab(): void
+    {
+        $service = FieldMappingService::getInstance();
+        $itemtype = $this->fields['itemtype'] ?? null;
+
+        $current_mappings = $service->getMapping($this);
+        $available_fields = (empty($itemtype) || !is_string($itemtype)) ? [] : $service->getAvailableFields($itemtype);
+        $indexed_mappings = $service->mappingsToIndexedArray($current_mappings);
+
+        TemplateRenderer::getInstance()->display('@advancedldap/field_mapping.html.twig', [
+            'syncfilter_id' => $this->getID(),
+            'itemtype' => $itemtype,
+            'current_mappings' => $indexed_mappings,
+            'available_fields' => $available_fields,
+            '_glpi_csrf_token' => Session::getNewCSRFToken(),
+        ]);
     }
 }

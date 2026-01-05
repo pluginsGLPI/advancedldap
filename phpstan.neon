@@ -6,6 +6,8 @@ includes:
 parameters:
     level: max
     paths:
+        - ajax
+        - front
         - src
         - tests
         - hook.php

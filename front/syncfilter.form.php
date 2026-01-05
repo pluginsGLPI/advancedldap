@@ -28,17 +28,29 @@
  * -------------------------------------------------------------------------
  */
 
-use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
+use GlpiPlugin\Advancedldap\SyncFilter;
 
 Session::checkCentralAccess();
 
-$relation = new AuthLdapSyncFilter();
+$syncfilter = new SyncFilter();
 
 if (isset($_POST["add"])) {
-    $relation->check(-1, CREATE, $_POST);
+    $syncfilter->check(-1, CREATE, $_POST);
     /** @var array<string, mixed> $input */
     $input = $_POST;
-    $relation->add($input);
+    if ($newID = $syncfilter->add($input) && $_SESSION['glpibackcreated']) {
+        Html::redirect($syncfilter->getLinkURL());
+    }
+    Html::back();
+} elseif (isset($_POST["update"])) {
+    $id = isset($_POST['id']) && is_numeric($_POST['id']) ? (int) $_POST['id'] : 0;
+    $syncfilter->check($id, UPDATE);
+    $syncfilter->update($_POST);
+    Html::back();
+} else {
+    $menus = ["config", "commondropdown", SyncFilter::class];
+    $id = isset($_GET["id"]) && is_numeric($_GET["id"]) ? (int) $_GET["id"] : 0;
+    SyncFilter::displayFullPageForItem($id, $menus, [
+        'formoptions' => "data-track-changes=true",
+    ]);
 }
-
-Html::back();

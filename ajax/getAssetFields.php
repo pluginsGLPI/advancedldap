@@ -1,3 +1,5 @@
+<?php
+
 /**
  * -------------------------------------------------------------------------
  * advancedldap plugin for GLPI
@@ -21,9 +23,49 @@
  * along with AdvancedLDAP. If not, see <http://www.gnu.org/licenses/>.
  * -------------------------------------------------------------------------
  * @copyright Copyright (C) 2018-2023 by Teclib'.
+ * @copyright Copyright (C) 2024 by advancedldap plugin team.
  * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.html
+ * @license   GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
  * @link      https://services.glpi-network.com
+ * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
  */
 
-// empty on purpose, will be used in next steps of devlopment
+use GlpiPlugin\Advancedldap\Service\FieldMappingService;
+
+header('Content-Type: text/html; charset=UTF-8');
+Html::header_nocache();
+
+Session::checkRight("config", READ);
+
+$itemtype = $_GET['itemtype'] ?? '';
+$name = $_GET['name'] ?? 'glpi_field';
+$selected = $_GET['selected'] ?? '';
+
+if (!is_string($itemtype) || empty($itemtype)) {
+    return;
+}
+
+if (!is_string($name)) {
+    return;
+}
+
+$service = FieldMappingService::getInstance();
+$available_fields = $service->getAvailableFields($itemtype);
+
+if (empty($available_fields)) {
+    return;
+}
+
+// Add empty option at the beginning
+$fields_with_empty = ['' => '---'] + $available_fields;
+
+Dropdown::showFromArray(
+    $name,
+    $fields_with_empty,
+    [
+        'value' => $selected,
+        'display_emptychoice' => false,
+        'width' => '100%',
+    ],
+);

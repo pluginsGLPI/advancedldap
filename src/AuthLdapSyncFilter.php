@@ -154,12 +154,6 @@ class AuthLdapSyncFilter extends CommonDBTM
         $entries = [];
         foreach ($iterator as $data) {
             /** @var array{id: int, link_id: int} $data */
-            // Get name with link (common to both cases)
-            $child_obj = match ($child_class) {
-                SyncFilter::class => new SyncFilter(),
-                AuthLDAP::class => new AuthLDAP(),
-                default => throw new RuntimeException('Invalid child class'),
-            };
             $name = htmlescape(NOT_AVAILABLE);
             if ($child_obj->getFromDB($data['id'])) {
                 $name = $child_obj->getLink();
@@ -180,8 +174,8 @@ class AuthLdapSyncFilter extends CommonDBTM
                     $itemtype_name = $data['itemtype']::getTypeName(1);
                 }
 
-                $entry['basedn']            = '<code>' . htmlspecialchars($data['basedn']) . '</code>';
-                $entry['connection_filter'] = '<code>' . htmlspecialchars($data['connection_filter']) . '</code>';
+                $entry['basedn']            = '<code>' . htmlescape($data['basedn']) . '</code>';
+                $entry['connection_filter'] = '<code>' . htmlescape($data['connection_filter']) . '</code>';
                 $entry['itemtype_display']  = $itemtype_name;
             } elseif ($itemclass === SyncFilter::class) {
                 /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $data */
