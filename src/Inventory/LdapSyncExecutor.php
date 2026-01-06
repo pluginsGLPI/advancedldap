@@ -240,11 +240,11 @@ class LdapSyncExecutor
      */
     private function injectInventory(array $inventory_data): void
     {
-        // TODO: Implement actual inventory injection
-        // The Inventory class expects JSON string or stdClass
+        // Convert array to stdClass (required by Inventory schema validation)
+        $json_data = json_decode(json_encode($inventory_data));
 
         $inventory = new Inventory();
-        $inventory->setData($inventory_data);
+        $inventory->setData($json_data);
 
         if ($inventory->inError()) {
             Toolbox::debug(sprintf(
