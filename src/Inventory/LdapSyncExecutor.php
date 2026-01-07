@@ -111,7 +111,7 @@ class LdapSyncExecutor
         $authldaps = $this->getAuthLdapsForSyncFilter($syncfilter);
 
         if (empty($authldaps)) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: No AuthLDAP connections linked to SyncFilter %d',
                 $syncfilter->getID()
             ));
@@ -119,7 +119,7 @@ class LdapSyncExecutor
         }
 
         foreach ($authldaps as $authldap) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Testing SyncFilter %d with AuthLDAP %d (%s)',
                 $syncfilter->getID(),
                 $authldap->getID(),
@@ -143,7 +143,7 @@ class LdapSyncExecutor
     {
         $itemtype = $syncfilter->fields['itemtype'] ?? null;
         if (empty($itemtype) || !isset(self::BUILDERS[$itemtype])) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Unsupported itemtype "%s" for SyncFilter %d',
                 $itemtype ?? 'null',
                 $syncfilter->getID()
@@ -157,7 +157,7 @@ class LdapSyncExecutor
         $field_mappings = $mapping_service->getMapping($syncfilter);
 
         if (empty($field_mappings)) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: No field mappings configured for SyncFilter %d',
                 $syncfilter->getID()
             ));
@@ -198,7 +198,7 @@ class LdapSyncExecutor
         $basedn = $syncfilter->fields['basedn'] ?? '';
 
         if (empty($connection_filter) || empty($basedn)) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
                 $syncfilter->getID()
             ));
@@ -214,7 +214,7 @@ class LdapSyncExecutor
         // Remove duplicates and empty values
         $ldap_attrs = array_unique(array_filter($ldap_attrs));
 
-        Toolbox::debug(sprintf(
+        Toolbox::logDebug(sprintf(
             'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", Attrs: [%s]',
             $connection_filter,
             $basedn,
@@ -222,6 +222,7 @@ class LdapSyncExecutor
         ));
 
         // Connect to LDAP using AuthLDAP credentials
+        // TODO : store connected LDAP creds somewhere else and call it here for more concise code ?
         $ds = AuthLDAP::connectToServer(
             $authldap->fields['host'],
             $authldap->fields['port'],
@@ -237,7 +238,7 @@ class LdapSyncExecutor
         );
 
         if ($ds === false) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
                 $authldap->getID()
             ));
@@ -251,14 +252,14 @@ class LdapSyncExecutor
             $errno = ldap_errno($ds);
             // 32 = LDAP_NO_SUCH_OBJECT (no results, not an error)
             if ($errno !== 32) {
-                Toolbox::debug(sprintf(
+                Toolbox::logDebug(sprintf(
                     'AdvancedLDAP: LDAP search failed - Error %d: %s',
                     $errno,
                     ldap_error($ds)
                 ));
                 return false;
             }
-            Toolbox::debug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
+            Toolbox::logDebug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
             return [];
         }
 
@@ -266,7 +267,7 @@ class LdapSyncExecutor
         $entries = @ldap_get_entries($ds, $sr);
 
         if ($entries === false) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Failed to get LDAP entries - Error: %s',
                 ldap_error($ds)
             ));
@@ -274,15 +275,15 @@ class LdapSyncExecutor
         }
 
         $count = $entries['count'] ?? 0;
-        Toolbox::debug(sprintf(
+        Toolbox::logDebug(sprintf(
             'AdvancedLDAP: LDAP search found %d entries',
             $count
         ));
 
         // Debug: dump first entry structure
         if ($count > 0) {
-            Toolbox::debug('AdvancedLDAP: First entry structure:');
-            Toolbox::debug($entries[0]);
+            Toolbox::logDebug('AdvancedLDAP: First entry structure:');
+            Toolbox::logDebug($entries[0]);
         }
 
         // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
@@ -324,7 +325,7 @@ class LdapSyncExecutor
             // Inject into GLPI inventory system
             $this->injectInventory($inventory_data);
         } catch (\Throwable $e) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Error processing LDAP entry: %s',
                 $e->getMessage()
             ));
@@ -348,7 +349,7 @@ class LdapSyncExecutor
         $inventory->setData($json_data);
 
         if ($inventory->inError()) {
-            Toolbox::debug(sprintf(
+            Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Inventory validation error for device %s',
                 $inventory_data['deviceid'] ?? 'unknown'
             ));

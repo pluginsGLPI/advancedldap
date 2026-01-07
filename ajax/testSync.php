@@ -58,15 +58,15 @@ if (!$syncfilter->getFromDB((int) $syncfilters_id)) {
     exit;
 }
 
-Toolbox::debug('AdvancedLDAP: === Starting Test Sync ===');
-Toolbox::debug(sprintf('AdvancedLDAP: SyncFilter ID: %d, Name: %s', $syncfilter->getID(), $syncfilter->fields['name']));
+Toolbox::logDebug('AdvancedLDAP: === Starting Test Sync ===');
+Toolbox::logDebug(sprintf('AdvancedLDAP: SyncFilter ID: %d, Name: %s', $syncfilter->getID(), $syncfilter->fields['name']));
 
 $executor = new LdapSyncExecutor();
 $results = $executor->executeForSyncFilter($syncfilter);
 
-Toolbox::debug('AdvancedLDAP: === Test Sync Results ===');
-Toolbox::debug($results);
-Toolbox::debug('AdvancedLDAP: === End Test Sync ===');
+Toolbox::logDebug('AdvancedLDAP: === Test Sync Results ===');
+Toolbox::logDebug($results);
+Toolbox::logDebug('AdvancedLDAP: === End Test Sync ===');
 
 echo json_encode([
     'success' => true,

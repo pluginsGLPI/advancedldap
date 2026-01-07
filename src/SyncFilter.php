@@ -243,7 +243,7 @@ class SyncFilter extends CommonDropdown
             $csrf_token = Session::getNewCSRFToken();
 
             $js = <<<JAVASCRIPT
-            document.addEventListener('DOMContentLoaded', function() {
+            $(function() {
                 const testSyncBtn = document.getElementById('test-sync-btn');
                 if (testSyncBtn) {
                     testSyncBtn.addEventListener('click', function() {
