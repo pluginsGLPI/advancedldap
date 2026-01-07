@@ -34,6 +34,7 @@ namespace GlpiPlugin\Advancedldap\Inventory;
 use AuthLDAP;
 use Computer;
 use Glpi\Inventory\Inventory;
+use GLPIKey;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use GlpiPlugin\Advancedldap\SyncFilter;
@@ -88,6 +89,42 @@ class LdapSyncExecutor
         $syncfilters = $this->getSyncFiltersForConnection($authldap);
 
         foreach ($syncfilters as $syncfilter) {
+            $this->executeSyncFilter($authldap, $syncfilter);
+        }
+
+        return $this->results;
+    }
+
+    /**
+     * TODO: remove - test purpose only
+     * Execute synchronization for a single SyncFilter across all linked AuthLDAP connections.
+     *
+     * @param SyncFilter $syncfilter The sync filter to execute
+     *
+     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     */
+    public function executeForSyncFilter(SyncFilter $syncfilter): array
+    {
+        $this->resetResults();
+
+        // TODO: remove - test purpose only
+        $authldaps = $this->getAuthLdapsForSyncFilter($syncfilter);
+
+        if (empty($authldaps)) {
+            Toolbox::debug(sprintf(
+                'AdvancedLDAP: No AuthLDAP connections linked to SyncFilter %d',
+                $syncfilter->getID()
+            ));
+            return $this->results;
+        }
+
+        foreach ($authldaps as $authldap) {
+            Toolbox::debug(sprintf(
+                'AdvancedLDAP: Testing SyncFilter %d with AuthLDAP %d (%s)',
+                $syncfilter->getID(),
+                $authldap->getID(),
+                $authldap->fields['name']
+            ));
             $this->executeSyncFilter($authldap, $syncfilter);
         }
 
@@ -157,9 +194,6 @@ class LdapSyncExecutor
      */
     private function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $field_mappings)
     {
-        // TODO: Implement actual LDAP search
-        // This is a placeholder showing the expected structure
-
         $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
         $basedn = $syncfilter->fields['basedn'] ?? '';
 
@@ -177,20 +211,87 @@ class LdapSyncExecutor
         $ldap_attrs[] = 'dn';
         // Request objectGUID if available (for device ID)
         $ldap_attrs[] = 'objectGUID';
-
-        // TODO: Use AuthLDAP methods to perform the search
-        // $ds = $authldap->connect();
-        // $sr = ldap_search($ds, $basedn, $connection_filter, $ldap_attrs);
-        // $entries = ldap_get_entries($ds, $sr);
+        // Remove duplicates and empty values
+        $ldap_attrs = array_unique(array_filter($ldap_attrs));
 
         Toolbox::debug(sprintf(
-            'AdvancedLDAP: Would search LDAP with filter "%s" on base "%s"',
+            'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", Attrs: [%s]',
             $connection_filter,
-            $basedn
+            $basedn,
+            implode(', ', $ldap_attrs)
         ));
 
-        // Return empty array for now (placeholder)
-        return [];
+        // Connect to LDAP using AuthLDAP credentials
+        $ds = AuthLDAP::connectToServer(
+            $authldap->fields['host'],
+            $authldap->fields['port'],
+            $authldap->fields['rootdn'],
+            (new GLPIKey())->decrypt($authldap->fields['rootdn_passwd']),
+            $authldap->fields['use_tls'],
+            $authldap->fields['deref_option'],
+            $authldap->fields['tls_certfile'] ?? '',
+            $authldap->fields['tls_keyfile'] ?? '',
+            $authldap->fields['use_bind'],
+            $authldap->fields['timeout'],
+            $authldap->fields['tls_version'] ?? ''
+        );
+
+        if ($ds === false) {
+            Toolbox::debug(sprintf(
+                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
+                $authldap->getID()
+            ));
+            return false;
+        }
+
+        // Perform the LDAP search
+        $sr = @ldap_search($ds, $basedn, $connection_filter, $ldap_attrs);
+
+        if ($sr === false) {
+            $errno = ldap_errno($ds);
+            // 32 = LDAP_NO_SUCH_OBJECT (no results, not an error)
+            if ($errno !== 32) {
+                Toolbox::debug(sprintf(
+                    'AdvancedLDAP: LDAP search failed - Error %d: %s',
+                    $errno,
+                    ldap_error($ds)
+                ));
+                return false;
+            }
+            Toolbox::debug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
+            return [];
+        }
+
+        // Get entries
+        $entries = @ldap_get_entries($ds, $sr);
+
+        if ($entries === false) {
+            Toolbox::debug(sprintf(
+                'AdvancedLDAP: Failed to get LDAP entries - Error: %s',
+                ldap_error($ds)
+            ));
+            return false;
+        }
+
+        $count = $entries['count'] ?? 0;
+        Toolbox::debug(sprintf(
+            'AdvancedLDAP: LDAP search found %d entries',
+            $count
+        ));
+
+        // Debug: dump first entry structure
+        if ($count > 0) {
+            Toolbox::debug('AdvancedLDAP: First entry structure:');
+            Toolbox::debug($entries[0]);
+        }
+
+        // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
+        $results = [];
+        for ($i = 0; $i < $count; $i++) {
+            $results[] = $entries[$i];
+        }
+
+        return $results;
     }
 
     /**
@@ -303,6 +404,50 @@ class LdapSyncExecutor
         }
 
         return $syncfilters;
+    }
+
+    /**
+     * TODO: remove - test purpose only
+     * Get AuthLDAP connections linked to a SyncFilter.
+     *
+     * @param SyncFilter $syncfilter The sync filter
+     *
+     * @return array<AuthLDAP> Array of AuthLDAP objects
+     */
+    private function getAuthLdapsForSyncFilter(SyncFilter $syncfilter): array
+    {
+        global $DB;
+
+        $authldaps = [];
+        $relation_table = AuthLdapSyncFilter::getTable();
+        $authldap_table = AuthLDAP::getTable();
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $iterator = $DB->request([
+            'SELECT' => ['al.*'],
+            'FROM'   => $authldap_table . ' AS al',
+            'INNER JOIN' => [
+                $relation_table . ' AS rel' => [
+                    'ON' => [
+                        'rel' => $authldap_fk,
+                        'al'  => 'id',
+                    ],
+                ],
+            ],
+            'WHERE' => [
+                'rel.' . $syncfilter_fk => $syncfilter->getID(),
+                'al.is_active'          => 1,
+            ],
+        ]);
+
+        foreach ($iterator as $row) {
+            $authldap = new AuthLDAP();
+            $authldap->getFromResultSet($row);
+            $authldaps[] = $authldap;
+        }
+
+        return $authldaps;
     }
 
     /**

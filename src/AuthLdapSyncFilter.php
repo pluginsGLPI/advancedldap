@@ -123,6 +123,7 @@ class AuthLdapSyncFilter extends CommonDBTM
             'title'               => $config['title'],
             'parent_field_name'   => $config['parent_field_name'],
             'parent_id'           => $parent_id,
+            'parent_itemtype'     => $itemclass,
             'dropdown_field_name' => $config['child_field_name'],
             'available_items'     => $available_items,
             'display_emptychoice' => $config['display_emptychoice'],

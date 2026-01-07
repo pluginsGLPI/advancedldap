@@ -36,6 +36,7 @@ use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
 use GlpiPlugin\Advancedldap\Service\FieldMappingService;
+use Html;
 use Migration;
 use Session;
 
@@ -213,6 +214,79 @@ class SyncFilter extends CommonDropdown
         $input = $service->prepareMappingsForStorage($input);
 
         return parent::prepareInputForUpdate($input);
+    }
+
+    // TODO: remove - test purpose only (entire method override)
+    public function showForm($ID, array $options = [])
+    {
+        // TODO: remove - test button
+        if (!$this->isNewItem()) {
+            $options['addbuttons'] = [
+                'test_sync' => [
+                    'text'       => __('Test Sync', 'advancedldap'),
+                    'icon'       => 'ti ti-refresh',
+                    'type'       => 'button',
+                    'btn_class'  => 'btn-outline-secondary',
+                    'add_attribs' => [
+                        'id'                  => 'test-sync-btn',
+                        'data-syncfilter-id'  => $ID,
+                    ],
+                ],
+            ];
+        }
+
+        $result = parent::showForm($ID, $options);
+
+        // TODO: remove - test button JS
+        if (!$this->isNewItem()) {
+            $ajax_url = Html::getPrefixedUrl('/plugins/advancedldap/ajax/testSync.php');
+            $csrf_token = Session::getNewCSRFToken();
+
+            $js = <<<JAVASCRIPT
+            document.addEventListener('DOMContentLoaded', function() {
+                const testSyncBtn = document.getElementById('test-sync-btn');
+                if (testSyncBtn) {
+                    testSyncBtn.addEventListener('click', function() {
+                        const syncfilterId = this.dataset.syncfilterId;
+                        const btn = this;
+
+                        btn.disabled = true;
+                        const originalContent = btn.innerHTML;
+                        btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> <span>Testing...</span>';
+
+                        fetch('{$ajax_url}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: '_glpi_csrf_token=' + encodeURIComponent('{$csrf_token}') + '&syncfilters_id=' + syncfilterId
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            btn.disabled = false;
+                            btn.innerHTML = originalContent;
+
+                            if (data.success) {
+                                glpi_toast_info('Test completed. Check php-errors.log for debug output.');
+                            } else {
+                                glpi_toast_error(data.message || 'Test failed');
+                            }
+                        })
+                        .catch(error => {
+                            btn.disabled = false;
+                            btn.innerHTML = originalContent;
+                            glpi_toast_error('Request failed');
+                            console.error('Test sync error:', error);
+                        });
+                    });
+                }
+            });
+JAVASCRIPT;
+
+            echo Html::scriptBlock($js);
+        }
+
+        return $result;
     }
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
