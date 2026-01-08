@@ -36,6 +36,7 @@ use Computer;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
+use Html;
 use Migration;
 use Toolbox;
 
@@ -272,6 +273,9 @@ class SyncFilter extends CommonDropdown
             return;
         }
 
+        // Load Monaco CSS (required for AJAX-loaded content)
+        echo Html::css("lib/monaco.css");
+
         // Prepare sections data for template
         $sections = [];
         $section_names = $builder_itemtype::getSectionNames();
@@ -287,9 +291,10 @@ class SyncFilter extends CommonDropdown
         }
 
         TemplateRenderer::getInstance()->display('@advancedldap/builder_mapping.html.twig', [
-            'builder'         => $builder,
+            'builder'          => $builder,
             'builder_itemtype' => $builder_itemtype,
-            'sections'        => $sections,
+            'sections'         => $sections,
+            'completions'      => self::getLdapCompletions(),
         ]);
     }
 
@@ -376,4 +381,44 @@ class SyncFilter extends CommonDropdown
         }
     }
 
+    /**
+     * Get LDAP attribute completions for Monaco editor.
+     *
+     * @return array<array{name: string, type: string, detail?: string}>
+     */
+    private static function getLdapCompletions(): array
+    {
+        // Common LDAP attributes for Computer objects
+        $attributes = [
+            'ldap.cn'                      => 'Common Name',
+            'ldap.name'                    => 'Name',
+            'ldap.distinguishedName'       => 'Distinguished Name (DN)',
+            'ldap.objectGUID'              => 'Object GUID',
+            'ldap.objectSid'               => 'Object SID',
+            'ldap.sAMAccountName'          => 'SAM Account Name',
+            'ldap.dNSHostName'             => 'DNS Host Name',
+            'ldap.operatingSystem'         => 'Operating System',
+            'ldap.operatingSystemVersion'  => 'OS Version',
+            'ldap.description'             => 'Description',
+            'ldap.location'                => 'Location',
+            'ldap.whenCreated'             => 'Creation Date',
+            'ldap.whenChanged'             => 'Last Modified Date',
+            'ldap.lastLogonTimestamp'      => 'Last Logon',
+            'ldap.memberOf'                => 'Group Membership',
+            'ldap.managedBy'               => 'Managed By',
+            'ldap.serialNumber'            => 'Serial Number',
+            'ldap.domain'                  => 'Domain',
+        ];
+
+        $completions = [];
+        foreach ($attributes as $name => $detail) {
+            $completions[] = [
+                'name'   => $name,
+                'type'   => 'Variable',
+                'detail' => $detail,
+            ];
+        }
+
+        return $completions;
+    }
 }

@@ -55,7 +55,7 @@
                             {{ __('Reset', 'advancedldap') }}
                         </button>
                     </div>
-                    <div id="editor-{{ section.name }}" class="border rounded" style="height: 300px;"></div>
+                    <div id="editor-{{ section.name }}" style="height: 300px;"></div>
                     <input type="hidden" name="sections[{{ section.name }}]" id="input-{{ section.name }}" value="{{ section.content|e('html_attr') }}">
                 </div>
             {% endfor %}
@@ -70,36 +70,27 @@
     </div>
 </div>
 
-<script>
-$(() => {
+<script type="module">
     const sections = {{ sections|json_encode|raw }};
+    const completions = {{ completions|default([])|json_encode|raw }};
     const editors = {};
 
-    // Create Monaco editors for each section
-    sections.forEach((section) => {
-        const containerId = `editor-${section.name}`;
-        const inputId = `input-${section.name}`;
+    // Ensure Monaco module is loaded (needed for AJAX-loaded tabs)
+    import(CFG_GLPI.root_doc + '/js/modules/Monaco/MonacoEditor.js').then(() => {
+        sections.forEach((section) => {
+            const containerId = `editor-${section.name}`;
+            const inputId = `input-${section.name}`;
 
-        window.GLPI.Monaco.createEditor(
-            containerId,
-            'json',
-            section.content,
-            null,
-            {
-                minimap: { enabled: false },
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 4,
-                formatOnPaste: true,
-                formatOnType: true
-            }
-        ).then((editor) => {
-            editors[section.name] = editor;
+            window.GLPI.Monaco.createEditor(containerId, 'twig', section.content, completions).then((monaco) => {
+                editors[section.name] = monaco;
 
-            // Update hidden input on change
-            editor.onDidChangeModelContent(() => {
-                document.getElementById(inputId).value = editor.getValue();
+                // Update hidden input on change
+                monaco.editor.onDidChangeModelContent(() => {
+                    document.getElementById(inputId).value = monaco.editor.getValue();
+                });
+
+                // Force layout after creation
+                monaco.editor.layout();
             });
         });
     });
@@ -109,7 +100,7 @@ $(() => {
         sections.forEach((section) => {
             const inputId = `input-${section.name}`;
             if (editors[section.name]) {
-                document.getElementById(inputId).value = editors[section.name].getValue();
+                document.getElementById(inputId).value = editors[section.name].editor.getValue();
             }
         });
     });
@@ -127,12 +118,12 @@ $(() => {
             data: {
                 action: 'get_default_section',
                 section: sectionName,
-                builder_itemtype: '{{ builder_itemtype }}',
+                builder_itemtype: '{{ builder_itemtype|e('js') }}',
                 _glpi_csrf_token: '{{ csrf_token() }}'
             },
             success: function(response) {
                 if (response.success && editors[sectionName]) {
-                    editors[sectionName].setValue(response.content);
+                    editors[sectionName].editor.setValue(response.content);
                     glpi_toast_info('{{ __('Section reset to defaults', 'advancedldap') }}');
                 }
             },
@@ -153,14 +144,14 @@ $(() => {
             method: 'POST',
             data: {
                 action: 'get_all_default_sections',
-                builder_itemtype: '{{ builder_itemtype }}',
+                builder_itemtype: '{{ builder_itemtype|e('js') }}',
                 _glpi_csrf_token: '{{ csrf_token() }}'
             },
             success: function(response) {
                 if (response.success) {
                     for (const [sectionName, content] of Object.entries(response.sections)) {
                         if (editors[sectionName]) {
-                            editors[sectionName].setValue(content);
+                            editors[sectionName].editor.setValue(content);
                         }
                     }
                     glpi_toast_info('{{ __('All sections reset to defaults', 'advancedldap') }}');
@@ -171,5 +162,4 @@ $(() => {
             }
         });
     });
-});
 </script>
