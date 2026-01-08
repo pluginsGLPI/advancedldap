@@ -32,6 +32,7 @@ namespace GlpiPlugin\Advancedldap;
 
 use CommonDropdown;
 use CommonGLPI;
+use Computer;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
@@ -39,6 +40,7 @@ use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use Html;
 use Migration;
 use Session;
+use Toolbox;
 
 class SyncFilter extends CommonDropdown
 {
@@ -80,6 +82,13 @@ class SyncFilter extends CommonDropdown
 
             $DB->doQuery($query);
         }
+
+        // Add builder mapping fields (polymorphic relation)
+        $migration->addField($table, 'builder_itemtype', 'string', ['after' => 'field_mappings']);
+        $migration->addField($table, 'builder_items_id', 'int', ['after' => 'builder_itemtype']);
+        $migration->addKey($table, ['builder_itemtype', 'builder_items_id'], 'builder');
+
+        $migration->executeMigration();
 
         $migration->updateDisplayPrefs(
             [
@@ -214,6 +223,78 @@ class SyncFilter extends CommonDropdown
         $input = $service->prepareMappingsForStorage($input);
 
         return parent::prepareInputForUpdate($input);
+    }
+
+    public function post_addItem()
+    {
+        parent::post_addItem();
+
+        $this->createBuilderMapping();
+    }
+
+    /**
+     * Create the appropriate BuilderMapping based on itemtype.
+     *
+     * @return void
+     */
+    private function createBuilderMapping(): void
+    {
+        $itemtype = $this->fields['itemtype'] ?? null;
+
+        if (empty($itemtype)) {
+            return;
+        }
+
+        $builder_class = $this->getBuilderClassForItemtype($itemtype);
+        if ($builder_class === null) {
+            return;
+        }
+
+        $builder = new $builder_class();
+        $builder_id = $builder->createWithDefaults();
+
+        if ($builder_id === false) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Failed to create BuilderMapping for SyncFilter %d',
+                $this->getID()
+            ));
+            return;
+        }
+
+        $this->update([
+            'id'               => $this->getID(),
+            'builder_itemtype' => $builder_class,
+            'builder_items_id' => $builder_id,
+        ]);
+    }
+
+    /**
+     * Get the BuilderMapping class for a given itemtype.
+     *
+     * @param string $itemtype GLPI itemtype (e.g., 'Computer')
+     * @return class-string<AbstractBuilderMapping>|null Builder class or null if unsupported
+     */
+    private function getBuilderClassForItemtype(string $itemtype): ?string
+    {
+        $mapping = [
+            Computer::class => ComputerBuilderMapping::class,
+        ];
+
+        return $mapping[$itemtype] ?? null;
+    }
+
+    public function cleanDBonPurge()
+    {
+        // Delete associated BuilderMapping
+        $builder_itemtype = $this->fields['builder_itemtype'] ?? null;
+        $builder_items_id = $this->fields['builder_items_id'] ?? 0;
+
+        if (!empty($builder_itemtype) && $builder_items_id > 0 && class_exists($builder_itemtype)) {
+            $builder = new $builder_itemtype();
+            if ($builder->getFromDB($builder_items_id)) {
+                $builder->delete(['id' => $builder_items_id], true);
+            }
+        }
     }
 
     // TODO: remove - test purpose only (entire method override)
