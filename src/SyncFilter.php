@@ -36,11 +36,10 @@ use Computer;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
-use GlpiPlugin\Advancedldap\Service\FieldMappingService;
-use Html;
 use Migration;
-use Session;
 use Toolbox;
+
+use function Safe\json_encode;
 
 class SyncFilter extends CommonDropdown
 {
@@ -205,24 +204,93 @@ class SyncFilter extends CommonDropdown
      */
     public function defineTabs($options = [])
     {
-        $ong = parent::defineTabs($options);
-        $this->addStandardTab(self::class, $ong, $options);
-        /** @var array<string, string> $ong */
-        return $ong;
+        $tabs = parent::defineTabs($options);
+        $this->addStandardTab(self::class, $tabs, $options);
+        /** @var array<string, string> $tabs */
+        return $tabs;
+    }
+
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+    {
+        if (!($item instanceof self)) {
+            return '';
+        }
+
+        // Only show tab if a BuilderMapping is associated
+        $builder_itemtype = $item->fields['builder_itemtype'] ?? null;
+        $builder_items_id = $item->fields['builder_items_id'] ?? 0;
+
+        if (empty($builder_itemtype) || $builder_items_id <= 0) {
+            return '';
+        }
+
+        return self::createTabEntry(
+            __('Builder Mapping', 'advancedldap'),
+            0,
+            $item::class,
+            'ti ti-code',
+        );
+    }
+
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
+    {
+        if ($item instanceof self) {
+            $item->showBuilderMappingTab();
+            return true;
+        }
+        return false;
     }
 
     /**
-     * Prepare mapping input data for update
-     *
-     * @param array<string, mixed> $input Input data
-     * @return array<string, mixed>|false Modified input data or false if invalid
+     * Display the Builder Mapping tab content.
      */
-    public function prepareInputForUpdate($input)
+    public function showBuilderMappingTab(): void
     {
-        $service = FieldMappingService::getInstance();
-        $input = $service->prepareMappingsForStorage($input);
+        $builder_itemtype = $this->fields['builder_itemtype'] ?? null;
+        $builder_items_id = $this->fields['builder_items_id'] ?? 0;
 
-        return parent::prepareInputForUpdate($input);
+        if (
+            !is_string($builder_itemtype)
+            || empty($builder_itemtype)
+            || !is_numeric($builder_items_id)
+            || (int) $builder_items_id <= 0
+            || !class_exists($builder_itemtype)
+            || !is_subclass_of($builder_itemtype, AbstractBuilderMapping::class)
+        ) {
+            echo '<div class="alert alert-warning">';
+            echo __('No Builder Mapping associated with this SyncFilter.', 'advancedldap');
+            echo '</div>';
+            return;
+        }
+
+        /** @var class-string<AbstractBuilderMapping> $builder_itemtype */
+        $builder = new $builder_itemtype();
+        if (!$builder->getFromDB((int) $builder_items_id)) {
+            echo '<div class="alert alert-danger">';
+            echo __('Failed to load Builder Mapping.', 'advancedldap');
+            echo '</div>';
+            return;
+        }
+
+        // Prepare sections data for template
+        $sections = [];
+        $section_names = $builder_itemtype::getSectionNames();
+        foreach ($section_names as $section_name) {
+            if (!is_string($section_name)) {
+                continue;
+            }
+            $content = $builder->getSection($section_name);
+            $sections[] = [
+                'name'    => $section_name,
+                'content' => json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            ];
+        }
+
+        TemplateRenderer::getInstance()->display('@advancedldap/builder_mapping.html.twig', [
+            'builder'         => $builder,
+            'builder_itemtype' => $builder_itemtype,
+            'sections'        => $sections,
+        ]);
     }
 
     public function post_addItem()
@@ -241,22 +309,22 @@ class SyncFilter extends CommonDropdown
     {
         $itemtype = $this->fields['itemtype'] ?? null;
 
-        if (empty($itemtype)) {
+        if (!is_string($itemtype) || empty($itemtype)) {
             return;
         }
 
-        $builder_class = $this->getBuilderClassForItemtype($itemtype);
-        if ($builder_class === null) {
+        $builder = $this->createBuilderForItemtype($itemtype);
+        if ($builder === null) {
             return;
         }
 
-        $builder = new $builder_class();
         $builder_id = $builder->createWithDefaults();
+        $builder_class = $builder::class;
 
         if ($builder_id === false) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Failed to create BuilderMapping for SyncFilter %d',
-                $this->getID()
+                $this->getID(),
             ));
             return;
         }
@@ -269,145 +337,43 @@ class SyncFilter extends CommonDropdown
     }
 
     /**
-     * Get the BuilderMapping class for a given itemtype.
+     * Create a BuilderMapping instance for a given itemtype.
      *
      * @param string $itemtype GLPI itemtype (e.g., 'Computer')
-     * @return class-string<AbstractBuilderMapping>|null Builder class or null if unsupported
+     * @return AbstractBuilderMapping|null Builder instance or null if unsupported
      */
-    private function getBuilderClassForItemtype(string $itemtype): ?string
+    private function createBuilderForItemtype(string $itemtype): ?AbstractBuilderMapping
     {
-        $mapping = [
-            Computer::class => ComputerBuilderMapping::class,
-        ];
-
-        return $mapping[$itemtype] ?? null;
+        return match ($itemtype) {
+            Computer::class => new ComputerBuilderMapping(),
+            default => null,
+        };
     }
 
     public function cleanDBonPurge()
     {
+        parent::cleanDBonPurge();
+
         // Delete associated BuilderMapping
         $builder_itemtype = $this->fields['builder_itemtype'] ?? null;
         $builder_items_id = $this->fields['builder_items_id'] ?? 0;
 
-        if (!empty($builder_itemtype) && $builder_items_id > 0 && class_exists($builder_itemtype)) {
-            $builder = new $builder_itemtype();
-            if ($builder->getFromDB($builder_items_id)) {
-                $builder->delete(['id' => $builder_items_id], true);
-            }
+        if (
+            !is_string($builder_itemtype)
+            || empty($builder_itemtype)
+            || !is_numeric($builder_items_id)
+            || (int) $builder_items_id <= 0
+            || !class_exists($builder_itemtype)
+            || !is_subclass_of($builder_itemtype, AbstractBuilderMapping::class)
+        ) {
+            return;
+        }
+
+        /** @var class-string<AbstractBuilderMapping> $builder_itemtype */
+        $builder = new $builder_itemtype();
+        if ($builder->getFromDB((int) $builder_items_id)) {
+            $builder->delete(['id' => (int) $builder_items_id], true);
         }
     }
 
-    // TODO: remove - test purpose only (entire method override)
-    public function showForm($ID, array $options = [])
-    {
-        // TODO: remove - test button
-        if (!$this->isNewItem()) {
-            $options['addbuttons'] = [
-                'test_sync' => [
-                    'text'       => __('Test Sync', 'advancedldap'),
-                    'icon'       => 'ti ti-refresh',
-                    'type'       => 'button',
-                    'btn_class'  => 'btn-outline-secondary',
-                    'add_attribs' => [
-                        'id'                  => 'test-sync-btn',
-                        'data-syncfilter-id'  => $ID,
-                    ],
-                ],
-            ];
-        }
-
-        $result = parent::showForm($ID, $options);
-
-        // TODO: remove - test button JS
-        if (!$this->isNewItem()) {
-            $ajax_url = Html::getPrefixedUrl('/plugins/advancedldap/ajax/testSync.php');
-            $csrf_token = Session::getNewCSRFToken();
-
-            $js = <<<JAVASCRIPT
-            $(function() {
-                const testSyncBtn = document.getElementById('test-sync-btn');
-                if (testSyncBtn) {
-                    testSyncBtn.addEventListener('click', function() {
-                        const syncfilterId = this.dataset.syncfilterId;
-                        const btn = this;
-
-                        btn.disabled = true;
-                        const originalContent = btn.innerHTML;
-                        btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> <span>Testing...</span>';
-
-                        fetch('{$ajax_url}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: '_glpi_csrf_token=' + encodeURIComponent('{$csrf_token}') + '&syncfilters_id=' + syncfilterId
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            btn.disabled = false;
-                            btn.innerHTML = originalContent;
-
-                            if (data.success) {
-                                glpi_toast_info('Test completed. Check php-errors.log for debug output.');
-                            } else {
-                                glpi_toast_error(data.message || 'Test failed');
-                            }
-                        })
-                        .catch(error => {
-                            btn.disabled = false;
-                            btn.innerHTML = originalContent;
-                            glpi_toast_error('Request failed');
-                            console.error('Test sync error:', error);
-                        });
-                    });
-                }
-            });
-JAVASCRIPT;
-
-            echo Html::scriptBlock($js);
-        }
-
-        return $result;
-    }
-
-    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
-    {
-        if ($item instanceof self && $item->can($item->getID(), \READ)) {
-            return self::createTabEntry(
-                __('Field Mapping', 'advancedldap'),
-                0,
-                $item::class,
-                'ti ti-arrows-exchange',
-            );
-        }
-
-        return '';
-    }
-
-    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
-    {
-        if ($item instanceof self) {
-            $item->showFieldMappingTab();
-        }
-
-        return true;
-    }
-
-    public function showFieldMappingTab(): void
-    {
-        $service = FieldMappingService::getInstance();
-        $itemtype = $this->fields['itemtype'] ?? null;
-
-        $current_mappings = $service->getMapping($this);
-        $available_fields = (empty($itemtype) || !is_string($itemtype)) ? [] : $service->getAvailableFields($itemtype);
-        $indexed_mappings = $service->mappingsToIndexedArray($current_mappings);
-
-        TemplateRenderer::getInstance()->display('@advancedldap/field_mapping.html.twig', [
-            'syncfilter_id' => $this->getID(),
-            'itemtype' => $itemtype,
-            'current_mappings' => $indexed_mappings,
-            'available_fields' => $available_fields,
-            '_glpi_csrf_token' => Session::getNewCSRFToken(),
-        ]);
-    }
 }

@@ -35,6 +35,7 @@ use Glpi\Plugin\Hooks;
 use function Safe\define;
 
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
+define('PLUGIN_ADVANCEDLDAP_DIR', __DIR__);
 
 // Minimal GLPI version, inclusive
 define("PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION", "11.0.0");

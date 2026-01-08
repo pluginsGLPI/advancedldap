@@ -90,14 +90,19 @@ abstract class AbstractBuilderMapping extends CommonDBTM
      */
     public static function loadDefaultTemplate(string $section): array
     {
-        $path = PLUGIN_ADVANCEDLDAP_DIR . '/' . static::getTemplateBasePath() . '/' . $section . '.json';
+        $base_path = static::getTemplateBasePath();
+        $path = PLUGIN_ADVANCEDLDAP_DIR . '/' . $base_path . '/' . $section . '.json';
 
         if (!file_exists($path)) {
             return [];
         }
 
         $content = file_get_contents($path);
-        return json_decode($content, true);
+        $decoded = json_decode($content, true);
+
+        /** @var array<string, mixed> $result */
+        $result = is_array($decoded) ? $decoded : [];
+        return $result;
     }
 
     /**
@@ -125,11 +130,15 @@ abstract class AbstractBuilderMapping extends CommonDBTM
         $column = static::getColumnForSection($section);
         $raw = $this->fields[$column] ?? null;
 
-        if (empty($raw)) {
+        if (empty($raw) || !is_string($raw)) {
             return [];
         }
 
-        return json_decode($raw, true);
+        $decoded = json_decode($raw, true);
+
+        /** @var array<string, mixed> $result */
+        $result = is_array($decoded) ? $decoded : [];
+        return $result;
     }
 
     /**
@@ -168,7 +177,7 @@ abstract class AbstractBuilderMapping extends CommonDBTM
      *
      * @return int|false ID of created item or false on failure
      */
-    public function createWithDefaults()
+    public function createWithDefaults(): int|false
     {
         $input = [
             'date_creation' => date('Y-m-d H:i:s'),

@@ -32,14 +32,18 @@
 namespace GlpiPlugin\Advancedldap\Inventory;
 
 use AuthLDAP;
-use Computer;
 use Glpi\Inventory\Inventory;
 use GLPIKey;
+use GlpiPlugin\Advancedldap\AbstractBuilderMapping;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
-use GlpiPlugin\Advancedldap\Service\FieldMappingService;
 use GlpiPlugin\Advancedldap\SyncFilter;
-use Phone;
 use Toolbox;
+
+use function Safe\json_decode;
+use function Safe\json_encode;
+use function Safe\ldap_get_entries;
+use function Safe\preg_match_all;
+use function Safe\preg_replace_callback;
 
 /**
  * Orchestrator for LDAP to GLPI inventory synchronization.
@@ -54,14 +58,10 @@ use Toolbox;
 class LdapSyncExecutor
 {
     /**
-     * Mapping of itemtype to builder class.
-     *
-     * @var array<string, class-string<AbstractInventoryBuilder>>
+     * Regex pattern to match LDAP placeholders in JSON templates.
+     * Matches: {{ ldap.attributeName }}
      */
-    private const BUILDERS = [
-        Computer::class => ComputerBuilder::class,
-        Phone::class    => PhoneBuilder::class,
-    ];
+    private const PLACEHOLDER_PATTERN = '/\{\{\s*ldap\.(\w+)\s*\}\}/';
 
     /**
      * Results of the last synchronization.
@@ -96,42 +96,6 @@ class LdapSyncExecutor
     }
 
     /**
-     * TODO: remove - test purpose only
-     * Execute synchronization for a single SyncFilter across all linked AuthLDAP connections.
-     *
-     * @param SyncFilter $syncfilter The sync filter to execute
-     *
-     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
-     */
-    public function executeForSyncFilter(SyncFilter $syncfilter): array
-    {
-        $this->resetResults();
-
-        // TODO: remove - test purpose only
-        $authldaps = $this->getAuthLdapsForSyncFilter($syncfilter);
-
-        if (empty($authldaps)) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: No AuthLDAP connections linked to SyncFilter %d',
-                $syncfilter->getID()
-            ));
-            return $this->results;
-        }
-
-        foreach ($authldaps as $authldap) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Testing SyncFilter %d with AuthLDAP %d (%s)',
-                $syncfilter->getID(),
-                $authldap->getID(),
-                $authldap->fields['name']
-            ));
-            $this->executeSyncFilter($authldap, $syncfilter);
-        }
-
-        return $this->results;
-    }
-
-    /**
      * Execute synchronization for a single SyncFilter.
      *
      * @param AuthLDAP   $authldap   The LDAP connection
@@ -141,106 +105,360 @@ class LdapSyncExecutor
      */
     public function executeSyncFilter(AuthLDAP $authldap, SyncFilter $syncfilter): void
     {
-        $itemtype = $syncfilter->fields['itemtype'] ?? null;
-        if (empty($itemtype) || !isset(self::BUILDERS[$itemtype])) {
+        // 1. Load BuilderMapping from SyncFilter
+        $builder = $this->loadBuilderMapping($syncfilter);
+        if ($builder === null) {
             Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Unsupported itemtype "%s" for SyncFilter %d',
-                $itemtype ?? 'null',
-                $syncfilter->getID()
+                'AdvancedLDAP: No BuilderMapping for SyncFilter %d',
+                $syncfilter->getID(),
             ));
             $this->results['skipped']++;
             return;
         }
 
-        // Get field mappings
-        $mapping_service = FieldMappingService::getInstance();
-        $field_mappings = $mapping_service->getMapping($syncfilter);
+        // 2. Get all JSON sections and extract LDAP attributes to request
+        $sections = $builder->getAllSections();
+        $ldap_attrs = $this->extractLdapAttributes($sections);
 
-        if (empty($field_mappings)) {
+        if (empty($ldap_attrs)) {
             Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: No field mappings configured for SyncFilter %d',
-                $syncfilter->getID()
+                'AdvancedLDAP: No LDAP attributes found in BuilderMapping for SyncFilter %d',
+                $syncfilter->getID(),
             ));
             $this->results['skipped']++;
             return;
         }
 
-        // Perform LDAP search
-        $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $field_mappings);
+        // 3. Perform LDAP search
+        $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
 
         if ($ldap_entries === false) {
             $this->results['errors']++;
             return;
         }
 
-        // Instantiate the appropriate builder
-        $builder_class = self::BUILDERS[$itemtype];
-        $builder = new $builder_class();
-
-        // Process each LDAP entry
-        foreach ($ldap_entries as $ldap_entry) {
-            $this->processLdapEntry($builder, $syncfilter, $ldap_entry, $field_mappings);
+        if (empty($ldap_entries)) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: No LDAP entries found for SyncFilter %d',
+                $syncfilter->getID(),
+            ));
+            return;
         }
+
+        // 4. Process each LDAP entry
+        foreach ($ldap_entries as $ldap_entry) {
+            $this->processLdapEntry($sections, $ldap_entry, $syncfilter);
+        }
+    }
+
+    /**
+     * Load the BuilderMapping associated with a SyncFilter.
+     *
+     * @param SyncFilter $syncfilter The sync filter
+     *
+     * @return AbstractBuilderMapping|null The builder mapping or null if not found
+     */
+    private function loadBuilderMapping(SyncFilter $syncfilter): ?AbstractBuilderMapping
+    {
+        $builder_itemtype = $syncfilter->fields['builder_itemtype'] ?? null;
+        $builder_items_id = $syncfilter->fields['builder_items_id'] ?? 0;
+
+        if (!is_string($builder_itemtype) || empty($builder_itemtype) || !is_numeric($builder_items_id) || (int) $builder_items_id <= 0) {
+            return null;
+        }
+
+        if (!class_exists($builder_itemtype) || !is_subclass_of($builder_itemtype, AbstractBuilderMapping::class)) {
+            return null;
+        }
+
+        /** @var AbstractBuilderMapping $builder */
+        $builder = new $builder_itemtype();
+        if (!$builder->getFromDB((int) $builder_items_id)) {
+            return null;
+        }
+
+        return $builder;
+    }
+
+    /**
+     * Extract LDAP attribute names from JSON sections.
+     *
+     * Parses all {{ ldap.attributeName }} placeholders and returns unique attribute names.
+     *
+     * @param array<string, array<string, mixed>> $sections JSON sections from BuilderMapping
+     *
+     * @return array<string> List of LDAP attribute names to request
+     */
+    private function extractLdapAttributes(array $sections): array
+    {
+        $attributes = [];
+
+        foreach ($sections as $section_content) {
+            $json_string = json_encode($section_content);
+            if (preg_match_all(self::PLACEHOLDER_PATTERN, $json_string, $matches)) {
+                $attributes = array_merge($attributes, $matches[1]);
+            }
+        }
+
+        // Always include essential attributes
+        $attributes[] = 'dn';
+        $attributes[] = 'objectGUID';
+
+        return array_unique(array_filter($attributes));
+    }
+
+    /**
+     * Process a single LDAP entry and inject into GLPI inventory.
+     *
+     * @param array<string, array<string, mixed>> $sections    JSON sections from BuilderMapping
+     * @param array<string, mixed>                $ldap_entry  The LDAP entry data
+     * @param SyncFilter                          $syncfilter  The sync filter
+     *
+     * @return void
+     */
+    private function processLdapEntry(array $sections, array $ldap_entry, SyncFilter $syncfilter): void
+    {
+        try {
+            // Build the inventory JSON by replacing placeholders
+            $inventory_data = $this->buildInventoryJson($sections, $ldap_entry, $syncfilter);
+
+            if ($inventory_data === null) {
+                $this->results['errors']++;
+                return;
+            }
+
+            // Inject into GLPI inventory system
+            $this->injectInventory($inventory_data);
+        } catch (\Throwable $e) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Error processing LDAP entry: %s',
+                $e->getMessage(),
+            ));
+            $this->results['errors']++;
+        }
+    }
+
+    /**
+     * Build the complete inventory JSON from sections and LDAP data.
+     *
+     * @param array<string, array<string, mixed>> $sections    JSON sections from BuilderMapping
+     * @param array<string, mixed>                $ldap_entry  The LDAP entry data
+     * @param SyncFilter                          $syncfilter  The sync filter
+     *
+     * @return array<string, mixed>|null The complete inventory JSON or null on error
+     */
+    private function buildInventoryJson(array $sections, array $ldap_entry, SyncFilter $syncfilter): ?array
+    {
+        // Get the main section (base structure)
+        $main = $sections['main'] ?? [];
+        if (empty($main)) {
+            Toolbox::logDebug('AdvancedLDAP: Missing main section in BuilderMapping');
+            return null;
+        }
+
+        // Replace placeholders in main section
+        $inventory = $this->replacePlaceholders($main, $ldap_entry);
+
+        // Ensure content exists
+        if (!isset($inventory['content']) || !is_array($inventory['content'])) {
+            $inventory['content'] = [];
+        }
+
+        /** @var array<string, mixed> $content */
+        $content = $inventory['content'];
+
+        // Process other sections (hardware, etc.) and merge into content
+        foreach ($sections as $section_name => $section_content) {
+            if ($section_name === 'main') {
+                continue;
+            }
+
+            $processed_section = $this->replacePlaceholders($section_content, $ldap_entry);
+            $content[$section_name] = $processed_section;
+        }
+        $inventory['content'] = $content;
+
+        // Generate unique device ID if not set or is a placeholder
+        $deviceid = $inventory['deviceid'] ?? '';
+        if (!is_string($deviceid) || empty($deviceid) || strpos($deviceid, '{{') !== false) {
+            $inventory['deviceid'] = $this->generateDeviceId($syncfilter, $ldap_entry);
+        }
+
+        return $inventory;
+    }
+
+    /**
+     * Replace {{ ldap.xxx }} placeholders with actual LDAP values.
+     *
+     * @param array<string, mixed> $data       The data structure with placeholders
+     * @param array<string, mixed> $ldap_entry The LDAP entry data
+     *
+     * @return array<string, mixed> The data with placeholders replaced
+     */
+    private function replacePlaceholders(array $data, array $ldap_entry): array
+    {
+        $json_string = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        $json_string = preg_replace_callback(
+            self::PLACEHOLDER_PATTERN,
+            function ($matches) use ($ldap_entry) {
+                $attr_raw = $matches[1] ?? '';
+                $attr_name = strtolower(is_string($attr_raw) ? $attr_raw : '');
+                $value = $this->getLdapValue($ldap_entry, $attr_name);
+                // Escape JSON special characters to prevent invalid JSON
+                return addcslashes($value, "\"\\/\n\r\t");
+            },
+            $json_string,
+        );
+
+        $decoded = json_decode($json_string, true);
+
+        /** @var array<string, mixed> $result */
+        $result = is_array($decoded) ? $decoded : [];
+        return $result;
+    }
+
+    /**
+     * Get a value from LDAP entry, handling the LDAP array structure.
+     *
+     * @param array<string, mixed> $ldap_entry The LDAP entry
+     * @param string               $attr_name  The attribute name (lowercase)
+     *
+     * @return string The attribute value or empty string
+     */
+    private function getLdapValue(array $ldap_entry, string $attr_name): string
+    {
+        // LDAP attributes are lowercase in the entry array
+        if (!isset($ldap_entry[$attr_name])) {
+            return '';
+        }
+
+        $value = $ldap_entry[$attr_name];
+
+        // LDAP returns arrays with 'count' and indexed values
+        if (is_array($value)) {
+            if (isset($value[0])) {
+                $value = $value[0];
+            } else {
+                return '';
+            }
+        }
+
+        // Handle binary values (like objectGUID)
+        if ($attr_name === 'objectguid' && is_string($value) && !empty($value)) {
+            return $this->convertGuidToString($value);
+        }
+
+        return is_scalar($value) ? (string) $value : '';
+    }
+
+    /**
+     * Convert binary GUID to string format.
+     *
+     * @param string $binary_guid The binary GUID
+     *
+     * @return string The GUID as string
+     */
+    private function convertGuidToString(string $binary_guid): string
+    {
+        $hex = bin2hex($binary_guid);
+        if (strlen($hex) !== 32) {
+            return $hex;
+        }
+
+        return sprintf(
+            '%s-%s-%s-%s-%s',
+            substr($hex, 6, 2) . substr($hex, 4, 2) . substr($hex, 2, 2) . substr($hex, 0, 2),
+            substr($hex, 10, 2) . substr($hex, 8, 2),
+            substr($hex, 14, 2) . substr($hex, 12, 2),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12),
+        );
+    }
+
+    /**
+     * Generate a unique device ID for the inventory.
+     *
+     * @param SyncFilter           $syncfilter The sync filter
+     * @param array<string, mixed> $ldap_entry The LDAP entry
+     *
+     * @return string The device ID
+     */
+    private function generateDeviceId(SyncFilter $syncfilter, array $ldap_entry): string
+    {
+        // Try to use objectGUID
+        $guid = $this->getLdapValue($ldap_entry, 'objectguid');
+        if (!empty($guid)) {
+            return 'advancedldap-' . $syncfilter->getID() . '-' . $guid;
+        }
+
+        // Fallback to DN hash
+        $dn = isset($ldap_entry['dn']) && is_string($ldap_entry['dn']) ? $ldap_entry['dn'] : '';
+        return 'advancedldap-' . $syncfilter->getID() . '-' . md5($dn);
     }
 
     /**
      * Perform LDAP search using filter criteria.
      *
-     * @param AuthLDAP   $authldap       The LDAP connection
-     * @param SyncFilter $syncfilter     The sync filter with search criteria
-     * @param array      $field_mappings Field mappings to determine attributes to fetch
+     * @param AuthLDAP      $authldap   The LDAP connection
+     * @param SyncFilter    $syncfilter The sync filter with search criteria
+     * @param array<string> $ldap_attrs LDAP attributes to fetch
      *
-     * @return array<int, array>|false Array of LDAP entries or false on error
+     * @return array<int, array<string, mixed>>|false Array of LDAP entries or false on error
      */
-    private function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $field_mappings)
+    private function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $ldap_attrs): array|false
     {
         $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
         $basedn = $syncfilter->fields['basedn'] ?? '';
 
-        if (empty($connection_filter) || empty($basedn)) {
+        if (!is_string($connection_filter) || empty($connection_filter) || !is_string($basedn) || empty($basedn)) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
-                $syncfilter->getID()
+                $syncfilter->getID(),
             ));
             return false;
         }
-
-        // Determine which LDAP attributes to request
-        $ldap_attrs = array_values($field_mappings);
-        // Always request DN
-        $ldap_attrs[] = 'dn';
-        // Request objectGUID if available (for device ID)
-        $ldap_attrs[] = 'objectGUID';
-        // Remove duplicates and empty values
-        $ldap_attrs = array_unique(array_filter($ldap_attrs));
 
         Toolbox::logDebug(sprintf(
             'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", Attrs: [%s]',
             $connection_filter,
             $basedn,
-            implode(', ', $ldap_attrs)
+            implode(', ', $ldap_attrs),
         ));
 
         // Connect to LDAP using AuthLDAP credentials
-        // TODO : store connected LDAP creds somewhere else and call it here for more concise code ?
+        $host = is_string($authldap->fields['host'] ?? null) ? $authldap->fields['host'] : '';
+        $port = is_string($authldap->fields['port'] ?? null) ? $authldap->fields['port'] : '389';
+        $rootdn = is_string($authldap->fields['rootdn'] ?? null) ? $authldap->fields['rootdn'] : '';
+        $rootdn_passwd = is_string($authldap->fields['rootdn_passwd'] ?? null) ? $authldap->fields['rootdn_passwd'] : '';
+        $use_tls = !empty($authldap->fields['use_tls']);
+        $deref_raw = $authldap->fields['deref_option'] ?? 0;
+        $deref_option = is_numeric($deref_raw) ? (int) $deref_raw : 0;
+        $tls_certfile = is_string($authldap->fields['tls_certfile'] ?? null) ? $authldap->fields['tls_certfile'] : '';
+        $tls_keyfile = is_string($authldap->fields['tls_keyfile'] ?? null) ? $authldap->fields['tls_keyfile'] : '';
+        $use_bind = !isset($authldap->fields['use_bind']) || !empty($authldap->fields['use_bind']);
+        $timeout_raw = $authldap->fields['timeout'] ?? 10;
+        $timeout = is_numeric($timeout_raw) ? (int) $timeout_raw : 10;
+        $tls_version = is_string($authldap->fields['tls_version'] ?? null) ? $authldap->fields['tls_version'] : '';
+
         $ds = AuthLDAP::connectToServer(
-            $authldap->fields['host'],
-            $authldap->fields['port'],
-            $authldap->fields['rootdn'],
-            (new GLPIKey())->decrypt($authldap->fields['rootdn_passwd']),
-            $authldap->fields['use_tls'],
-            $authldap->fields['deref_option'],
-            $authldap->fields['tls_certfile'] ?? '',
-            $authldap->fields['tls_keyfile'] ?? '',
-            $authldap->fields['use_bind'],
-            $authldap->fields['timeout'],
-            $authldap->fields['tls_version'] ?? ''
+            $host,
+            $port,
+            $rootdn,
+            (new GLPIKey())->decrypt($rootdn_passwd) ?? '',
+            $use_tls,
+            $deref_option,
+            $tls_certfile,
+            $tls_keyfile,
+            $use_bind,
+            $timeout,
+            $tls_version,
         );
 
         if ($ds === false) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
-                $authldap->getID()
+                $authldap->getID(),
             ));
             return false;
         }
@@ -255,7 +473,7 @@ class LdapSyncExecutor
                 Toolbox::logDebug(sprintf(
                     'AdvancedLDAP: LDAP search failed - Error %d: %s',
                     $errno,
-                    ldap_error($ds)
+                    ldap_error($ds),
                 ));
                 return false;
             }
@@ -263,80 +481,52 @@ class LdapSyncExecutor
             return [];
         }
 
-        // Get entries
-        $entries = @ldap_get_entries($ds, $sr);
+        // Get entries - $sr is guaranteed to be LDAP\Result after the false check above
+        if (!$sr instanceof \LDAP\Result) {
+            Toolbox::logDebug('AdvancedLDAP: Unexpected LDAP search result type');
+            return false;
+        }
 
-        if ($entries === false) {
+        try {
+            $entries = ldap_get_entries($ds, $sr);
+        } catch (\Throwable $e) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Failed to get LDAP entries - Error: %s',
-                ldap_error($ds)
+                $e->getMessage(),
             ));
             return false;
         }
 
-        $count = $entries['count'] ?? 0;
+        $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
         Toolbox::logDebug(sprintf(
             'AdvancedLDAP: LDAP search found %d entries',
-            $count
+            $count,
         ));
 
         // Debug: dump first entry structure
-        if ($count > 0) {
+        if ($count > 0 && isset($entries[0])) {
             Toolbox::logDebug('AdvancedLDAP: First entry structure:');
             Toolbox::logDebug($entries[0]);
         }
 
         // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
+        /** @var array<int, array<string, mixed>> $results */
         $results = [];
         for ($i = 0; $i < $count; $i++) {
-            $results[] = $entries[$i];
+            if (isset($entries[$i]) && is_array($entries[$i])) {
+                /** @var array<string, mixed> $entry */
+                $entry = $entries[$i];
+                $results[] = $entry;
+            }
         }
 
         return $results;
     }
 
     /**
-     * Process a single LDAP entry and inject into GLPI inventory.
-     *
-     * @param AbstractInventoryBuilder $builder        The builder for this itemtype
-     * @param SyncFilter               $syncfilter     The sync filter
-     * @param array                    $ldap_entry     The LDAP entry data
-     * @param array                    $field_mappings Field mappings
-     *
-     * @return void
-     */
-    private function processLdapEntry(
-        AbstractInventoryBuilder $builder,
-        SyncFilter $syncfilter,
-        array $ldap_entry,
-        array $field_mappings
-    ): void {
-        try {
-            // Generate device ID
-            $device_id = AbstractInventoryBuilder::generateDeviceId(
-                $syncfilter->getID(),
-                $ldap_entry,
-                'objectGUID'
-            );
-
-            // Build inventory JSON
-            $inventory_data = $builder->build($device_id, $ldap_entry, $field_mappings);
-
-            // Inject into GLPI inventory system
-            $this->injectInventory($inventory_data);
-        } catch (\Throwable $e) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Error processing LDAP entry: %s',
-                $e->getMessage()
-            ));
-            $this->results['errors']++;
-        }
-    }
-
-    /**
      * Inject inventory data into GLPI.
      *
-     * @param array $inventory_data The inventory JSON structure
+     * @param array<string, mixed> $inventory_data The inventory JSON structure
      *
      * @return void
      */
@@ -348,10 +538,14 @@ class LdapSyncExecutor
         $inventory = new Inventory();
         $inventory->setData($json_data);
 
+        $deviceid = isset($inventory_data['deviceid']) && is_string($inventory_data['deviceid'])
+            ? $inventory_data['deviceid']
+            : 'unknown';
+
         if ($inventory->inError()) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Inventory validation error for device %s',
-                $inventory_data['deviceid'] ?? 'unknown'
+                $deviceid,
             ));
             $this->results['errors']++;
             return;
@@ -399,56 +593,15 @@ class LdapSyncExecutor
         ]);
 
         foreach ($iterator as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
             $syncfilter = new SyncFilter();
             $syncfilter->getFromResultSet($row);
             $syncfilters[] = $syncfilter;
         }
 
         return $syncfilters;
-    }
-
-    /**
-     * TODO: remove - test purpose only
-     * Get AuthLDAP connections linked to a SyncFilter.
-     *
-     * @param SyncFilter $syncfilter The sync filter
-     *
-     * @return array<AuthLDAP> Array of AuthLDAP objects
-     */
-    private function getAuthLdapsForSyncFilter(SyncFilter $syncfilter): array
-    {
-        global $DB;
-
-        $authldaps = [];
-        $relation_table = AuthLdapSyncFilter::getTable();
-        $authldap_table = AuthLDAP::getTable();
-        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
-        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
-
-        $iterator = $DB->request([
-            'SELECT' => ['al.*'],
-            'FROM'   => $authldap_table . ' AS al',
-            'INNER JOIN' => [
-                $relation_table . ' AS rel' => [
-                    'ON' => [
-                        'rel' => $authldap_fk,
-                        'al'  => 'id',
-                    ],
-                ],
-            ],
-            'WHERE' => [
-                'rel.' . $syncfilter_fk => $syncfilter->getID(),
-                'al.is_active'          => 1,
-            ],
-        ]);
-
-        foreach ($iterator as $row) {
-            $authldap = new AuthLDAP();
-            $authldap->getFromResultSet($row);
-            $authldaps[] = $authldap;
-        }
-
-        return $authldaps;
     }
 
     /**
@@ -466,13 +619,4 @@ class LdapSyncExecutor
         ];
     }
 
-    /**
-     * Get the list of supported itemtypes.
-     *
-     * @return array<string> List of supported itemtype class names
-     */
-    public static function getSupportedItemtypes(): array
-    {
-        return array_keys(self::BUILDERS);
-    }
 }
