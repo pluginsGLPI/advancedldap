@@ -38,6 +38,31 @@
         </div>
     </div>
     <div class="card-body">
+        {% if authldap_status is defined %}
+            {% if not authldap_status.has_authldap %}
+                <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                    <i class="ti ti-alert-triangle me-2"></i>
+                    <div>
+                        {{ __('No LDAP connection linked to this SyncFilter. LDAP attributes autocomplete is not available.', 'advancedldap') }}
+                    </div>
+                </div>
+            {% elseif not authldap_status.is_active %}
+                <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                    <i class="ti ti-alert-triangle me-2"></i>
+                    <div>
+                        {{ __('The linked LDAP connection "%s" is not active.', 'advancedldap')|format(authldap_status.authldap_name) }}
+                    </div>
+                </div>
+            {% elseif not authldap_status.can_connect %}
+                <div class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+                    <i class="ti ti-alert-circle me-2"></i>
+                    <div>
+                        {{ __('Cannot connect to LDAP server "%s": %s', 'advancedldap')|format(authldap_status.authldap_name, authldap_status.error_message) }}
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+
         <form method="post" action="{{ config('root_doc') }}/plugins/advancedldap/front/buildermapping.form.php" id="builder-mapping-form">
             <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="id" value="{{ builder.getID() }}">
