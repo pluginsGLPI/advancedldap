@@ -3,6 +3,7 @@
     "deviceid": "{{ ldap.objectGUID }}",
     "itemtype": "Computer",
     "partial": true,
+    "tag": "{{ ldap.objectGUID }}",
     "content": {
         "versionclient": "advancedldap-plugin-1.0"
     }

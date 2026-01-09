@@ -30,12 +30,14 @@
 
 namespace GlpiPlugin\Advancedldap;
 
+use AuthLDAP;
 use CommonDropdown;
 use CommonGLPI;
 use Computer;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
+use GLPIKey;
 use Html;
 use Migration;
 use Toolbox;
@@ -294,7 +296,7 @@ class SyncFilter extends CommonDropdown
             'builder'          => $builder,
             'builder_itemtype' => $builder_itemtype,
             'sections'         => $sections,
-            'completions'      => self::getLdapCompletions(),
+            'completions'      => self::getLdapCompletions($this->getID()),
         ]);
     }
 
@@ -384,12 +386,13 @@ class SyncFilter extends CommonDropdown
     /**
      * Get LDAP attribute completions for Monaco editor.
      *
-     * @return array<array{name: string, type: string, detail?: string}>
+     * @param int|null $syncfilter_id SyncFilter ID for dynamic attribute retrieval
+     * @return array<array{name: string, type: string, detail: string}>
      */
-    private static function getLdapCompletions(): array
+    private static function getLdapCompletions(?int $syncfilter_id = null): array
     {
-        // Common LDAP attributes for Computer objects
-        $attributes = [
+        // Base attributes (fallback)
+        $base_attributes = [
             'ldap.cn'                      => 'Common Name',
             'ldap.name'                    => 'Name',
             'ldap.distinguishedName'       => 'Distinguished Name (DN)',
@@ -410,6 +413,131 @@ class SyncFilter extends CommonDropdown
             'ldap.domain'                  => 'Domain',
         ];
 
+        if ($syncfilter_id === null) {
+            return self::formatCompletions($base_attributes);
+        }
+
+        // Retrieve dynamic attributes from LDAP
+        $dynamic_attributes = self::fetchLdapAttributesForSyncFilter($syncfilter_id);
+
+        // Merge: dynamic first, then base (array_merge overwrites duplicates)
+        $all_attributes = array_merge($dynamic_attributes, $base_attributes);
+
+        return self::formatCompletions($all_attributes);
+    }
+
+    /**
+     * Fetch LDAP attributes for a SyncFilter from all linked AuthLDAP connections.
+     *
+     * @param int $syncfilter_id SyncFilter ID
+     * @return array<string, string> Attributes as [name => description]
+     */
+    private static function fetchLdapAttributesForSyncFilter(int $syncfilter_id): array
+    {
+        global $DB;
+
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(self::class);
+
+        // Find ALL AuthLDAP linked via the relation table
+        $iterator = $DB->request([
+            'SELECT' => [$authldap_fk],
+            'FROM'   => AuthLdapSyncFilter::getTable(),
+            'WHERE'  => [$syncfilter_fk => $syncfilter_id],
+        ]);
+
+        if (count($iterator) === 0) {
+            return [];
+        }
+
+        // Load the SyncFilter
+        $syncfilter = new self();
+        if (!$syncfilter->getFromDB($syncfilter_id)) {
+            return [];
+        }
+
+        // Iterate over each linked AuthLDAP and merge attributes
+        $all_attributes = [];
+        foreach ($iterator as $row) {
+            $authldap = new AuthLDAP();
+            if (!$authldap->getFromDB($row[$authldap_fk])) {
+                continue;
+            }
+
+            $attributes = self::fetchAttributesFromLdap($authldap, $syncfilter);
+            $all_attributes = array_merge($all_attributes, $attributes);
+        }
+
+        return $all_attributes;
+    }
+
+    /**
+     * Fetch attributes from LDAP by querying a sample object.
+     *
+     * @param AuthLDAP   $authldap   AuthLDAP connection
+     * @param SyncFilter $syncfilter SyncFilter with basedn and filter
+     * @return array<string, string> Attributes as [name => description]
+     */
+    private static function fetchAttributesFromLdap(AuthLDAP $authldap, SyncFilter $syncfilter): array
+    {
+        // Connect to LDAP
+        $ds = AuthLDAP::connectToServer(
+            $authldap->fields['host'],
+            $authldap->fields['port'],
+            $authldap->fields['rootdn'] ?? '',
+            (new GLPIKey())->decrypt($authldap->fields['rootdn_passwd'] ?? ''),
+            $authldap->fields['use_tls'] ?? false,
+            $authldap->fields['deref'] ?? 0
+        );
+
+        if ($ds === false) {
+            return [];
+        }
+
+        // Search for ONE object with ALL its attributes
+        $basedn = !empty($syncfilter->fields['basedn'])
+            ? $syncfilter->fields['basedn']
+            : $authldap->fields['basedn'];
+        $filter = !empty($syncfilter->fields['connection_filter'])
+            ? $syncfilter->fields['connection_filter']
+            : '(objectClass=*)';
+
+        $sr = @ldap_search($ds, $basedn, $filter, ['*'], 0, 1);
+
+        if ($sr === false) {
+            @ldap_close($ds);
+            return [];
+        }
+
+        $entries = @ldap_get_entries($ds, $sr);
+        @ldap_close($ds);
+
+        if ($entries === false || $entries['count'] === 0) {
+            return [];
+        }
+
+        // Extract attribute names from the object
+        $attributes = [];
+        $entry = $entries[0];
+
+        for ($i = 0; $i < ($entry['count'] ?? 0); $i++) {
+            $attr_name = $entry[$i];
+            if (is_string($attr_name)) {
+                $attributes['ldap.' . $attr_name] = $attr_name;
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Format attributes array into completions array for Monaco.
+     *
+     * @param array<string, string> $attributes Attributes as [name => description]
+     * @return array<array{name: string, type: string, detail: string}>
+     */
+    private static function formatCompletions(array $attributes): array
+    {
         $completions = [];
         foreach ($attributes as $name => $detail) {
             $completions[] = [
@@ -418,7 +546,6 @@ class SyncFilter extends CommonDropdown
                 'detail' => $detail,
             ];
         }
-
         return $completions;
     }
 }
