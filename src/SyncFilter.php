@@ -262,7 +262,7 @@ class SyncFilter extends CommonDropdown
             || !is_subclass_of($builder_itemtype, AbstractBuilderMapping::class)
         ) {
             echo '<div class="alert alert-warning">';
-            echo __('No Builder Mapping associated with this SyncFilter.', 'advancedldap');
+            echo __s('No Builder Mapping associated with this SyncFilter.', 'advancedldap');
             echo '</div>';
             return;
         }
@@ -271,7 +271,7 @@ class SyncFilter extends CommonDropdown
         $builder = new $builder_itemtype();
         if (!$builder->getFromDB((int) $builder_items_id)) {
             echo '<div class="alert alert-danger">';
-            echo __('Failed to load Builder Mapping.', 'advancedldap');
+            echo __s('Failed to load Builder Mapping.', 'advancedldap');
             echo '</div>';
             return;
         }

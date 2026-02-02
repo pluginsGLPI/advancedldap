@@ -35,17 +35,19 @@ Session::checkCentralAccess();
 $syncfilter = new SyncFilter();
 
 if (isset($_POST["add"])) {
-    $syncfilter->check(-1, CREATE, $_POST);
     /** @var array<string, mixed> $input */
     $input = $_POST;
+    $syncfilter->check(-1, CREATE, $input);
     if ($newID = $syncfilter->add($input) && $_SESSION['glpibackcreated']) {
         Html::redirect($syncfilter->getLinkURL());
     }
     Html::back();
 } elseif (isset($_POST["update"])) {
-    $id = isset($_POST['id']) && is_numeric($_POST['id']) ? (int) $_POST['id'] : 0;
-    $syncfilter->check($id, UPDATE);
-    $syncfilter->update($_POST);
+    /** @var array<string, mixed> $input */
+    $input = $_POST;
+    $id = isset($input['id']) && is_numeric($input['id']) ? (int) $input['id'] : 0;
+    $syncfilter->check($id, UPDATE, $input);
+    $syncfilter->update($input);
     Html::back();
 } else {
     $menus = ["config", "commondropdown", SyncFilter::class];

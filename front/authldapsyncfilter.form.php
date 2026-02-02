@@ -35,9 +35,9 @@ Session::checkCentralAccess();
 $relation = new AuthLdapSyncFilter();
 
 if (isset($_POST["add"])) {
-    $relation->check(-1, CREATE, $_POST);
     /** @var array<string, mixed> $input */
     $input = $_POST;
+    $relation->check(-1, CREATE, $input);
     $relation->add($input);
 }
 
