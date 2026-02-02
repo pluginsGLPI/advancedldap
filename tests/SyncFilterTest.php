@@ -145,13 +145,12 @@ final class SyncFilterTest extends DbTestCase
         ]);
         $syncfilter_id = $syncfilter->getID();
 
-        // Use update() directly because 'mappings' is transformed to 'field_mappings' by prepareInputForUpdate()
         $result = $syncfilter->update([
             'id' => $syncfilter_id,
-            'mappings' => [
-                ['glpi_field' => 'name', 'ldap_attr' => 'cn'],
-                ['glpi_field' => 'serial', 'ldap_attr' => 'serialNumber'],
-            ],
+            'field_mappings' => json_encode([
+                'name' => 'cn',
+                'serial' => 'serialNumber',
+            ]),
         ]);
         $this->assertTrue($result);
 
