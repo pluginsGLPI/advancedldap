@@ -312,49 +312,27 @@
         },
 
         /**
-         * Generate HTML for a new mapping row
-         */
-        getNewRowHtml: function(index) {
-            return `
-                <div class="field-mapping-row mb-3" data-index="${index}">
-                    <div class="row align-items-center">
-                        <div class="col-md-5">
-                            <div id="glpi-field-dropdown-${index}" data-selected="">
-                            </div>
-                        </div>
-                        <div class="col-md-1 text-center">
-                            <i class="ti ti-arrow-right"></i>
-                        </div>
-                        <div class="col-md-5">
-                            <input type="text"
-                                   class="form-control ldap-attribute-input"
-                                   placeholder="LDAP attribute (e.g., cn, serialNumber)"
-                                   value=""
-                                   data-index="${index}"
-                                   style="display: none;">
-                        </div>
-                        <div class="col-md-1">
-                            <button type="button"
-                                    class="btn btn-sm btn-ghost-danger remove-mapping-row"
-                                    data-index="${index}"
-                                    title="Remove mapping"
-                                    style="display: none;">
-                                <i class="ti ti-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        },
-
-        /**
-         * Add a new empty mapping row
+         * Add a new empty mapping row via AJAX (HTML from Twig template)
          */
         addNewRow: function() {
+            const self = this;
             this.rowIndex++;
-            const newRow = $(this.getNewRowHtml(this.rowIndex));
-            $('#field-mappings-container').append(newRow);
-            this.loadFieldDropdown(this.rowIndex, '');
+            const index = this.rowIndex;
+
+            $.ajax({
+                url: `${CFG_GLPI.root_doc}/plugins/advancedldap/ajax/fieldmappingrow.php`,
+                type: 'GET',
+                data: {
+                    index: index
+                },
+                success: (html) => {
+                    $('#field-mappings-container').append(html);
+                    self.loadFieldDropdown(index, '');
+                },
+                error: (xhr, status, error) => {
+                    console.error('Error loading field mapping row:', error);
+                }
+            });
         },
 
         /**

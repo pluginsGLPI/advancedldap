@@ -242,6 +242,7 @@ class SyncFilter extends CommonDropdown
             $item->showBuilderMappingTab();
             return true;
         }
+
         return false;
     }
 
@@ -255,7 +256,7 @@ class SyncFilter extends CommonDropdown
 
         if (
             !is_string($builder_itemtype)
-            || empty($builder_itemtype)
+            || ($builder_itemtype === '' || $builder_itemtype === '0')
             || !is_numeric($builder_items_id)
             || (int) $builder_items_id <= 0
             || !class_exists($builder_itemtype)
@@ -286,6 +287,7 @@ class SyncFilter extends CommonDropdown
             if (!is_string($section_name)) {
                 continue;
             }
+
             $content = $builder->getSection($section_name);
             $sections[] = [
                 'name'    => $section_name,
@@ -297,7 +299,7 @@ class SyncFilter extends CommonDropdown
             'builder'          => $builder,
             'builder_itemtype' => $builder_itemtype,
             'sections'         => $sections,
-            'completions'      => self::getLdapCompletions($this->getID()),
+            'completions'      => $this->getLdapCompletions($this->getID()),
             'authldap_status'  => $this->getAuthLdapStatus(),
         ]);
     }
@@ -311,19 +313,17 @@ class SyncFilter extends CommonDropdown
 
     /**
      * Create the appropriate BuilderMapping based on itemtype.
-     *
-     * @return void
      */
     private function createBuilderMapping(): void
     {
         $itemtype = $this->fields['itemtype'] ?? null;
 
-        if (!is_string($itemtype) || empty($itemtype)) {
+        if (!is_string($itemtype) || ($itemtype === '' || $itemtype === '0')) {
             return;
         }
 
         $builder = $this->createBuilderForItemtype($itemtype);
-        if ($builder === null) {
+        if (!$builder instanceof AbstractBuilderMapping) {
             return;
         }
 
@@ -369,7 +369,7 @@ class SyncFilter extends CommonDropdown
 
         if (
             !is_string($builder_itemtype)
-            || empty($builder_itemtype)
+            || ($builder_itemtype === '' || $builder_itemtype === '0')
             || !is_numeric($builder_items_id)
             || (int) $builder_items_id <= 0
             || !class_exists($builder_itemtype)
@@ -391,41 +391,41 @@ class SyncFilter extends CommonDropdown
      * @param int|null $syncfilter_id SyncFilter ID for dynamic attribute retrieval
      * @return array<array{name: string, type: string, detail: string}>
      */
-    private static function getLdapCompletions(?int $syncfilter_id = null): array
+    private function getLdapCompletions(?int $syncfilter_id = null): array
     {
         // Base attributes (fallback)
         $base_attributes = [
-            'ldap.cn'                      => 'Common Name',
-            'ldap.name'                    => 'Name',
-            'ldap.distinguishedName'       => 'Distinguished Name (DN)',
-            'ldap.objectGUID'              => 'Object GUID',
-            'ldap.objectSid'               => 'Object SID',
-            'ldap.sAMAccountName'          => 'SAM Account Name',
-            'ldap.dNSHostName'             => 'DNS Host Name',
-            'ldap.operatingSystem'         => 'Operating System',
-            'ldap.operatingSystemVersion'  => 'OS Version',
-            'ldap.description'             => 'Description',
-            'ldap.location'                => 'Location',
-            'ldap.whenCreated'             => 'Creation Date',
-            'ldap.whenChanged'             => 'Last Modified Date',
-            'ldap.lastLogonTimestamp'      => 'Last Logon',
-            'ldap.memberOf'                => 'Group Membership',
-            'ldap.managedBy'               => 'Managed By',
-            'ldap.serialNumber'            => 'Serial Number',
-            'ldap.domain'                  => 'Domain',
+            'ldap.cn'                      => ' Common Name',
+            'ldap.name'                    => ' Name',
+            'ldap.distinguishedName'       => ' Distinguished Name (DN)',
+            'ldap.objectGUID'              => ' Object GUID',
+            'ldap.objectSid'               => ' Object SID',
+            'ldap.sAMAccountName'          => ' SAM Account Name',
+            'ldap.dNSHostName'             => ' DNS Host Name',
+            'ldap.operatingSystem'         => ' Operating System',
+            'ldap.operatingSystemVersion'  => ' OS Version',
+            'ldap.description'             => ' Description',
+            'ldap.location'                => ' Location',
+            'ldap.whenCreated'             => ' Creation Date',
+            'ldap.whenChanged'             => ' Last Modified Date',
+            'ldap.lastLogonTimestamp'      => ' Last Logon',
+            'ldap.memberOf'                => ' Group Membership',
+            'ldap.managedBy'               => ' Managed By',
+            'ldap.serialNumber'            => ' Serial Number',
+            'ldap.domain'                  => ' Domain',
         ];
 
         if ($syncfilter_id === null) {
-            return self::formatCompletions($base_attributes);
+            return $this->formatCompletions($base_attributes);
         }
 
         // Retrieve dynamic attributes from LDAP
-        $dynamic_attributes = self::fetchLdapAttributesForSyncFilter($syncfilter_id);
+        $dynamic_attributes = $this->fetchLdapAttributesForSyncFilter($syncfilter_id);
 
         // Merge: dynamic first, then base (array_merge overwrites duplicates)
         $all_attributes = array_merge($dynamic_attributes, $base_attributes);
 
-        return self::formatCompletions($all_attributes);
+        return $this->formatCompletions($all_attributes);
     }
 
     /**
@@ -434,14 +434,14 @@ class SyncFilter extends CommonDropdown
      * @param int $syncfilter_id SyncFilter ID
      * @return array<string, string> Attributes as [name => description]
      */
-    private static function fetchLdapAttributesForSyncFilter(int $syncfilter_id): array
+    private function fetchLdapAttributesForSyncFilter(int $syncfilter_id): array
     {
         global $DB;
 
         $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
         $syncfilter_fk = getForeignKeyFieldForItemType(self::class);
 
-        // Récupérer UN SEUL AuthLDAP lié (contrainte d'unicité)
+        // Retrieve the single linked AuthLDAP (uniqueness constraint)
         $iterator = $DB->request([
             'SELECT' => [$authldap_fk],
             'FROM'   => AuthLdapSyncFilter::getTable(),
@@ -462,6 +462,7 @@ class SyncFilter extends CommonDropdown
         if (!is_array($row)) {
             return [];
         }
+
         $authldap_id = $row[$authldap_fk] ?? 0;
         if (!is_numeric($authldap_id)) {
             return [];
@@ -472,7 +473,7 @@ class SyncFilter extends CommonDropdown
             return [];
         }
 
-        return self::fetchAttributesFromLdap($authldap, $syncfilter);
+        return $this->fetchAttributesFromLdap($authldap, $syncfilter);
     }
 
     /**
@@ -482,7 +483,7 @@ class SyncFilter extends CommonDropdown
      * @param SyncFilter $syncfilter SyncFilter with basedn and filter
      * @return array<string, string> Attributes as [name => description]
      */
-    private static function fetchAttributesFromLdap(AuthLDAP $authldap, SyncFilter $syncfilter): array
+    private function fetchAttributesFromLdap(AuthLDAP $authldap, SyncFilter $syncfilter): array
     {
         // Extract connection parameters with type validation
         $host = $authldap->fields['host'] ?? '';
@@ -513,10 +514,10 @@ class SyncFilter extends CommonDropdown
         $authldap_basedn = $authldap->fields['basedn'] ?? '';
         $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
 
-        $basedn = is_string($syncfilter_basedn) && !empty($syncfilter_basedn)
+        $basedn = is_string($syncfilter_basedn) && ($syncfilter_basedn !== '' && $syncfilter_basedn !== '0')
             ? $syncfilter_basedn
             : (is_string($authldap_basedn) ? $authldap_basedn : '');
-        $filter = is_string($connection_filter) && !empty($connection_filter)
+        $filter = is_string($connection_filter) && ($connection_filter !== '' && $connection_filter !== '0')
             ? $connection_filter
             : '(objectClass=*)';
 
@@ -561,7 +562,7 @@ class SyncFilter extends CommonDropdown
      * @param array<string, string> $attributes Attributes as [name => description]
      * @return array<array{name: string, type: string, detail: string}>
      */
-    private static function formatCompletions(array $attributes): array
+    private function formatCompletions(array $attributes): array
     {
         $completions = [];
         foreach ($attributes as $name => $detail) {
@@ -571,6 +572,7 @@ class SyncFilter extends CommonDropdown
                 'detail' => $detail,
             ];
         }
+
         return $completions;
     }
 
@@ -601,6 +603,7 @@ class SyncFilter extends CommonDropdown
         if (!is_array($row)) {
             return null;
         }
+
         $authldap_id = $row[$authldap_fk] ?? 0;
         if (!is_numeric($authldap_id)) {
             return null;
@@ -630,7 +633,7 @@ class SyncFilter extends CommonDropdown
         ];
 
         $authldap = $this->getLinkedAuthLdap();
-        if ($authldap === null) {
+        if (!$authldap instanceof AuthLDAP) {
             return $status;
         }
 

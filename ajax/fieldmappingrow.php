@@ -2,16 +2,16 @@
 
 /**
  * -------------------------------------------------------------------------
- * advancedldap plugin for GLPI
+ * AdvancedLDAP plugin for GLPI
  * -------------------------------------------------------------------------
  *
  * LICENSE
  *
- * This file is part of advancedldap.
+ * This file is part of AdvancedLDAP.
  *
  * AdvancedLDAP is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
+ * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
  *
  * AdvancedLDAP is distributed in the hope that it will be useful,
@@ -22,24 +22,15 @@
  * You should have received a copy of the GNU General Public License
  * along with AdvancedLDAP. If not, see <http://www.gnu.org/licenses/>.
  * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2023 by Teclib'.
- * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.html
- * @link      https://services.glpi-network.com
- * -------------------------------------------------------------------------
  */
 
-use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
+use Glpi\Application\View\TemplateRenderer;
 
-Session::checkCentralAccess();
+Session::checkLoginUser();
+Session::checkRight('config', READ);
 
-$relation = new AuthLdapSyncFilter();
+$index = isset($_GET['index']) && is_numeric($_GET['index']) ? (int) $_GET['index'] : 0;
 
-if (isset($_POST["add"])) {
-    $input = $_POST;
-    $relation->check(-1, CREATE, $input); // @phpstan-ignore argument.type ($_POST keys are always strings)
-    if ($input !== null) {
-        $relation->add($input);
-    }
-}
-
-Html::back();
+TemplateRenderer::getInstance()->display('@advancedldap/field_mapping_row.html.twig', [
+    'index' => $index,
+]);

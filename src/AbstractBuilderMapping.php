@@ -32,7 +32,6 @@
 namespace GlpiPlugin\Advancedldap;
 
 use CommonDBTM;
-use Migration;
 
 use function Safe\file_get_contents;
 use function Safe\json_decode;
@@ -116,6 +115,7 @@ abstract class AbstractBuilderMapping extends CommonDBTM
         foreach (static::getSectionNames() as $section) {
             $templates[$section] = static::loadDefaultTemplate($section);
         }
+
         return $templates;
     }
 
@@ -152,6 +152,7 @@ abstract class AbstractBuilderMapping extends CommonDBTM
         foreach (static::getSectionNames() as $section) {
             $sections[$section] = $this->getSection($section);
         }
+
         return $sections;
     }
 
@@ -169,6 +170,7 @@ abstract class AbstractBuilderMapping extends CommonDBTM
                 $input[$column] = json_encode($input[$column], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
         }
+
         return $input;
     }
 

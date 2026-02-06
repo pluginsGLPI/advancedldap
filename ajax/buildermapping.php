@@ -29,8 +29,6 @@ use GlpiPlugin\Advancedldap\AbstractBuilderMapping;
 
 use function Safe\json_encode;
 
-include('../../../inc/includes.php');
-
 header('Content-Type: application/json');
 
 Session::checkLoginUser();

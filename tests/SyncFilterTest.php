@@ -34,6 +34,7 @@ use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
 use function Safe\json_decode;
+use function Safe\json_encode;
 
 /**
  * @method void assertTrue($condition, string $message = '')

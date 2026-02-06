@@ -28,8 +28,6 @@ use GlpiPlugin\Advancedldap\AbstractBuilderMapping;
 
 use function Safe\json_decode;
 
-include('../../../inc/includes.php');
-
 Session::checkLoginUser();
 Session::checkRight('config', UPDATE);
 
