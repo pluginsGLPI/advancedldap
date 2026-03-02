@@ -615,7 +615,6 @@ class LdapSyncExecutor
             ],
             'WHERE' => [
                 'rel.' . $authldap_fk => $authldap->getID(),
-                'sf.is_active'        => 1,
             ],
         ]);
 
