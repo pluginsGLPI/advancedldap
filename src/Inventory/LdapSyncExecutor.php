@@ -2,16 +2,16 @@
 
 /**
  * -------------------------------------------------------------------------
- * AdvancedLDAP plugin for GLPI
+ * advancedldap plugin for GLPI
  * -------------------------------------------------------------------------
  *
  * LICENSE
  *
- * This file is part of AdvancedLDAP.
+ * This file is part of advancedldap.
  *
  * AdvancedLDAP is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
+ * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
  * AdvancedLDAP is distributed in the hope that it will be useful,
@@ -23,8 +23,10 @@
  * along with AdvancedLDAP. If not, see <http://www.gnu.org/licenses/>.
  * -------------------------------------------------------------------------
  * @author    GLPI-Project
- * @copyright Copyright (C) GLPI-Project
+ * @copyright Copyright (C) 2018-2023 by Teclib'.
+ * @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.html
  * @license   GPLv3 https://www.gnu.org/licenses/gpl-3.0.html
+ * @link      https://services.glpi-network.com
  * @link      https://github.com/pluginsGLPI/advancedldap
  * -------------------------------------------------------------------------
  */
