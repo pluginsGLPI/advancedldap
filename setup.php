@@ -48,19 +48,10 @@ function plugin_init_advancedldap(): void
     /** @var array<string, array<string, string|array<int|string, string>>> $PLUGIN_HOOKS */
     global $PLUGIN_HOOKS;
 
-    $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['advancedldap'] = 'front/syncfilter.php';
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = [
         AuthLDAP::class => 'plugin_advancedldap_item_purge',
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
-
-    /** @var string $request_uri */
-    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
-    if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
-        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = [
-            'js/field_mapping.js',
-        ];
-    }
 
     Plugin::registerClass(AuthLdapSyncFilter::class, [
         'addtabon' => ['AuthLDAP', SyncFilter::class],

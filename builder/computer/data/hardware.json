@@ -1,11 +1,5 @@
 {
-    "chassis_type": "Notebook",
-    "defaultgateway": "192.168.10.254",
-    "dns": "127.0.0.53",
-    "memory": 31394,
     "name": "{{ ldap.cn }}",
-    "swap": 4095,
     "uuid": "{{ ldap.objectGUID }}",
-    "vmsystem": "Physical",
     "workgroup": "{{ ldap.domain }}"
 }
