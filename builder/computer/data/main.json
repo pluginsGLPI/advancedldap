@@ -1,0 +1,10 @@
+{
+    "action": "inventory",
+    "deviceid": "{{ ldap.objectGUID }}",
+    "itemtype": "Computer",
+    "partial": true,
+    "tag": "",
+    "content": {
+        "versionclient": "advancedldap-plugin-1.0"
+    }
+}

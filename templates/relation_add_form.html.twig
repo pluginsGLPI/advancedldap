@@ -29,7 +29,7 @@
 {% import 'components/form/fields_macros.html.twig' as fields %}
 
 <div class="card-header">
-    <h4 class="card-title">{{ title }}</h4>
+    <h4 class="card-title mb-0">{{ title }}</h4>
 </div>
 <div class="card-body">
     <div class="mt-3 mb-2">
@@ -40,13 +40,13 @@
                 <div class="col-3">
                     {{ fields.dropdownArrayField(
                         dropdown_field_name,
-                        '',
+                        current_value|default(0),
                         available_items,
                         '',
                         {
                             'no_label': true,
                             'required': true,
-                            'display_emptychoice': false,
+                            'display_emptychoice': display_emptychoice|default(true),
                             'field_class': 'col-12 pe-2',
                             'add_field_attribs': {
                                 'data-relation-dropdown': 'true'

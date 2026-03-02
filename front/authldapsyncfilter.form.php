@@ -35,8 +35,11 @@ Session::checkCentralAccess();
 $relation = new AuthLdapSyncFilter();
 
 if (isset($_POST["add"])) {
-    $relation->check(-1, CREATE, $_POST);
-    $relation->add($_POST);
+    $input = $_POST;
+    $relation->check(-1, CREATE, $input); // @phpstan-ignore argument.type ($_POST keys are always strings)
+    if ($input !== null) {
+        $relation->add($input);
+    }
 }
 
 Html::back();

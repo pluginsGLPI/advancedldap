@@ -35,6 +35,7 @@ use Glpi\Plugin\Hooks;
 use function Safe\define;
 
 define('PLUGIN_ADVANCEDLDAP_VERSION', '0.0.1');
+define('PLUGIN_ADVANCEDLDAP_DIR', __DIR__);
 
 // Minimal GLPI version, inclusive
 define("PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION", "11.0.0");
@@ -53,12 +54,12 @@ function plugin_init_advancedldap(): void
         SyncFilter::class => 'plugin_advancedldap_item_purge',
     ];
 
-    // Register JavaScript assets (on plugin pages and AuthLDAP pages)
     /** @var string $request_uri */
     $request_uri = $_SERVER['REQUEST_URI'] ?? '';
     if (str_contains($request_uri, '/plugins/advancedldap/') || str_contains($request_uri, '/authldap.form.php')) {
-        //load an empty file for now - will be renamed eventually
-        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = ['js/relation_form.js'];
+        $PLUGIN_HOOKS[Hooks::ADD_JAVASCRIPT]['advancedldap'] = [
+            'js/field_mapping.js',
+        ];
     }
 
     Plugin::registerClass(AuthLdapSyncFilter::class, [

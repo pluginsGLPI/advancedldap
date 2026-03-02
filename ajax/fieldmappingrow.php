@@ -1,3 +1,5 @@
+<?php
+
 /**
  * -------------------------------------------------------------------------
  * advancedldap plugin for GLPI
@@ -26,4 +28,13 @@
  * -------------------------------------------------------------------------
  */
 
-// empty on purpose, will be used in next steps of devlopment
+use Glpi\Application\View\TemplateRenderer;
+
+Session::checkLoginUser();
+Session::checkRight('config', READ);
+
+$index = isset($_GET['index']) && is_numeric($_GET['index']) ? (int) $_GET['index'] : 0;
+
+TemplateRenderer::getInstance()->display('@advancedldap/field_mapping_row.html.twig', [
+    'index' => $index,
+]);
