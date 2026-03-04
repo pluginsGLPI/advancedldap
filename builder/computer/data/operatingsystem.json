@@ -1,0 +1,4 @@
+{
+    "name": "{{ ldap.operatingSystem }}",
+    "version": "{{ ldap.operatingSystemVersion }}"
+}

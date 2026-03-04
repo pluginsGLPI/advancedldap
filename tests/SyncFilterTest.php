@@ -30,7 +30,9 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use Computer;
 use Glpi\Tests\DbTestCase;
+use GlpiPlugin\Advancedldap\ComputerBuilderMapping;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
 /**
@@ -41,6 +43,8 @@ use GlpiPlugin\Advancedldap\SyncFilter;
  * @method void assertNotEmpty($actual, string $message = '')
  * @method void assertIsArray($actual, string $message = '')
  * @method void assertGreaterThan($expected, $actual, string $message = '')
+ * @method void assertArrayHasKey($key, $array, string $message = '')
+ * @method void assertIsInt($actual, string $message = '')
  */
 final class SyncFilterTest extends DbTestCase
 {
@@ -105,6 +109,54 @@ final class SyncFilterTest extends DbTestCase
         $this->assertEquals('(objectClass=networkPrinter)', $updatedfilter->getField('connection_filter'));
         $this->assertEquals('ou=network-printers,dc=example,dc=com', $updatedfilter->getField('basedn'));
         $this->assertEquals('Printer', $updatedfilter->getField('itemtype'));
+    }
+
+    public function testCreateWithComputerItemtypeCreatesBuilderMapping(): void
+    {
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name'              => 'Computer Sync Filter',
+            'connection_filter' => '(objectClass=computer)',
+            'basedn'            => 'ou=computers,dc=example,dc=com',
+            'itemtype'          => Computer::class,
+        ]);
+
+        $loaded = new SyncFilter();
+        $loaded->getFromDB($syncfilter->getID());
+
+        $this->assertEquals(ComputerBuilderMapping::class, $loaded->getField('builder_itemtype'));
+        $builder_id = $loaded->getField('builder_items_id');
+        $this->assertIsInt($builder_id);
+        /** @var int $builder_id */
+        $this->assertGreaterThan(0, $builder_id);
+
+        $builder = new ComputerBuilderMapping();
+        $builder->getFromDB($builder_id);
+        foreach (['main', 'hardware', 'bios', 'operatingsystem'] as $section) {
+            $this->assertNotEmpty($builder->getSection($section));
+        }
+    }
+
+    public function testPurgeSyncFilterDeletesBuilderMapping(): void
+    {
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name'              => 'Purgeable Filter',
+            'connection_filter' => '(objectClass=computer)',
+            'basedn'            => 'ou=computers,dc=example,dc=com',
+            'itemtype'          => Computer::class,
+        ]);
+        $syncfilter_id = $syncfilter->getID();
+
+        $loaded = new SyncFilter();
+        $loaded->getFromDB($syncfilter_id);
+        $builder_id = $loaded->getField('builder_items_id');
+        $this->assertIsInt($builder_id);
+        /** @var int $builder_id */
+        $this->assertGreaterThan(0, $builder_id);
+
+        $this->deleteItem(SyncFilter::class, $syncfilter_id, true);
+
+        $builder = new ComputerBuilderMapping();
+        $this->assertFalse($builder->getFromDB($builder_id));
     }
 
     public function testDelete(): void

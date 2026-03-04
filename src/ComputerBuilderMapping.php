@@ -61,7 +61,7 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
 
     public static function getSectionNames(): array
     {
-        return ['main', 'hardware'];
+        return ['main', 'hardware', 'bios', 'operatingsystem'];
     }
 
     public static function install(Migration $migration): void
@@ -81,6 +81,8 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
                 `id` int {$default_key_sign} NOT NULL AUTO_INCREMENT,
                 `main` text,
                 `hardware` text,
+                `bios` text,
+                `operatingsystem` text,
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
@@ -89,6 +91,11 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
             ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC";
 
             $DB->doQuery($query);
+        } else {
+            // Add new columns for existing installations
+            $migration->addField($table, 'bios', 'text', ['after' => 'hardware']);
+            $migration->addField($table, 'operatingsystem', 'text', ['after' => 'bios']);
+            $migration->executeMigration();
         }
     }
 
