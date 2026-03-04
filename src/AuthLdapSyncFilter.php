@@ -100,22 +100,49 @@ class AuthLdapSyncFilter extends CommonDBTM
             AuthLDAP::class => new AuthLDAP(),
             default => throw new RuntimeException('Invalid child class'),
         };
-        /** @var array<array<string, mixed>> $found_items */
-        $found_items = $child_obj->find(
-            array_merge(
-                $config['child_criteria'],
-                [
-                    'NOT' => [
-                        'id' => new QuerySubQuery([
-                            'SELECT' => $config['child_field_name'],
-                            'FROM'   => self::getTable(),
-                            'WHERE'  => [$config['parent_field_name'] => $parent_id],
-                        ]),
+
+        $current_value = 0;
+
+        // Pour SyncFilter : afficher tous les AuthLDAP avec pré-sélection du lien actuel
+        if ($itemclass === SyncFilter::class) {
+            // Récupérer l'AuthLDAP actuellement lié (s'il existe)
+            $existing_iterator = $DB->request([
+                'SELECT' => [$config['child_field_name']],
+                'FROM'   => self::getTable(),
+                'WHERE'  => [$config['parent_field_name'] => $parent_id],
+                'LIMIT'  => 1,
+            ]);
+            if (count($existing_iterator) > 0) {
+                $row = $existing_iterator->current();
+                if (is_array($row) && isset($row[$config['child_field_name']])) {
+                    $value = $row[$config['child_field_name']];
+                    $current_value = is_numeric($value) ? (int) $value : 0;
+                }
+            }
+
+            // Tous les AuthLDAP actifs (sans exclure les déjà liés)
+            /** @var array<array<string, mixed>> $found_items */
+            $found_items = $child_obj->find($config['child_criteria'], ['name']);
+        } else {
+            // Pour AuthLDAP : exclure les SyncFilters déjà liés à cet AuthLDAP
+            /** @var array<array<string, mixed>> $found_items */
+            $found_items = $child_obj->find(
+                array_merge(
+                    $config['child_criteria'],
+                    [
+                        'NOT' => [
+                            'id' => new QuerySubQuery([
+                                'SELECT' => $config['child_field_name'],
+                                'FROM'   => self::getTable(),
+                                'WHERE'  => [$config['parent_field_name'] => $parent_id],
+                            ]),
+                        ],
                     ],
-                ],
-            ),
-            ['name'],
-        );
+                ),
+                ['name'],
+            );
+        }
+
         $available_items = array_column($found_items, 'name', 'id');
 
         // Add form configuration
@@ -123,10 +150,12 @@ class AuthLdapSyncFilter extends CommonDBTM
             'title'               => $config['title'],
             'parent_field_name'   => $config['parent_field_name'],
             'parent_id'           => $parent_id,
+            'parent_itemtype'     => $itemclass,
             'dropdown_field_name' => $config['child_field_name'],
             'available_items'     => $available_items,
             'display_emptychoice' => $config['display_emptychoice'],
             'form_url'            => self::getFormURL(),
+            'current_value'       => $current_value,
         ];
 
         // Query existing relations
@@ -154,12 +183,6 @@ class AuthLdapSyncFilter extends CommonDBTM
         $entries = [];
         foreach ($iterator as $data) {
             /** @var array{id: int, link_id: int} $data */
-            // Get name with link (common to both cases)
-            $child_obj = match ($child_class) {
-                SyncFilter::class => new SyncFilter(),
-                AuthLDAP::class => new AuthLDAP(),
-                default => throw new RuntimeException('Invalid child class'),
-            };
             $name = htmlescape(NOT_AVAILABLE);
             if ($child_obj->getFromDB($data['id'])) {
                 $name = $child_obj->getLink();
@@ -180,8 +203,8 @@ class AuthLdapSyncFilter extends CommonDBTM
                     $itemtype_name = $data['itemtype']::getTypeName(1);
                 }
 
-                $entry['basedn']            = '<code>' . htmlspecialchars($data['basedn']) . '</code>';
-                $entry['connection_filter'] = '<code>' . htmlspecialchars($data['connection_filter']) . '</code>';
+                $entry['basedn']            = '<code>' . htmlescape($data['basedn']) . '</code>';
+                $entry['connection_filter'] = '<code>' . htmlescape($data['connection_filter']) . '</code>';
                 $entry['itemtype_display']  = $itemtype_name;
             } elseif ($itemclass === SyncFilter::class) {
                 /** @var array{id: int, name: string, host: string, port: int|string, basedn: string, link_id: int} $data */
@@ -348,7 +371,27 @@ class AuthLdapSyncFilter extends CommonDBTM
             return false;
         }
 
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+        $syncfilter_value = $input[$syncfilter_fk] ?? 0;
+        $syncfilters_id = is_numeric($syncfilter_value) ? (int) $syncfilter_value : 0;
+
+        // Si ce SyncFilter a déjà une liaison, la supprimer (remplacement)
+        if ($syncfilters_id > 0) {
+            $this->deleteExistingLinkForSyncFilter($syncfilters_id);
+        }
+
         return parent::prepareInputForAdd($input);
+    }
+
+    private function deleteExistingLinkForSyncFilter(int $syncfilters_id): void
+    {
+        global $DB;
+
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $DB->delete(self::getTable(), [
+            $syncfilter_fk => $syncfilters_id,
+        ]);
     }
 
     public function prepareInputForUpdate($input)
