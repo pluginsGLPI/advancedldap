@@ -72,8 +72,6 @@ class SyncFilter extends CommonDropdown
                 `connection_filter` text,
                 `basedn` varchar(255) NOT NULL DEFAULT '',
                 `itemtype` varchar(255) NOT NULL DEFAULT '',
-                `field_mappings` longtext,
-                `is_active` tinyint NOT NULL DEFAULT '1',
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
@@ -87,7 +85,7 @@ class SyncFilter extends CommonDropdown
         }
 
         // Add builder mapping fields (polymorphic relation)
-        $migration->addField($table, 'builder_itemtype', 'string', ['after' => 'field_mappings']);
+        $migration->addField($table, 'builder_itemtype', 'string', ['after' => 'itemtype']);
         $migration->addField($table, 'builder_items_id', 'int', ['after' => 'builder_itemtype']);
         $migration->addKey($table, ['builder_itemtype', 'builder_items_id'], 'builder');
 

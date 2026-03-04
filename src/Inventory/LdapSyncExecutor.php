@@ -532,12 +532,6 @@ class LdapSyncExecutor
             $count,
         ));
 
-        // Debug: dump first entry structure
-        if ($count > 0 && isset($entries[0])) {
-            Toolbox::logDebug('AdvancedLDAP: First entry structure:');
-            Toolbox::logDebug($entries[0]);
-        }
-
         // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
         /** @var array<int, array<string, mixed>> $results */
         $results = [];
@@ -615,7 +609,6 @@ class LdapSyncExecutor
             ],
             'WHERE' => [
                 'rel.' . $authldap_fk => $authldap->getID(),
-                'sf.is_active'        => 1,
             ],
         ]);
 

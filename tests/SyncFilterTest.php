@@ -33,9 +33,6 @@ namespace GlpiPlugin\Advancedldap\Tests;
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
-use function Safe\json_decode;
-use function Safe\json_encode;
-
 /**
  * @method void assertTrue($condition, string $message = '')
  * @method void assertFalse($condition, string $message = '')
@@ -136,36 +133,4 @@ final class SyncFilterTest extends DbTestCase
         $this->assertFalse($loadResult);
     }
 
-    public function testUpdateWithMappings(): void
-    {
-        $syncfilter = $this->createItem(SyncFilter::class, [
-            'name' => 'Test Mapping Update',
-            'connection_filter' => '(objectClass=computer)',
-            'basedn' => 'ou=computers,dc=example,dc=com',
-            'itemtype' => 'Computer',
-        ]);
-        $syncfilter_id = $syncfilter->getID();
-
-        $result = $syncfilter->update([
-            'id' => $syncfilter_id,
-            'field_mappings' => json_encode([
-                'name' => 'cn',
-                'serial' => 'serialNumber',
-            ]),
-        ]);
-        $this->assertTrue($result);
-
-        $updatedfilter = new SyncFilter();
-        $updatedfilter->getFromDB($syncfilter_id);
-
-        /** @var string $field_mappings */
-        $field_mappings = $updatedfilter->getField('field_mappings');
-        $this->assertNotEmpty($field_mappings);
-
-        /** @var array<string, string> $decoded */
-        $decoded = json_decode($field_mappings, true);
-        $this->assertIsArray($decoded);
-        $this->assertEquals('cn', $decoded['name']);
-        $this->assertEquals('serialNumber', $decoded['serial']);
-    }
 }
