@@ -54,7 +54,7 @@ function plugin_init_advancedldap(): void
     ];
 
     Plugin::registerClass(AuthLdapSyncFilter::class, [
-        'addtabon' => ['AuthLDAP', SyncFilter::class],
+        'addtabon' => [AuthLDAP::class, SyncFilter::class],
     ]);
 }
 

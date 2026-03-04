@@ -86,7 +86,7 @@ function plugin_advancedldap_giveItem($itemtype, $search_option_id, $data, $id):
         case SyncFilter::getTable() . '.basedn':
             /** @var string */
             $value = $data[$id][0]['name'] ?? '';
-            return "<code>" . htmlspecialchars($value) . "</code>";
+            return "<code>" . htmlescape($value) . "</code>";
     }
 
     return '';

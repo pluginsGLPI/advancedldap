@@ -33,7 +33,6 @@ namespace GlpiPlugin\Advancedldap\Tests;
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
-
 /**
  * @method void assertTrue($condition, string $message = '')
  * @method void assertFalse($condition, string $message = '')
