@@ -61,7 +61,7 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
 
     public static function getSectionNames(): array
     {
-        return ['main', 'hardware', 'bios', 'operatingsystem'];
+        return ['main', 'hardware', 'bios', 'operatingsystem', 'networks', 'cpus', 'memories', 'drives', 'storages'];
     }
 
     public static function install(Migration $migration): void
@@ -83,6 +83,11 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
                 `hardware` text,
                 `bios` text,
                 `operatingsystem` text,
+                `networks` text,
+                `cpus` text,
+                `memories` text,
+                `drives` text,
+                `storages` text,
                 `date_creation` timestamp NULL DEFAULT NULL,
                 `date_mod` timestamp NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
@@ -95,6 +100,11 @@ class ComputerBuilderMapping extends AbstractBuilderMapping
             // Add new columns for existing installations
             $migration->addField($table, 'bios', 'text', ['after' => 'hardware']);
             $migration->addField($table, 'operatingsystem', 'text', ['after' => 'bios']);
+            $migration->addField($table, 'networks', 'text', ['after' => 'operatingsystem']);
+            $migration->addField($table, 'cpus', 'text', ['after' => 'networks']);
+            $migration->addField($table, 'memories', 'text', ['after' => 'cpus']);
+            $migration->addField($table, 'drives', 'text', ['after' => 'memories']);
+            $migration->addField($table, 'storages', 'text', ['after' => 'drives']);
             $migration->executeMigration();
         }
     }
