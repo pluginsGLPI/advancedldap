@@ -111,6 +111,7 @@ final class ComputerBuilderMappingTest extends DbTestCase
         $loaded->resetSection('hardware');
 
         $loaded->getFromDB($id);
+
         $default = ComputerBuilderMapping::loadDefaultTemplate('hardware');
         $this->assertEquals($default, $loaded->getSection('hardware'));
     }

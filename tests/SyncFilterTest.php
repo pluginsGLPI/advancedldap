@@ -148,6 +148,7 @@ final class SyncFilterTest extends DbTestCase
 
         $loaded = new SyncFilter();
         $loaded->getFromDB($syncfilter_id);
+
         $builder_id = $loaded->getField('builder_items_id');
         $this->assertIsInt($builder_id);
         /** @var int $builder_id */
