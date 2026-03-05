@@ -82,7 +82,7 @@
                             {{ __('Reset', 'advancedldap') }}
                         </button>
                     </div>
-                    <div id="editor-{{ section.name }}" style="height: 300px;"></div>
+                    <div id="editor-{{ section.name }}" style="min-height: 80px; border: 1px solid var(--tblr-border-color); border-radius: var(--tblr-border-radius);"></div>
                     <input type="hidden" name="sections[{{ section.name }}]" id="input-{{ section.name }}" value="{{ section.content|e('html_attr') }}">
                 </div>
             {% endfor %}
@@ -111,13 +111,27 @@
             window.GLPI.Monaco.createEditor(containerId, 'twig', section.content, completions).then((monaco) => {
                 editors[section.name] = monaco;
 
+                const container = document.getElementById(containerId);
+
+                monaco.editor.updateOptions({
+                    scrollBeyondLastLine: false,
+                    scrollbar: { vertical: 'hidden', alwaysConsumeMouseWheel: false },
+                    automaticLayout: false,
+                });
+
+                const updateHeight = () => {
+                    const height = monaco.editor.getContentHeight();
+                    container.style.height = `${height}px`;
+                    monaco.editor.layout({ width: container.offsetWidth, height });
+                };
+
+                monaco.editor.onDidContentSizeChange(updateHeight);
+                updateHeight();
+
                 // Update hidden input on change
                 monaco.editor.onDidChangeModelContent(() => {
                     document.getElementById(inputId).value = monaco.editor.getValue();
                 });
-
-                // Force layout after creation
-                monaco.editor.layout();
             });
         });
     });
