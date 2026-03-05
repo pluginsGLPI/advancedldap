@@ -287,7 +287,7 @@ class SyncFilter extends CommonDropdown
             }
 
             $content = $builder->getSection($section_name);
-            if (empty($content)) {
+            if ($content === []) {
                 $content = $builder_itemtype::loadDefaultTemplate($section_name);
             }
 
