@@ -2,5 +2,15 @@
     "ssn": "{{ ldap.serialNumber }}",
     "smanufacturer": "",
     "smodel": "",
-    "assettag": ""
+    "assettag": "",
+    "bdate": "",
+    "bmanufacturer": "",
+    "bversion": "",
+    "mmanufacturer": "",
+    "mmodel": "",
+    "msn": "",
+    "skunumber": "",
+    "biosserial": "",
+    "enclosureserial": "",
+    "secure_boot": ""
 }
