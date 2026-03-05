@@ -191,7 +191,7 @@ class LdapSyncExecutor
      *
      * @return array<string> List of LDAP attribute names to request
      */
-    private function extractLdapAttributes(array $sections): array
+    protected function extractLdapAttributes(array $sections): array
     {
         $attributes = [];
 
@@ -247,7 +247,7 @@ class LdapSyncExecutor
      *
      * @return array<string, mixed>|null The complete inventory JSON or null on error
      */
-    private function buildInventoryJson(array $sections, array $ldap_entry, SyncFilter $syncfilter): ?array
+    protected function buildInventoryJson(array $sections, array $ldap_entry, SyncFilter $syncfilter): ?array
     {
         // Get the main section (base structure)
         $main = $sections['main'] ?? [];
@@ -302,7 +302,7 @@ class LdapSyncExecutor
      *
      * @return array<mixed, mixed> The cleaned data
      */
-    private function removeEmptyKeys(array $data): array
+    protected function removeEmptyKeys(array $data): array
     {
         foreach ($data as $key => $value) {
             if (is_array($value)) {
@@ -323,7 +323,7 @@ class LdapSyncExecutor
      *
      * @return array<string, mixed> The data with placeholders replaced
      */
-    private function replacePlaceholders(array $data, array $ldap_entry): array
+    protected function replacePlaceholders(array $data, array $ldap_entry): array
     {
         $json_string = json_encode($data, JSON_UNESCAPED_UNICODE);
 
@@ -354,7 +354,7 @@ class LdapSyncExecutor
      *
      * @return string The attribute value or empty string
      */
-    private function getLdapValue(array $ldap_entry, string $attr_name): string
+    protected function getLdapValue(array $ldap_entry, string $attr_name): string
     {
         // LDAP attributes are lowercase in the entry array
         if (!isset($ldap_entry[$attr_name])) {
@@ -387,7 +387,7 @@ class LdapSyncExecutor
      *
      * @return string The GUID as string
      */
-    private function convertGuidToString(string $binary_guid): string
+    protected function convertGuidToString(string $binary_guid): string
     {
         $hex = bin2hex($binary_guid);
         if (strlen($hex) !== 32) {
@@ -412,7 +412,7 @@ class LdapSyncExecutor
      *
      * @return string The device ID
      */
-    private function generateDeviceId(SyncFilter $syncfilter, array $ldap_entry): string
+    protected function generateDeviceId(SyncFilter $syncfilter, array $ldap_entry): string
     {
         // Try to use objectGUID
         $guid = $this->getLdapValue($ldap_entry, 'objectguid');
