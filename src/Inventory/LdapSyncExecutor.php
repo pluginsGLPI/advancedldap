@@ -100,6 +100,83 @@ class LdapSyncExecutor
     }
 
     /**
+     * Execute synchronization for a single SyncFilter using its linked AuthLDAP.
+     *
+     * @param SyncFilter $syncfilter The sync filter to execute
+     *
+     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     */
+    public function executeSingleFilter(SyncFilter $syncfilter): array
+    {
+        $this->resetResults();
+
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        if ($authldap === null) {
+            return $this->results;
+        }
+
+        $this->executeSyncFilter($authldap, $syncfilter);
+
+        return $this->results;
+    }
+
+    /**
+     * Preview synchronization for a single SyncFilter without injecting data.
+     *
+     * @param SyncFilter $syncfilter The sync filter to preview
+     *
+     * @return array{first_entry: array<string, mixed>|null, would_create: int, would_update: int, total: int}
+     */
+    public function previewSyncFilter(SyncFilter $syncfilter): array
+    {
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        $result = ['first_entry' => null, 'would_create' => 0, 'would_update' => 0, 'total' => 0];
+
+        if ($authldap === null) {
+            return $result;
+        }
+
+        $builder = $this->loadBuilderMapping($syncfilter);
+        if (!$builder instanceof AbstractBuilderMapping) {
+            return $result;
+        }
+
+        $sections   = $builder->getAllSections();
+        $ldap_attrs = $this->extractLdapAttributes($sections);
+
+        $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
+
+        if (!is_array($ldap_entries) || $ldap_entries === []) {
+            return $result;
+        }
+
+        foreach ($ldap_entries as $index => $ldap_entry) {
+            $inventory_data = $this->buildInventoryJson($sections, $ldap_entry, $syncfilter);
+            if ($inventory_data === null) {
+                continue;
+            }
+
+            $result['total']++;
+
+            if ($index === 0) {
+                $result['first_entry'] = $inventory_data;
+            }
+
+            $deviceid = isset($inventory_data['deviceid']) && is_string($inventory_data['deviceid'])
+                ? $inventory_data['deviceid'] : '';
+
+            $agent = new \Agent();
+            if ($deviceid !== '' && $agent->getFromDBByCrit(['deviceid' => $deviceid])) {
+                $result['would_update']++;
+            } else {
+                $result['would_create']++;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Execute synchronization for a single SyncFilter.
      *
      * @param AuthLDAP   $authldap   The LDAP connection
@@ -572,11 +649,16 @@ class LdapSyncExecutor
             return;
         }
 
+        $agent = new \Agent();
+        $agent_exists = $deviceid !== 'unknown' && $agent->getFromDBByCrit(['deviceid' => $deviceid]);
+
         $inventory->doInventory();
 
-        // TODO: Determine if item was created or updated based on Inventory results
-        // For now, assume created
-        $this->results['created']++;
+        if ($agent_exists) {
+            $this->results['updated']++;
+        } else {
+            $this->results['created']++;
+        }
     }
 
     /**

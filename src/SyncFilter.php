@@ -218,26 +218,41 @@ class SyncFilter extends CommonDropdown
             return '';
         }
 
-        // Only show tab if a BuilderMapping is associated
+        $tabs = [];
+
         $builder_itemtype = $item->fields['builder_itemtype'] ?? null;
         $builder_items_id = $item->fields['builder_items_id'] ?? 0;
 
-        if (empty($builder_itemtype) || $builder_items_id <= 0) {
-            return '';
+        if (!empty($builder_itemtype) && $builder_items_id > 0) {
+            $tabs[1] = self::createTabEntry(
+                __('Builder Mapping', 'advancedldap'),
+                0,
+                $item::class,
+                'ti ti-code',
+            );
         }
 
-        return self::createTabEntry(
-            __('Builder Mapping', 'advancedldap'),
+        $tabs[2] = self::createTabEntry(
+            __('Synchronize', 'advancedldap'),
             0,
             $item::class,
-            'ti ti-code',
+            'ti ti-refresh',
         );
+
+        return $tabs;
     }
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
         if ($item instanceof self) {
-            $item->showBuilderMappingTab();
+            switch ($tabnum) {
+                case 1:
+                    $item->showBuilderMappingTab();
+                    break;
+                case 2:
+                    $item->showSyncTab();
+                    break;
+            }
             return true;
         }
 
@@ -299,6 +314,20 @@ class SyncFilter extends CommonDropdown
             'sections'         => $sections,
             'completions'      => $this->getLdapCompletions($this->getID()),
             'authldap_status'  => $this->getAuthLdapStatus(),
+        ]);
+    }
+
+    /**
+     * Display the Synchronize tab content.
+     */
+    public function showSyncTab(): void
+    {
+        $authldap = $this->getLinkedAuthLdap();
+
+        TemplateRenderer::getInstance()->display('@advancedldap/sync_execution.html.twig', [
+            'syncfilters_id' => $this->getID(),
+            'has_authldap'   => $authldap !== null,
+            'authldap_name'  => $authldap?->getName(),
         ]);
     }
 

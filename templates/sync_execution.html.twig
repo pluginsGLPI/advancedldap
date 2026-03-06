@@ -1,0 +1,195 @@
+{#
+ # -------------------------------------------------------------------------
+ # advancedldap plugin for GLPI
+ # -------------------------------------------------------------------------
+ #
+ # LICENSE
+ #
+ # This file is part of advancedldap.
+ #
+ # AdvancedLDAP is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+ #
+ # AdvancedLDAP is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ #
+ # You should have received a copy of the GNU General Public License
+ # along with AdvancedLDAP. If not, see <http://www.gnu.org/licenses/>.
+ # -------------------------------------------------------------------------
+ # @copyright Copyright (C) 2018-2023 by Teclib'.
+ # @license   GPLv3+ https://www.gnu.org/licenses/gpl-3.0.html
+ # @link      https://services.glpi-network.com
+ # -------------------------------------------------------------------------
+ #}
+
+<div class="p-3">
+    {% if not has_authldap %}
+        <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+            <i class="ti ti-alert-triangle"></i>
+            {{ __('No LDAP connection linked to this filter. Associate an AuthLDAP connection first.', 'advancedldap') }}
+        </div>
+    {% else %}
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+            <i class="ti ti-plug"></i>
+            {{ __('LDAP connection:', 'advancedldap') }} <strong>{{ authldap_name }}</strong>
+        </div>
+    {% endif %}
+
+    <div class="d-flex gap-2 mb-3">
+        <button type="button"
+                id="btn-execute"
+                class="btn btn-primary"
+                {{ not has_authldap ? 'disabled' : '' }}>
+            <i class="ti ti-refresh me-1"></i>
+            {{ __('Synchronize', 'advancedldap') }}
+        </button>
+        <button type="button"
+                id="btn-dry-run"
+                class="btn btn-secondary"
+                {{ not has_authldap ? 'disabled' : '' }}>
+            <i class="ti ti-eye me-1"></i>
+            {{ __('Preview', 'advancedldap') }}
+        </button>
+    </div>
+
+    <div id="sync-spinner" class="d-none my-3">
+        <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+            <span class="visually-hidden">{{ __('Loading...') }}</span>
+        </div>
+        <span class="text-muted">{{ __('Processing...', 'advancedldap') }}</span>
+    </div>
+
+    {# Sync results #}
+    <div id="sync-results" class="d-none mt-3">
+        <h4>{{ __('Synchronization results', 'advancedldap') }}</h4>
+        <div class="d-flex gap-2 flex-wrap">
+            <span class="badge bg-success fs-6">
+                <i class="ti ti-plus me-1"></i>
+                <span id="result-created">0</span> {{ __('created', 'advancedldap') }}
+            </span>
+            <span class="badge bg-info fs-6">
+                <i class="ti ti-pencil me-1"></i>
+                <span id="result-updated">0</span> {{ __('updated', 'advancedldap') }}
+            </span>
+            <span class="badge bg-danger fs-6">
+                <i class="ti ti-x me-1"></i>
+                <span id="result-errors">0</span> {{ __('errors', 'advancedldap') }}
+            </span>
+            <span class="badge bg-secondary fs-6">
+                <i class="ti ti-minus me-1"></i>
+                <span id="result-skipped">0</span> {{ __('skipped', 'advancedldap') }}
+            </span>
+        </div>
+    </div>
+
+    {# Dry-run results #}
+    <div id="dryrun-results" class="d-none mt-3">
+        <h4>{{ __('Preview results', 'advancedldap') }}</h4>
+        <div class="d-flex gap-2 flex-wrap mb-3">
+            <span class="badge bg-success fs-6">
+                <i class="ti ti-plus me-1"></i>
+                <span id="preview-create">0</span> {{ __('would be created', 'advancedldap') }}
+            </span>
+            <span class="badge bg-info fs-6">
+                <i class="ti ti-pencil me-1"></i>
+                <span id="preview-update">0</span> {{ __('would be updated', 'advancedldap') }}
+            </span>
+            <span class="badge bg-secondary fs-6">
+                <i class="ti ti-list me-1"></i>
+                <span id="preview-total">0</span> {{ __('total', 'advancedldap') }}
+            </span>
+        </div>
+        <div id="preview-entry-wrapper" class="d-none">
+            <p class="text-muted mb-1"><small>{{ __('First entry (JSON preview):', 'advancedldap') }}</small></p>
+            <pre id="preview-entry" class="bg-dark text-light p-3 rounded" style="max-height: 300px; overflow: auto; font-size: 0.8em;"></pre>
+        </div>
+    </div>
+
+    <div id="sync-error" class="d-none alert alert-danger mt-3"></div>
+</div>
+
+<script>
+(function () {
+    const ajaxUrl = '{{ config('root_doc') }}/plugins/advancedldap/ajax/syncexecute.php';
+    const csrfToken = '{{ csrf_token() }}';
+    const syncfiltersId = {{ syncfilters_id|e('js') }};
+
+    function setLoading(loading) {
+        document.getElementById('sync-spinner').classList.toggle('d-none', !loading);
+        document.getElementById('btn-execute').disabled = loading;
+        document.getElementById('btn-dry-run').disabled = loading;
+    }
+
+    function hideResults() {
+        document.getElementById('sync-results').classList.add('d-none');
+        document.getElementById('dryrun-results').classList.add('d-none');
+        document.getElementById('sync-error').classList.add('d-none');
+    }
+
+    function showError(message) {
+        const el = document.getElementById('sync-error');
+        el.textContent = message;
+        el.classList.remove('d-none');
+    }
+
+    function sendRequest(action) {
+        hideResults();
+        setLoading(true);
+
+        const body = new URLSearchParams({
+            action: action,
+            syncfilters_id: syncfiltersId,
+            _glpi_csrf_token: csrfToken,
+        });
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                setLoading(false);
+                if (!data.success) {
+                    showError('{{ __('An error occurred.', 'advancedldap') }}');
+                    return;
+                }
+                if (action === 'execute') {
+                    const r = data.results;
+                    document.getElementById('result-created').textContent = r.created;
+                    document.getElementById('result-updated').textContent = r.updated;
+                    document.getElementById('result-errors').textContent = r.errors;
+                    document.getElementById('result-skipped').textContent = r.skipped;
+                    document.getElementById('sync-results').classList.remove('d-none');
+                } else {
+                    const p = data.preview;
+                    document.getElementById('preview-create').textContent = p.would_create;
+                    document.getElementById('preview-update').textContent = p.would_update;
+                    document.getElementById('preview-total').textContent = p.total;
+                    document.getElementById('dryrun-results').classList.remove('d-none');
+
+                    if (p.first_entry !== null) {
+                        document.getElementById('preview-entry').textContent = JSON.stringify(p.first_entry, null, 2);
+                        document.getElementById('preview-entry-wrapper').classList.remove('d-none');
+                    }
+                }
+            })
+            .catch(function () {
+                setLoading(false);
+                showError('{{ __('Network error. Please try again.', 'advancedldap') }}');
+            });
+    }
+
+    document.getElementById('btn-execute').addEventListener('click', function () {
+        sendRequest('execute');
+    });
+
+    document.getElementById('btn-dry-run').addEventListener('click', function () {
+        sendRequest('dry_run');
+    });
+})();
+</script>
