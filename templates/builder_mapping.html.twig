@@ -26,6 +26,10 @@
  # -------------------------------------------------------------------------
  #}
 
+{% if monaco_css is defined %}
+    {{ monaco_css|raw }}
+{% endif %}
+
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">

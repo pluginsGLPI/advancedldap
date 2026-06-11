@@ -33,6 +33,8 @@
 
 namespace GlpiPlugin\Advancedldap\Inventory;
 
+use LDAP\Connection;
+use Agent;
 use Throwable;
 use LDAP\Result;
 use AuthLDAP;
@@ -46,18 +48,12 @@ use Toolbox;
 use function Safe\json_decode;
 use function Safe\json_encode;
 use function Safe\ldap_get_entries;
+use function Safe\ldap_parse_result;
 use function Safe\preg_match_all;
 use function Safe\preg_replace_callback;
 
 /**
- * Orchestrator for LDAP to GLPI inventory synchronization.
- *
- * Responsibilities:
- * 1. Retrieve active SyncFilters for a given LDAP connection
- * 2. Perform LDAP searches using filter criteria
- * 3. Instantiate the appropriate InventoryBuilder based on itemtype
- * 4. Inject built inventory JSON into Glpi\Inventory\Inventory
- * 5. Log results
+ * Orchestrates LDAP-to-GLPI inventory synchronization for a SyncFilter.
  */
 class LdapSyncExecutor
 {
@@ -70,21 +66,69 @@ class LdapSyncExecutor
     /**
      * Results of the last synchronization.
      *
-     * @var array{created: int, updated: int, errors: int, skipped: int}
+     * @var array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int}
      */
     private array $results = [
-        'created' => 0,
-        'updated' => 0,
-        'errors'  => 0,
-        'skipped' => 0,
+        'created'       => 0,
+        'updated'       => 0,
+        'errors'        => 0,
+        'skipped'       => 0,
+        'ldap_complete' => 1,
     ];
+
+    /**
+     * Whether the last LDAP search retrieved the full result set.
+     * Set to false when the search failed, was truncated (size limit exceeded)
+     * or the connection could not be established.
+     */
+    protected bool $last_search_complete = true;
+
+    /**
+     * Whether the last LDAP search retrieved the full result set.
+     */
+    public function wasLastSearchComplete(): bool
+    {
+        return $this->last_search_complete;
+    }
+
+    /**
+     * Iterate over LDAP result pages until the server returns an empty cookie.
+     *
+     * The page fetcher receives the pagination cookie ('' for the first page) and
+     * must return ['entries' => ..., 'next_cookie' => ...] or false on error.
+     * On fetcher failure, the whole collection fails and the search is flagged
+     * as incomplete: partial results must never be mistaken for full ones.
+     *
+     * @param callable(string): (array{entries: array<int, array<string, mixed>>, next_cookie: string}|false) $page_fetcher
+     *
+     * @return array<int, array<string, mixed>>|false All entries, or false on error
+     */
+    protected function collectAllPages(callable $page_fetcher): array|false
+    {
+        $entries = [];
+        $cookie  = '';
+
+        do {
+            $page = $page_fetcher($cookie);
+
+            if ($page === false) {
+                $this->last_search_complete = false;
+                return false;
+            }
+
+            $entries = array_merge($entries, $page['entries']);
+            $cookie  = $page['next_cookie'];
+        } while ($cookie !== '');
+
+        return $entries;
+    }
 
     /**
      * Execute synchronization for all active SyncFilters linked to an LDAP connection.
      *
      * @param AuthLDAP $authldap The LDAP connection
      *
-     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     * @return array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int} Sync results
      */
     public function executeForConnection(AuthLDAP $authldap): array
     {
@@ -97,6 +141,96 @@ class LdapSyncExecutor
         }
 
         return $this->results;
+    }
+
+    /**
+     * Execute synchronization for a single SyncFilter using its linked AuthLDAP.
+     *
+     * @param SyncFilter $syncfilter The sync filter to execute
+     *
+     * @return array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int} Sync results
+     */
+    public function executeSingleFilter(SyncFilter $syncfilter): array
+    {
+        $this->resetResults();
+
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        if (!$authldap instanceof AuthLDAP) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no linked AuthLDAP, nothing to synchronize',
+                $syncfilter->getID(),
+            ));
+            $this->results['skipped']++;
+            return $this->results;
+        }
+
+        $this->executeSyncFilter($authldap, $syncfilter);
+
+        return $this->results;
+    }
+
+    /**
+     * Preview synchronization for a single SyncFilter without injecting data.
+     *
+     * @param SyncFilter $syncfilter The sync filter to preview
+     *
+     * @return array{first_entry: array<string, mixed>|null, would_create: int, would_update: int, total: int}
+     */
+    public function previewSyncFilter(SyncFilter $syncfilter): array
+    {
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        $result = ['first_entry' => null, 'would_create' => 0, 'would_update' => 0, 'total' => 0];
+
+        if (!$authldap instanceof AuthLDAP) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no linked AuthLDAP, cannot preview',
+                $syncfilter->getID(),
+            ));
+            return $result;
+        }
+
+        $builder = $this->loadBuilderMapping($syncfilter);
+        if (!$builder instanceof AbstractBuilderMapping) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no BuilderMapping, cannot preview',
+                $syncfilter->getID(),
+            ));
+            return $result;
+        }
+
+        $sections   = $builder->getAllSections();
+        $ldap_attrs = $this->extractLdapAttributes($sections);
+
+        $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
+
+        if (!is_array($ldap_entries) || $ldap_entries === []) {
+            return $result;
+        }
+
+        foreach ($ldap_entries as $index => $ldap_entry) {
+            $inventory_data = $this->buildInventoryJson($sections, $ldap_entry, $syncfilter);
+            if ($inventory_data === null) {
+                continue;
+            }
+
+            $result['total']++;
+
+            if ($index === 0) {
+                $result['first_entry'] = $inventory_data;
+            }
+
+            $deviceid = isset($inventory_data['deviceid']) && is_string($inventory_data['deviceid'])
+                ? $inventory_data['deviceid'] : '';
+
+            $agent = new Agent();
+            if ($deviceid !== '' && $agent->getFromDBByCrit(['deviceid' => $deviceid])) {
+                $result['would_update']++;
+            } else {
+                $result['would_create']++;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -133,6 +267,10 @@ class LdapSyncExecutor
 
         // 3. Perform LDAP search
         $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
+
+        if (!$this->last_search_complete) {
+            $this->results['ldap_complete'] = 0;
+        }
 
         if ($ldap_entries === false) {
             $this->results['errors']++;
@@ -325,25 +463,46 @@ class LdapSyncExecutor
      */
     protected function replacePlaceholders(array $data, array $ldap_entry): array
     {
-        $json_string = json_encode($data, JSON_UNESCAPED_UNICODE);
-
-        $json_string = preg_replace_callback(
-            self::PLACEHOLDER_PATTERN,
-            function ($matches) use ($ldap_entry) {
-                $attr_raw = $matches[1] ?? '';
-                $attr_name = strtolower(is_string($attr_raw) ? $attr_raw : '');
-                $value = $this->getLdapValue($ldap_entry, $attr_name);
-                // Escape JSON special characters to prevent invalid JSON
-                return addcslashes($value, "\"\\/\n\r\t");
-            },
-            $json_string,
-        );
-
-        $decoded = json_decode($json_string, true);
-
+        // Substitute directly within the PHP structure (string leaves only). LDAP values
+        // never touch the JSON-string layer raw, so they cannot break out of their context
+        // or inject arbitrary keys into the inventory payload.
         /** @var array<string, mixed> $result */
-        $result = is_array($decoded) ? $decoded : [];
+        $result = $this->substitutePlaceholders($data, $ldap_entry);
         return $result;
+    }
+
+    /**
+     * Recursively replace {{ ldap.xxx }} placeholders inside string leaves of a structure.
+     *
+     * @param mixed                $value      The value to process (array, string or scalar)
+     * @param array<string, mixed> $ldap_entry The LDAP entry data
+     *
+     * @return mixed The value with placeholders substituted
+     */
+    private function substitutePlaceholders(mixed $value, array $ldap_entry): mixed
+    {
+        if (is_array($value)) {
+            $result = [];
+            foreach ($value as $key => $item) {
+                $result[$key] = $this->substitutePlaceholders($item, $ldap_entry);
+            }
+
+            return $result;
+        }
+
+        if (is_string($value)) {
+            return preg_replace_callback(
+                self::PLACEHOLDER_PATTERN,
+                function ($matches) use ($ldap_entry) {
+                    $attr_raw = $matches[1] ?? '';
+                    $attr_name = strtolower(is_string($attr_raw) ? $attr_raw : '');
+                    return $this->getLdapValue($ldap_entry, $attr_name);
+                },
+                $value,
+            );
+        }
+
+        return $value;
     }
 
     /**
@@ -426,35 +585,14 @@ class LdapSyncExecutor
     }
 
     /**
-     * Perform LDAP search using filter criteria.
+     * Open a connection to the LDAP server using AuthLDAP credentials.
      *
-     * @param AuthLDAP      $authldap   The LDAP connection
-     * @param SyncFilter    $syncfilter The sync filter with search criteria
-     * @param array<string> $ldap_attrs LDAP attributes to fetch
+     * @param AuthLDAP $authldap The LDAP connection configuration
      *
-     * @return array<int, array<string, mixed>>|false Array of LDAP entries or false on error
+     * @return Connection|false The LDAP link or false on failure
      */
-    private function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $ldap_attrs): array|false
+    protected function connectToLdap(AuthLDAP $authldap): Connection|false
     {
-        $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
-        $basedn = $syncfilter->fields['basedn'] ?? '';
-
-        if (!is_string($connection_filter) || ($connection_filter === '' || $connection_filter === '0') || !is_string($basedn) || ($basedn === '' || $basedn === '0')) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
-                $syncfilter->getID(),
-            ));
-            return false;
-        }
-
-        Toolbox::logDebug(sprintf(
-            'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", Attrs: [%s]',
-            $connection_filter,
-            $basedn,
-            implode(', ', $ldap_attrs),
-        ));
-
-        // Connect to LDAP using AuthLDAP credentials
         $host = is_string($authldap->fields['host'] ?? null) ? $authldap->fields['host'] : '';
         $port = is_string($authldap->fields['port'] ?? null) ? $authldap->fields['port'] : '389';
         $rootdn = is_string($authldap->fields['rootdn'] ?? null) ? $authldap->fields['rootdn'] : '';
@@ -469,7 +607,7 @@ class LdapSyncExecutor
         $timeout = is_numeric($timeout_raw) ? (int) $timeout_raw : 10;
         $tls_version = is_string($authldap->fields['tls_version'] ?? null) ? $authldap->fields['tls_version'] : '';
 
-        $ds = AuthLDAP::connectToServer(
+        return AuthLDAP::connectToServer(
             $host,
             $port,
             $rootdn,
@@ -482,38 +620,111 @@ class LdapSyncExecutor
             $timeout,
             $tls_version,
         );
+    }
 
-        if ($ds === false) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
-                $authldap->getID(),
-            ));
-            return false;
+    /**
+     * Get the page size to use for LDAP searches on this connection.
+     *
+     * @param AuthLDAP $authldap The LDAP connection configuration
+     *
+     * @return int Page size, or 0 when pagination is not available
+     */
+    protected function getPageSize(AuthLDAP $authldap): int
+    {
+        if (!AuthLDAP::isLdapPageSizeAvailable($authldap)) {
+            return 0;
         }
 
-        // Perform the LDAP search
-        $sr = @ldap_search($ds, $basedn, $connection_filter, $ldap_attrs);
+        $pagesize = $authldap->fields['pagesize'] ?? 0;
+
+        return is_numeric($pagesize) ? max(0, (int) $pagesize) : 0;
+    }
+
+    /**
+     * Perform a single (possibly paged) LDAP search request.
+     *
+     * @param Connection $ds The LDAP link
+     * @param string           $basedn     Search base DN
+     * @param string           $filter     LDAP filter
+     * @param array<string>    $ldap_attrs Attributes to fetch
+     * @param string           $cookie     Pagination cookie ('' for the first page)
+     * @param int              $pagesize   Page size (0 = pagination disabled)
+     *
+     * @return array{entries: array<int, array<string, mixed>>, next_cookie: string}|false
+     */
+    protected function fetchLdapPage(
+        Connection $ds,
+        string $basedn,
+        string $filter,
+        array $ldap_attrs,
+        string $cookie,
+        int $pagesize,
+    ): array|false {
+        $controls = [];
+        if ($pagesize > 0) {
+            $controls = [
+                [
+                    'oid'        => LDAP_CONTROL_PAGEDRESULTS,
+                    'iscritical' => true,
+                    'value'      => [
+                        'size'   => $pagesize,
+                        'cookie' => $cookie,
+                    ],
+                ],
+            ];
+        }
+
+        $sr = @ldap_search($ds, $basedn, $filter, $ldap_attrs, 0, -1, -1, LDAP_DEREF_NEVER, $controls);
 
         if ($sr === false) {
             $errno = ldap_errno($ds);
             // 32 = LDAP_NO_SUCH_OBJECT (no results, not an error)
-            if ($errno !== 32) {
-                Toolbox::logDebug(sprintf(
-                    'AdvancedLDAP: LDAP search failed - Error %d: %s',
-                    $errno,
-                    ldap_error($ds),
-                ));
-                return false;
+            if ($errno === 32) {
+                Toolbox::logDebug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
+                return ['entries' => [], 'next_cookie' => ''];
             }
 
-            Toolbox::logDebug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
-            return [];
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: LDAP search failed - Error %d: %s',
+                $errno,
+                ldap_error($ds),
+            ));
+            return false;
         }
 
-        // Get entries - $sr is guaranteed to be LDAP\Result after the false check above
         if (!$sr instanceof Result) {
             Toolbox::logDebug('AdvancedLDAP: Unexpected LDAP search result type');
             return false;
+        }
+
+        $next_cookie = '';
+        if ($pagesize > 0) {
+            // Read the pagination cookie from the parsed result controls (same pattern as
+            // core AuthLDAP::searchForUsers()). Narrow each offset: the by-ref output is mixed.
+            $errcode = null;
+            $matcheddn = null;
+            $errmsg = null;
+            $referrals = null;
+            $parsed_controls = [];
+            try {
+                ldap_parse_result($ds, $sr, $errcode, $matcheddn, $errmsg, $referrals, $parsed_controls);
+            } catch (Throwable) {
+                $parsed_controls = [];
+            }
+
+            $paged       = is_array($parsed_controls) ? ($parsed_controls[LDAP_CONTROL_PAGEDRESULTS] ?? null) : null;
+            $paged_value = is_array($paged) ? ($paged['value'] ?? null) : null;
+            $cookie      = is_array($paged_value) ? ($paged_value['cookie'] ?? null) : null;
+
+            if (is_string($cookie) || is_int($cookie)) {
+                $next_cookie = (string) $cookie;
+            }
+        }
+
+        // 4 (openldap) / 11 = size limit exceeded: the server refused to return everything
+        if (in_array(ldap_errno($ds), [4, 11], true)) {
+            Toolbox::logDebug('AdvancedLDAP: LDAP size limit exceeded, result set is truncated');
+            $this->last_search_complete = false;
         }
 
         try {
@@ -527,23 +738,78 @@ class LdapSyncExecutor
         }
 
         $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
-        Toolbox::logDebug(sprintf(
-            'AdvancedLDAP: LDAP search found %d entries',
-            $count,
-        ));
 
         // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
-        /** @var array<int, array<string, mixed>> $results */
-        $results = [];
+        /** @var array<int, array<string, mixed>> $page_entries */
+        $page_entries = [];
         for ($i = 0; $i < $count; $i++) {
             if (isset($entries[$i]) && is_array($entries[$i])) {
                 /** @var array<string, mixed> $entry */
                 $entry = $entries[$i];
-                $results[] = $entry;
+                $page_entries[] = $entry;
             }
         }
 
-        return $results;
+        return ['entries' => $page_entries, 'next_cookie' => $next_cookie];
+    }
+
+    /**
+     * Perform LDAP search using filter criteria, fetching all result pages.
+     *
+     * @param AuthLDAP      $authldap   The LDAP connection
+     * @param SyncFilter    $syncfilter The sync filter with search criteria
+     * @param array<string> $ldap_attrs LDAP attributes to fetch
+     *
+     * @return array<int, array<string, mixed>>|false Array of LDAP entries or false on error
+     */
+    protected function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $ldap_attrs): array|false
+    {
+        $this->last_search_complete = true;
+
+        $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
+        $basedn = $syncfilter->fields['basedn'] ?? '';
+
+        if (!is_string($connection_filter) || ($connection_filter === '' || $connection_filter === '0') || !is_string($basedn) || ($basedn === '' || $basedn === '0')) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
+                $syncfilter->getID(),
+            ));
+            $this->last_search_complete = false;
+            return false;
+        }
+
+        $ds = $this->connectToLdap($authldap);
+
+        if ($ds === false) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
+                $authldap->getID(),
+            ));
+            $this->last_search_complete = false;
+            return false;
+        }
+
+        $pagesize = $this->getPageSize($authldap);
+
+        Toolbox::logDebug(sprintf(
+            'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", PageSize: %d, Attrs: [%s]',
+            $connection_filter,
+            $basedn,
+            $pagesize,
+            implode(', ', $ldap_attrs),
+        ));
+
+        $entries = $this->collectAllPages(
+            fn(string $cookie): array|false => $this->fetchLdapPage($ds, $basedn, $connection_filter, $ldap_attrs, $cookie, $pagesize),
+        );
+
+        if ($entries === false) {
+            return false;
+        }
+
+        Toolbox::logDebug(sprintf('AdvancedLDAP: LDAP search found %d entries', count($entries)));
+
+        return $entries;
     }
 
     /**
@@ -572,11 +838,16 @@ class LdapSyncExecutor
             return;
         }
 
+        $agent = new Agent();
+        $agent_exists = $deviceid !== 'unknown' && $agent->getFromDBByCrit(['deviceid' => $deviceid]);
+
         $inventory->doInventory();
 
-        // TODO: Determine if item was created or updated based on Inventory results
-        // For now, assume created
-        $this->results['created']++;
+        if ($agent_exists) {
+            $this->results['updated']++;
+        } else {
+            $this->results['created']++;
+        }
     }
 
     /**
@@ -631,10 +902,11 @@ class LdapSyncExecutor
     private function resetResults(): void
     {
         $this->results = [
-            'created' => 0,
-            'updated' => 0,
-            'errors'  => 0,
-            'skipped' => 0,
+            'created'       => 0,
+            'updated'       => 0,
+            'errors'        => 0,
+            'skipped'       => 0,
+            'ldap_complete' => 1,
         ];
     }
 

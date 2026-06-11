@@ -30,6 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use AuthLDAP;
 use Computer;
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\Inventory\LdapSyncExecutor;
@@ -96,6 +97,20 @@ class TestableLdapSyncExecutor extends LdapSyncExecutor
     public function callGetLdapValue(array $ldap_entry, string $attr_name): string
     {
         return $this->getLdapValue($ldap_entry, $attr_name);
+    }
+
+    /**
+     * @param callable(string): (array{entries: array<int, array<string, mixed>>, next_cookie: string}|false) $page_fetcher
+     * @return array<int, array<string, mixed>>|false
+     */
+    public function callCollectAllPages(callable $page_fetcher): array|false
+    {
+        return $this->collectAllPages($page_fetcher);
+    }
+
+    public function callGetPageSize(AuthLDAP $authldap): int
+    {
+        return $this->getPageSize($authldap);
     }
 }
 
@@ -221,6 +236,28 @@ final class LdapSyncExecutorTest extends DbTestCase
         $entry = ['cn' => ['count' => 1, 0 => 'PC "test"']];
         $result = $this->executor->callReplacePlaceholders($data, $entry);
         $this->assertEquals('PC "test"', $result['name']);
+    }
+
+    public function testReplacePlaceholdersCannotInjectInventoryKeys(): void
+    {
+        // A hostile LDAP value full of JSON metacharacters must remain a plain string
+        // value: it cannot break out of its context nor inject sibling keys.
+        $data  = ['name' => '{{ ldap.cn }}'];
+        $entry = ['cn' => ['count' => 1, 0 => '", "injected": "evil']];
+        $result = $this->executor->callReplacePlaceholders($data, $entry);
+        $this->assertEquals('", "injected": "evil', $result['name']);
+        $this->assertArrayNotHasKey('injected', $result);
+        $this->assertCount(1, $result);
+    }
+
+    public function testReplacePlaceholdersPreservesControlCharactersInValue(): void
+    {
+        // Control characters (e.g. NUL, vertical tab) must be preserved verbatim, where a
+        // hand-rolled JSON escaper would have corrupted the payload.
+        $data  = ['name' => '{{ ldap.cn }}'];
+        $entry = ['cn' => ['count' => 1, 0 => "line1\x00\x0bline2"]];
+        $result = $this->executor->callReplacePlaceholders($data, $entry);
+        $this->assertEquals("line1\x00\x0bline2", $result['name']);
     }
 
     // --- extractLdapAttributes ---
@@ -355,6 +392,125 @@ final class LdapSyncExecutorTest extends DbTestCase
         $result = $this->executor->callBuildInventoryJson($sections, [], $syncfilter);
         $this->assertIsArray($result);
         $this->assertArrayNotHasKey('tag', $result);
+    }
+
+    // --- previewSyncFilter ---
+
+    public function testPreviewSyncFilterWithoutLinkedAuthLdapReturnsZeroAndLogs(): void
+    {
+        $syncfilter = $this->createSyncFilter();
+
+        $result = $this->executor->previewSyncFilter($syncfilter);
+
+        $this->hasPhpLogRecordThatContains(
+            'AdvancedLDAP: SyncFilter ' . $syncfilter->getID() . ' has no linked AuthLDAP, cannot preview',
+            'Debug',
+        );
+        $this->assertNull($result['first_entry']);
+        $this->assertEquals(0, $result['would_create']);
+        $this->assertEquals(0, $result['would_update']);
+        $this->assertEquals(0, $result['total']);
+    }
+
+    // --- collectAllPages ---
+
+    public function testCollectAllPagesSinglePage(): void
+    {
+        $result = $this->executor->callCollectAllPages(function (string $cookie) {
+            $this->assertEquals('', $cookie);
+            return ['entries' => [['dn' => 'cn=a']], 'next_cookie' => ''];
+        });
+        $this->assertEquals([['dn' => 'cn=a']], $result);
+    }
+
+    public function testCollectAllPagesConcatenatesPagesInOrder(): void
+    {
+        $pages = [
+            ''   => ['entries' => [['dn' => 'cn=a'], ['dn' => 'cn=b']], 'next_cookie' => 'C1'],
+            'C1' => ['entries' => [['dn' => 'cn=c']], 'next_cookie' => 'C2'],
+            'C2' => ['entries' => [['dn' => 'cn=d']], 'next_cookie' => ''],
+        ];
+        $result = $this->executor->callCollectAllPages(fn(string $cookie) => $pages[$cookie]);
+        $this->assertEquals(
+            [['dn' => 'cn=a'], ['dn' => 'cn=b'], ['dn' => 'cn=c'], ['dn' => 'cn=d']],
+            $result,
+        );
+    }
+
+    public function testCollectAllPagesEmptyResult(): void
+    {
+        $result = $this->executor->callCollectAllPages(
+            fn(string $cookie) => ['entries' => [], 'next_cookie' => ''],
+        );
+        $this->assertEquals([], $result);
+    }
+
+    public function testCollectAllPagesReturnsFalseOnMidPaginationFailure(): void
+    {
+        $pages = [
+            ''   => ['entries' => [['dn' => 'cn=a']], 'next_cookie' => 'C1'],
+            'C1' => false,
+        ];
+        $result = $this->executor->callCollectAllPages(fn(string $cookie) => $pages[$cookie]);
+        $this->assertFalse($result);
+    }
+
+    public function testWasLastSearchCompleteDefaultsToTrue(): void
+    {
+        $this->assertTrue($this->executor->wasLastSearchComplete());
+    }
+
+    public function testFailedPageCollectionMarksSearchIncomplete(): void
+    {
+        $this->executor->callCollectAllPages(fn(string $cookie) => false);
+        $this->assertFalse($this->executor->wasLastSearchComplete());
+    }
+
+    // --- getPageSize ---
+
+    public function testGetPageSizeReturnsConfiguredValueWhenPaginationSupported(): void
+    {
+        $authldap = $this->createItem(AuthLDAP::class, [
+            'name'                 => 'paged ldap',
+            'host'                 => 'ldap.example.com',
+            'basedn'               => 'dc=example,dc=com',
+            'port'                 => 389,
+            'can_support_pagesize' => 1,
+            'pagesize'             => 500,
+        ]);
+        $this->assertEquals(500, $this->executor->callGetPageSize($authldap));
+    }
+
+    public function testGetPageSizeReturnsZeroWhenPaginationNotSupported(): void
+    {
+        $authldap = $this->createItem(AuthLDAP::class, [
+            'name'                 => 'unpaged ldap',
+            'host'                 => 'ldap.example.com',
+            'basedn'               => 'dc=example,dc=com',
+            'port'                 => 389,
+            'can_support_pagesize' => 0,
+            'pagesize'             => 500,
+        ]);
+        $this->assertEquals(0, $this->executor->callGetPageSize($authldap));
+    }
+
+    // --- ldap_complete propagation ---
+
+    public function testExecuteSingleFilterResultsContainLdapCompleteFlag(): void
+    {
+        // No linked AuthLDAP: executor returns early, no network access.
+        $syncfilter = $this->createSyncFilter();
+
+        $results = $this->executor->executeSingleFilter($syncfilter);
+
+        // executeSingleFilter logs the missing-AuthLDAP path (gate-hardening pass).
+        $this->hasPhpLogRecordThatContains(
+            'AdvancedLDAP: SyncFilter ' . $syncfilter->getID() . ' has no linked AuthLDAP, nothing to synchronize',
+            'Debug',
+        );
+
+        $this->assertArrayHasKey('ldap_complete', $results);
+        $this->assertEquals(1, $results['ldap_complete']);
     }
 
     // --- helpers ---
