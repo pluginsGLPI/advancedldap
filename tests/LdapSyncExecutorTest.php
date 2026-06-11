@@ -97,6 +97,20 @@ class TestableLdapSyncExecutor extends LdapSyncExecutor
     {
         return $this->getLdapValue($ldap_entry, $attr_name);
     }
+
+    /**
+     * @param callable(string): (array{entries: array<int, array<string, mixed>>, next_cookie: string}|false) $page_fetcher
+     * @return array<int, array<string, mixed>>|false
+     */
+    public function callCollectAllPages(callable $page_fetcher): array|false
+    {
+        return $this->collectAllPages($page_fetcher);
+    }
+
+    public function callGetPageSize(\AuthLDAP $authldap): int
+    {
+        return $this->getPageSize($authldap);
+    }
 }
 
 /**
@@ -395,6 +409,60 @@ final class LdapSyncExecutorTest extends DbTestCase
         $this->assertEquals(0, $result['would_create']);
         $this->assertEquals(0, $result['would_update']);
         $this->assertEquals(0, $result['total']);
+    }
+
+    // --- collectAllPages ---
+
+    public function testCollectAllPagesSinglePage(): void
+    {
+        $result = $this->executor->callCollectAllPages(function (string $cookie) {
+            $this->assertEquals('', $cookie);
+            return ['entries' => [['dn' => 'cn=a']], 'next_cookie' => ''];
+        });
+        $this->assertEquals([['dn' => 'cn=a']], $result);
+    }
+
+    public function testCollectAllPagesConcatenatesPagesInOrder(): void
+    {
+        $pages = [
+            ''   => ['entries' => [['dn' => 'cn=a'], ['dn' => 'cn=b']], 'next_cookie' => 'C1'],
+            'C1' => ['entries' => [['dn' => 'cn=c']], 'next_cookie' => 'C2'],
+            'C2' => ['entries' => [['dn' => 'cn=d']], 'next_cookie' => ''],
+        ];
+        $result = $this->executor->callCollectAllPages(fn (string $cookie) => $pages[$cookie]);
+        $this->assertEquals(
+            [['dn' => 'cn=a'], ['dn' => 'cn=b'], ['dn' => 'cn=c'], ['dn' => 'cn=d']],
+            $result,
+        );
+    }
+
+    public function testCollectAllPagesEmptyResult(): void
+    {
+        $result = $this->executor->callCollectAllPages(
+            fn (string $cookie) => ['entries' => [], 'next_cookie' => ''],
+        );
+        $this->assertEquals([], $result);
+    }
+
+    public function testCollectAllPagesReturnsFalseOnMidPaginationFailure(): void
+    {
+        $pages = [
+            ''   => ['entries' => [['dn' => 'cn=a']], 'next_cookie' => 'C1'],
+            'C1' => false,
+        ];
+        $result = $this->executor->callCollectAllPages(fn (string $cookie) => $pages[$cookie]);
+        $this->assertFalse($result);
+    }
+
+    public function testWasLastSearchCompleteDefaultsToTrue(): void
+    {
+        $this->assertTrue($this->executor->wasLastSearchComplete());
+    }
+
+    public function testFailedPageCollectionMarksSearchIncomplete(): void
+    {
+        $this->executor->callCollectAllPages(fn (string $cookie) => false);
+        $this->assertFalse($this->executor->wasLastSearchComplete());
     }
 
     // --- helpers ---

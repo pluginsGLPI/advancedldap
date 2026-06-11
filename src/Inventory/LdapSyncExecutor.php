@@ -74,6 +74,53 @@ class LdapSyncExecutor
     ];
 
     /**
+     * Whether the last LDAP search retrieved the full result set.
+     * Set to false when the search failed, was truncated (size limit exceeded)
+     * or the connection could not be established.
+     */
+    protected bool $last_search_complete = true;
+
+    /**
+     * Whether the last LDAP search retrieved the full result set.
+     */
+    public function wasLastSearchComplete(): bool
+    {
+        return $this->last_search_complete;
+    }
+
+    /**
+     * Iterate over LDAP result pages until the server returns an empty cookie.
+     *
+     * The page fetcher receives the pagination cookie ('' for the first page) and
+     * must return ['entries' => ..., 'next_cookie' => ...] or false on error.
+     * On fetcher failure, the whole collection fails and the search is flagged
+     * as incomplete: partial results must never be mistaken for full ones.
+     *
+     * @param callable(string): (array{entries: array<int, array<string, mixed>>, next_cookie: string}|false) $page_fetcher
+     *
+     * @return array<int, array<string, mixed>>|false All entries, or false on error
+     */
+    protected function collectAllPages(callable $page_fetcher): array|false
+    {
+        $entries = [];
+        $cookie  = '';
+
+        do {
+            $page = $page_fetcher($cookie);
+
+            if ($page === false) {
+                $this->last_search_complete = false;
+                return false;
+            }
+
+            $entries = array_merge($entries, $page['entries']);
+            $cookie  = $page['next_cookie'];
+        } while ($cookie !== '');
+
+        return $entries;
+    }
+
+    /**
      * Execute synchronization for all active SyncFilters linked to an LDAP connection.
      *
      * @param AuthLDAP $authldap The LDAP connection
