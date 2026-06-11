@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Inventory;
 
+use LDAP\Connection;
 use Agent;
 use Throwable;
 use LDAP\Result;
@@ -47,6 +48,7 @@ use Toolbox;
 use function Safe\json_decode;
 use function Safe\json_encode;
 use function Safe\ldap_get_entries;
+use function Safe\ldap_parse_result;
 use function Safe\preg_match_all;
 use function Safe\preg_replace_callback;
 
@@ -587,9 +589,9 @@ class LdapSyncExecutor
      *
      * @param AuthLDAP $authldap The LDAP connection configuration
      *
-     * @return \LDAP\Connection|false The LDAP link or false on failure
+     * @return Connection|false The LDAP link or false on failure
      */
-    protected function connectToLdap(AuthLDAP $authldap): \LDAP\Connection|false
+    protected function connectToLdap(AuthLDAP $authldap): Connection|false
     {
         $host = is_string($authldap->fields['host'] ?? null) ? $authldap->fields['host'] : '';
         $port = is_string($authldap->fields['port'] ?? null) ? $authldap->fields['port'] : '389';
@@ -641,7 +643,7 @@ class LdapSyncExecutor
     /**
      * Perform a single (possibly paged) LDAP search request.
      *
-     * @param \LDAP\Connection $ds         The LDAP link
+     * @param Connection $ds The LDAP link
      * @param string           $basedn     Search base DN
      * @param string           $filter     LDAP filter
      * @param array<string>    $ldap_attrs Attributes to fetch
@@ -651,7 +653,7 @@ class LdapSyncExecutor
      * @return array{entries: array<int, array<string, mixed>>, next_cookie: string}|false
      */
     protected function fetchLdapPage(
-        \LDAP\Connection $ds,
+        Connection $ds,
         string $basedn,
         string $filter,
         array $ldap_attrs,
@@ -697,17 +699,24 @@ class LdapSyncExecutor
 
         $next_cookie = '';
         if ($pagesize > 0) {
-            // Same pattern as core AuthLDAP::searchForUsers(): read the pagination cookie
-            // from the parsed result controls. Narrow each offset (the by-ref output is mixed).
-            $errcode = $matcheddn = $errmsg = $referrals = null;
+            // Read the pagination cookie from the parsed result controls (same pattern as
+            // core AuthLDAP::searchForUsers()). Narrow each offset: the by-ref output is mixed.
+            $errcode = null;
+            $matcheddn = null;
+            $errmsg = null;
+            $referrals = null;
             $parsed_controls = [];
-            $parsed = @ldap_parse_result($ds, $sr, $errcode, $matcheddn, $errmsg, $referrals, $parsed_controls); // @phpstan-ignore theCodingMachineSafe.function
+            try {
+                ldap_parse_result($ds, $sr, $errcode, $matcheddn, $errmsg, $referrals, $parsed_controls);
+            } catch (Throwable) {
+                $parsed_controls = [];
+            }
 
             $paged       = is_array($parsed_controls) ? ($parsed_controls[LDAP_CONTROL_PAGEDRESULTS] ?? null) : null;
             $paged_value = is_array($paged) ? ($paged['value'] ?? null) : null;
             $cookie      = is_array($paged_value) ? ($paged_value['cookie'] ?? null) : null;
 
-            if ($parsed !== false && (is_string($cookie) || is_int($cookie))) {
+            if (is_string($cookie) || is_int($cookie)) {
                 $next_cookie = (string) $cookie;
             }
         }
@@ -791,7 +800,7 @@ class LdapSyncExecutor
         ));
 
         $entries = $this->collectAllPages(
-            fn (string $cookie): array|false => $this->fetchLdapPage($ds, $basedn, $connection_filter, $ldap_attrs, $cookie, $pagesize),
+            fn(string $cookie): array|false => $this->fetchLdapPage($ds, $basedn, $connection_filter, $ldap_attrs, $cookie, $pagesize),
         );
 
         if ($entries === false) {

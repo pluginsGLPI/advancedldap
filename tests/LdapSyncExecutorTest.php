@@ -30,6 +30,7 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
+use AuthLDAP;
 use Computer;
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\Inventory\LdapSyncExecutor;
@@ -107,7 +108,7 @@ class TestableLdapSyncExecutor extends LdapSyncExecutor
         return $this->collectAllPages($page_fetcher);
     }
 
-    public function callGetPageSize(\AuthLDAP $authldap): int
+    public function callGetPageSize(AuthLDAP $authldap): int
     {
         return $this->getPageSize($authldap);
     }
@@ -429,7 +430,7 @@ final class LdapSyncExecutorTest extends DbTestCase
             'C1' => ['entries' => [['dn' => 'cn=c']], 'next_cookie' => 'C2'],
             'C2' => ['entries' => [['dn' => 'cn=d']], 'next_cookie' => ''],
         ];
-        $result = $this->executor->callCollectAllPages(fn (string $cookie) => $pages[$cookie]);
+        $result = $this->executor->callCollectAllPages(fn(string $cookie) => $pages[$cookie]);
         $this->assertEquals(
             [['dn' => 'cn=a'], ['dn' => 'cn=b'], ['dn' => 'cn=c'], ['dn' => 'cn=d']],
             $result,
@@ -439,7 +440,7 @@ final class LdapSyncExecutorTest extends DbTestCase
     public function testCollectAllPagesEmptyResult(): void
     {
         $result = $this->executor->callCollectAllPages(
-            fn (string $cookie) => ['entries' => [], 'next_cookie' => ''],
+            fn(string $cookie) => ['entries' => [], 'next_cookie' => ''],
         );
         $this->assertEquals([], $result);
     }
@@ -450,7 +451,7 @@ final class LdapSyncExecutorTest extends DbTestCase
             ''   => ['entries' => [['dn' => 'cn=a']], 'next_cookie' => 'C1'],
             'C1' => false,
         ];
-        $result = $this->executor->callCollectAllPages(fn (string $cookie) => $pages[$cookie]);
+        $result = $this->executor->callCollectAllPages(fn(string $cookie) => $pages[$cookie]);
         $this->assertFalse($result);
     }
 
@@ -461,7 +462,7 @@ final class LdapSyncExecutorTest extends DbTestCase
 
     public function testFailedPageCollectionMarksSearchIncomplete(): void
     {
-        $this->executor->callCollectAllPages(fn (string $cookie) => false);
+        $this->executor->callCollectAllPages(fn(string $cookie) => false);
         $this->assertFalse($this->executor->wasLastSearchComplete());
     }
 
@@ -469,7 +470,7 @@ final class LdapSyncExecutorTest extends DbTestCase
 
     public function testGetPageSizeReturnsConfiguredValueWhenPaginationSupported(): void
     {
-        $authldap = $this->createItem(\AuthLDAP::class, [
+        $authldap = $this->createItem(AuthLDAP::class, [
             'name'                 => 'paged ldap',
             'host'                 => 'ldap.example.com',
             'basedn'               => 'dc=example,dc=com',
@@ -482,7 +483,7 @@ final class LdapSyncExecutorTest extends DbTestCase
 
     public function testGetPageSizeReturnsZeroWhenPaginationNotSupported(): void
     {
-        $authldap = $this->createItem(\AuthLDAP::class, [
+        $authldap = $this->createItem(AuthLDAP::class, [
             'name'                 => 'unpaged ldap',
             'host'                 => 'ldap.example.com',
             'basedn'               => 'dc=example,dc=com',
