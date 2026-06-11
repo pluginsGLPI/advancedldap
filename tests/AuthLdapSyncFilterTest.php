@@ -41,6 +41,9 @@ use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
  * @method void assertEquals($expected, $actual, string $message = '')
  * @method void assertNotFalse($condition, string $message = '')
  * @method void assertGreaterThan($expected, $actual, string $message = '')
+ * @method void assertIsArray($actual, string $message = '')
+ * @method void assertArrayHasKey($key, $array, string $message = '')
+ * @method void assertArrayNotHasKey($key, $array, string $message = '')
  */
 final class AuthLdapSyncFilterTest extends DbTestCase
 {
@@ -195,5 +198,39 @@ final class AuthLdapSyncFilterTest extends DbTestCase
             AuthLdapSyncFilter::getTable(),
             [$syncfilter_fk => $syncfilter_id],
         ));
+    }
+
+    public function testPrepareInputForAddStripsUnknownKeys(): void
+    {
+        $authldap = $this->createItem(AuthLDAP::class, [
+            'name' => 'Test LDAP Server',
+            'host' => 'ldap.example.com',
+            'basedn' => 'dc=example,dc=com',
+            'is_active' => 1,
+        ]);
+
+        $syncfilter = $this->createItem(SyncFilter::class, [
+            'name' => 'Test Sync Filter',
+            'connection_filter' => '(objectClass=computer)',
+            'basedn' => 'ou=computers,dc=example,dc=com',
+            'itemtype' => 'Computer',
+        ]);
+
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
+        $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
+
+        $relation = new AuthLdapSyncFilter();
+        $prepared = $relation->prepareInputForAdd([
+            $authldap_fk   => $authldap->getID(),
+            $syncfilter_fk => $syncfilter->getID(),
+            'id'           => 999,
+            'evil_field'   => 'injected',
+        ]);
+
+        $this->assertIsArray($prepared);
+        $this->assertArrayHasKey($authldap_fk, $prepared);
+        $this->assertArrayHasKey($syncfilter_fk, $prepared);
+        $this->assertArrayNotHasKey('evil_field', $prepared);
+        $this->assertArrayNotHasKey('id', $prepared);
     }
 }

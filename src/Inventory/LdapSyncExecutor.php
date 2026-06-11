@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Inventory;
 
+use Agent;
 use Throwable;
 use LDAP\Result;
 use AuthLDAP;
@@ -50,14 +51,7 @@ use function Safe\preg_match_all;
 use function Safe\preg_replace_callback;
 
 /**
- * Orchestrator for LDAP to GLPI inventory synchronization.
- *
- * Responsibilities:
- * 1. Retrieve active SyncFilters for a given LDAP connection
- * 2. Perform LDAP searches using filter criteria
- * 3. Instantiate the appropriate InventoryBuilder based on itemtype
- * 4. Inject built inventory JSON into Glpi\Inventory\Inventory
- * 5. Log results
+ * Orchestrates LDAP-to-GLPI inventory synchronization for a SyncFilter.
  */
 class LdapSyncExecutor
 {
@@ -97,6 +91,96 @@ class LdapSyncExecutor
         }
 
         return $this->results;
+    }
+
+    /**
+     * Execute synchronization for a single SyncFilter using its linked AuthLDAP.
+     *
+     * @param SyncFilter $syncfilter The sync filter to execute
+     *
+     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     */
+    public function executeSingleFilter(SyncFilter $syncfilter): array
+    {
+        $this->resetResults();
+
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        if (!$authldap instanceof AuthLDAP) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no linked AuthLDAP, nothing to synchronize',
+                $syncfilter->getID(),
+            ));
+            $this->results['skipped']++;
+            return $this->results;
+        }
+
+        $this->executeSyncFilter($authldap, $syncfilter);
+
+        return $this->results;
+    }
+
+    /**
+     * Preview synchronization for a single SyncFilter without injecting data.
+     *
+     * @param SyncFilter $syncfilter The sync filter to preview
+     *
+     * @return array{first_entry: array<string, mixed>|null, would_create: int, would_update: int, total: int}
+     */
+    public function previewSyncFilter(SyncFilter $syncfilter): array
+    {
+        $authldap = $syncfilter->getLinkedAuthLdap();
+        $result = ['first_entry' => null, 'would_create' => 0, 'would_update' => 0, 'total' => 0];
+
+        if (!$authldap instanceof AuthLDAP) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no linked AuthLDAP, cannot preview',
+                $syncfilter->getID(),
+            ));
+            return $result;
+        }
+
+        $builder = $this->loadBuilderMapping($syncfilter);
+        if (!$builder instanceof AbstractBuilderMapping) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: SyncFilter %d has no BuilderMapping, cannot preview',
+                $syncfilter->getID(),
+            ));
+            return $result;
+        }
+
+        $sections   = $builder->getAllSections();
+        $ldap_attrs = $this->extractLdapAttributes($sections);
+
+        $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
+
+        if (!is_array($ldap_entries) || $ldap_entries === []) {
+            return $result;
+        }
+
+        foreach ($ldap_entries as $index => $ldap_entry) {
+            $inventory_data = $this->buildInventoryJson($sections, $ldap_entry, $syncfilter);
+            if ($inventory_data === null) {
+                continue;
+            }
+
+            $result['total']++;
+
+            if ($index === 0) {
+                $result['first_entry'] = $inventory_data;
+            }
+
+            $deviceid = isset($inventory_data['deviceid']) && is_string($inventory_data['deviceid'])
+                ? $inventory_data['deviceid'] : '';
+
+            $agent = new Agent();
+            if ($deviceid !== '' && $agent->getFromDBByCrit(['deviceid' => $deviceid])) {
+                $result['would_update']++;
+            } else {
+                $result['would_create']++;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -325,25 +409,46 @@ class LdapSyncExecutor
      */
     protected function replacePlaceholders(array $data, array $ldap_entry): array
     {
-        $json_string = json_encode($data, JSON_UNESCAPED_UNICODE);
-
-        $json_string = preg_replace_callback(
-            self::PLACEHOLDER_PATTERN,
-            function ($matches) use ($ldap_entry) {
-                $attr_raw = $matches[1] ?? '';
-                $attr_name = strtolower(is_string($attr_raw) ? $attr_raw : '');
-                $value = $this->getLdapValue($ldap_entry, $attr_name);
-                // Escape JSON special characters to prevent invalid JSON
-                return addcslashes($value, "\"\\/\n\r\t");
-            },
-            $json_string,
-        );
-
-        $decoded = json_decode($json_string, true);
-
+        // Substitute directly within the PHP structure (string leaves only). LDAP values
+        // never touch the JSON-string layer raw, so they cannot break out of their context
+        // or inject arbitrary keys into the inventory payload.
         /** @var array<string, mixed> $result */
-        $result = is_array($decoded) ? $decoded : [];
+        $result = $this->substitutePlaceholders($data, $ldap_entry);
         return $result;
+    }
+
+    /**
+     * Recursively replace {{ ldap.xxx }} placeholders inside string leaves of a structure.
+     *
+     * @param mixed                $value      The value to process (array, string or scalar)
+     * @param array<string, mixed> $ldap_entry The LDAP entry data
+     *
+     * @return mixed The value with placeholders substituted
+     */
+    private function substitutePlaceholders(mixed $value, array $ldap_entry): mixed
+    {
+        if (is_array($value)) {
+            $result = [];
+            foreach ($value as $key => $item) {
+                $result[$key] = $this->substitutePlaceholders($item, $ldap_entry);
+            }
+
+            return $result;
+        }
+
+        if (is_string($value)) {
+            return preg_replace_callback(
+                self::PLACEHOLDER_PATTERN,
+                function ($matches) use ($ldap_entry) {
+                    $attr_raw = $matches[1] ?? '';
+                    $attr_name = strtolower(is_string($attr_raw) ? $attr_raw : '');
+                    return $this->getLdapValue($ldap_entry, $attr_name);
+                },
+                $value,
+            );
+        }
+
+        return $value;
     }
 
     /**
@@ -572,11 +677,16 @@ class LdapSyncExecutor
             return;
         }
 
+        $agent = new Agent();
+        $agent_exists = $deviceid !== 'unknown' && $agent->getFromDBByCrit(['deviceid' => $deviceid]);
+
         $inventory->doInventory();
 
-        // TODO: Determine if item was created or updated based on Inventory results
-        // For now, assume created
-        $this->results['created']++;
+        if ($agent_exists) {
+            $this->results['updated']++;
+        } else {
+            $this->results['created']++;
+        }
     }
 
     /**

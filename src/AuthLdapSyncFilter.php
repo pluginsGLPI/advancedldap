@@ -371,6 +371,7 @@ class AuthLdapSyncFilter extends CommonDBTM
             return false;
         }
 
+        $authldap_fk = getForeignKeyFieldForItemType(AuthLDAP::class);
         $syncfilter_fk = getForeignKeyFieldForItemType(SyncFilter::class);
         $syncfilter_value = $input[$syncfilter_fk] ?? 0;
         $syncfilters_id = is_numeric($syncfilter_value) ? (int) $syncfilter_value : 0;
@@ -379,6 +380,9 @@ class AuthLdapSyncFilter extends CommonDBTM
         if ($syncfilters_id > 0) {
             $this->deleteExistingLinkForSyncFilter($syncfilters_id);
         }
+
+        // N'autoriser que les deux clés étrangères de la relation (anti mass-assignment)
+        $input = array_intersect_key($input, array_flip([$authldap_fk, $syncfilter_fk]));
 
         return parent::prepareInputForAdd($input);
     }

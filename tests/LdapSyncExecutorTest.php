@@ -223,6 +223,28 @@ final class LdapSyncExecutorTest extends DbTestCase
         $this->assertEquals('PC "test"', $result['name']);
     }
 
+    public function testReplacePlaceholdersCannotInjectInventoryKeys(): void
+    {
+        // A hostile LDAP value full of JSON metacharacters must remain a plain string
+        // value: it cannot break out of its context nor inject sibling keys.
+        $data  = ['name' => '{{ ldap.cn }}'];
+        $entry = ['cn' => ['count' => 1, 0 => '", "injected": "evil']];
+        $result = $this->executor->callReplacePlaceholders($data, $entry);
+        $this->assertEquals('", "injected": "evil', $result['name']);
+        $this->assertArrayNotHasKey('injected', $result);
+        $this->assertCount(1, $result);
+    }
+
+    public function testReplacePlaceholdersPreservesControlCharactersInValue(): void
+    {
+        // Control characters (e.g. NUL, vertical tab) must be preserved verbatim, where a
+        // hand-rolled JSON escaper would have corrupted the payload.
+        $data  = ['name' => '{{ ldap.cn }}'];
+        $entry = ['cn' => ['count' => 1, 0 => "line1\x00\x0bline2"]];
+        $result = $this->executor->callReplacePlaceholders($data, $entry);
+        $this->assertEquals("line1\x00\x0bline2", $result['name']);
+    }
+
     // --- extractLdapAttributes ---
 
     public function testExtractLdapAttributesFindsPlaceholders(): void
@@ -355,6 +377,24 @@ final class LdapSyncExecutorTest extends DbTestCase
         $result = $this->executor->callBuildInventoryJson($sections, [], $syncfilter);
         $this->assertIsArray($result);
         $this->assertArrayNotHasKey('tag', $result);
+    }
+
+    // --- previewSyncFilter ---
+
+    public function testPreviewSyncFilterWithoutLinkedAuthLdapReturnsZeroAndLogs(): void
+    {
+        $syncfilter = $this->createSyncFilter();
+
+        $result = $this->executor->previewSyncFilter($syncfilter);
+
+        $this->hasPhpLogRecordThatContains(
+            'AdvancedLDAP: SyncFilter ' . $syncfilter->getID() . ' has no linked AuthLDAP, cannot preview',
+            'Debug',
+        );
+        $this->assertNull($result['first_entry']);
+        $this->assertEquals(0, $result['would_create']);
+        $this->assertEquals(0, $result['would_update']);
+        $this->assertEquals(0, $result['total']);
     }
 
     // --- helpers ---
