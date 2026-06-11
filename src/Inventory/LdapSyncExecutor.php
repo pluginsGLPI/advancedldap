@@ -531,6 +531,44 @@ class LdapSyncExecutor
     }
 
     /**
+     * Open a connection to the LDAP server using AuthLDAP credentials.
+     *
+     * @param AuthLDAP $authldap The LDAP connection configuration
+     *
+     * @return \LDAP\Connection|false The LDAP link or false on failure
+     */
+    protected function connectToLdap(AuthLDAP $authldap): \LDAP\Connection|false
+    {
+        $host = is_string($authldap->fields['host'] ?? null) ? $authldap->fields['host'] : '';
+        $port = is_string($authldap->fields['port'] ?? null) ? $authldap->fields['port'] : '389';
+        $rootdn = is_string($authldap->fields['rootdn'] ?? null) ? $authldap->fields['rootdn'] : '';
+        $rootdn_passwd = is_string($authldap->fields['rootdn_passwd'] ?? null) ? $authldap->fields['rootdn_passwd'] : '';
+        $use_tls = !empty($authldap->fields['use_tls']);
+        $deref_raw = $authldap->fields['deref_option'] ?? 0;
+        $deref_option = is_numeric($deref_raw) ? (int) $deref_raw : 0;
+        $tls_certfile = is_string($authldap->fields['tls_certfile'] ?? null) ? $authldap->fields['tls_certfile'] : '';
+        $tls_keyfile = is_string($authldap->fields['tls_keyfile'] ?? null) ? $authldap->fields['tls_keyfile'] : '';
+        $use_bind = !isset($authldap->fields['use_bind']) || !empty($authldap->fields['use_bind']);
+        $timeout_raw = $authldap->fields['timeout'] ?? 10;
+        $timeout = is_numeric($timeout_raw) ? (int) $timeout_raw : 10;
+        $tls_version = is_string($authldap->fields['tls_version'] ?? null) ? $authldap->fields['tls_version'] : '';
+
+        return AuthLDAP::connectToServer(
+            $host,
+            $port,
+            $rootdn,
+            (new GLPIKey())->decrypt($rootdn_passwd) ?? '',
+            $use_tls,
+            $deref_option,
+            $tls_certfile,
+            $tls_keyfile,
+            $use_bind,
+            $timeout,
+            $tls_version,
+        );
+    }
+
+    /**
      * Perform LDAP search using filter criteria.
      *
      * @param AuthLDAP      $authldap   The LDAP connection
@@ -559,34 +597,7 @@ class LdapSyncExecutor
             implode(', ', $ldap_attrs),
         ));
 
-        // Connect to LDAP using AuthLDAP credentials
-        $host = is_string($authldap->fields['host'] ?? null) ? $authldap->fields['host'] : '';
-        $port = is_string($authldap->fields['port'] ?? null) ? $authldap->fields['port'] : '389';
-        $rootdn = is_string($authldap->fields['rootdn'] ?? null) ? $authldap->fields['rootdn'] : '';
-        $rootdn_passwd = is_string($authldap->fields['rootdn_passwd'] ?? null) ? $authldap->fields['rootdn_passwd'] : '';
-        $use_tls = !empty($authldap->fields['use_tls']);
-        $deref_raw = $authldap->fields['deref_option'] ?? 0;
-        $deref_option = is_numeric($deref_raw) ? (int) $deref_raw : 0;
-        $tls_certfile = is_string($authldap->fields['tls_certfile'] ?? null) ? $authldap->fields['tls_certfile'] : '';
-        $tls_keyfile = is_string($authldap->fields['tls_keyfile'] ?? null) ? $authldap->fields['tls_keyfile'] : '';
-        $use_bind = !isset($authldap->fields['use_bind']) || !empty($authldap->fields['use_bind']);
-        $timeout_raw = $authldap->fields['timeout'] ?? 10;
-        $timeout = is_numeric($timeout_raw) ? (int) $timeout_raw : 10;
-        $tls_version = is_string($authldap->fields['tls_version'] ?? null) ? $authldap->fields['tls_version'] : '';
-
-        $ds = AuthLDAP::connectToServer(
-            $host,
-            $port,
-            $rootdn,
-            (new GLPIKey())->decrypt($rootdn_passwd) ?? '',
-            $use_tls,
-            $deref_option,
-            $tls_certfile,
-            $tls_keyfile,
-            $use_bind,
-            $timeout,
-            $tls_version,
-        );
+        $ds = $this->connectToLdap($authldap);
 
         if ($ds === false) {
             Toolbox::logDebug(sprintf(
