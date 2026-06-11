@@ -37,9 +37,7 @@ $relation = new AuthLdapSyncFilter();
 if (isset($_POST["add"])) {
     $input = $_POST;
     $relation->check(-1, CREATE, $input); // @phpstan-ignore argument.type ($_POST keys are always strings)
-    if ($input !== null) {
-        $relation->add($input);
-    }
+    $relation->add($input); // @phpstan-ignore argument.type ($_POST keys are always strings)
 }
 
 Html::back();

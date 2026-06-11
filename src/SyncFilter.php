@@ -245,14 +245,11 @@ class SyncFilter extends CommonDropdown
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
         if ($item instanceof self) {
-            switch ($tabnum) {
-                case 1:
-                    $item->showBuilderMappingTab();
-                    break;
-                case 2:
-                    $item->showSyncTab();
-                    break;
-            }
+            match ($tabnum) {
+                1 => $item->showBuilderMappingTab(),
+                2 => $item->showSyncTab(),
+                default => true,
+            };
             return true;
         }
 
@@ -326,7 +323,7 @@ class SyncFilter extends CommonDropdown
 
         TemplateRenderer::getInstance()->display('@advancedldap/sync_execution.html.twig', [
             'syncfilters_id' => $this->getID(),
-            'has_authldap'   => $authldap !== null,
+            'has_authldap'   => $authldap instanceof AuthLDAP,
             'authldap_name'  => $authldap?->getName(),
         ]);
     }

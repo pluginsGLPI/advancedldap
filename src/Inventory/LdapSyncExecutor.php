@@ -33,6 +33,7 @@
 
 namespace GlpiPlugin\Advancedldap\Inventory;
 
+use Agent;
 use Throwable;
 use LDAP\Result;
 use AuthLDAP;
@@ -111,7 +112,7 @@ class LdapSyncExecutor
         $this->resetResults();
 
         $authldap = $syncfilter->getLinkedAuthLdap();
-        if ($authldap === null) {
+        if (!$authldap instanceof AuthLDAP) {
             return $this->results;
         }
 
@@ -132,7 +133,7 @@ class LdapSyncExecutor
         $authldap = $syncfilter->getLinkedAuthLdap();
         $result = ['first_entry' => null, 'would_create' => 0, 'would_update' => 0, 'total' => 0];
 
-        if ($authldap === null) {
+        if (!$authldap instanceof AuthLDAP) {
             return $result;
         }
 
@@ -165,7 +166,7 @@ class LdapSyncExecutor
             $deviceid = isset($inventory_data['deviceid']) && is_string($inventory_data['deviceid'])
                 ? $inventory_data['deviceid'] : '';
 
-            $agent = new \Agent();
+            $agent = new Agent();
             if ($deviceid !== '' && $agent->getFromDBByCrit(['deviceid' => $deviceid])) {
                 $result['would_update']++;
             } else {
@@ -649,7 +650,7 @@ class LdapSyncExecutor
             return;
         }
 
-        $agent = new \Agent();
+        $agent = new Agent();
         $agent_exists = $deviceid !== 'unknown' && $agent->getFromDBByCrit(['deviceid' => $deviceid]);
 
         $inventory->doInventory();

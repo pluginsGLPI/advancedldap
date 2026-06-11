@@ -33,13 +33,15 @@ use GlpiPlugin\Advancedldap\Inventory\LdapSyncExecutor;
 use GlpiPlugin\Advancedldap\SyncFilter;
 
 use function Safe\json_encode;
+use function Safe\session_write_close;
 
 header('Content-Type: application/json');
 
 Session::checkLoginUser();
 
-$action         = $_POST['action'] ?? null;
-$syncfilters_id = (int)($_POST['syncfilters_id'] ?? 0);
+$action             = $_POST['action'] ?? null;
+$raw_syncfilters_id = $_POST['syncfilters_id'] ?? 0;
+$syncfilters_id     = is_numeric($raw_syncfilters_id) ? (int) $raw_syncfilters_id : 0;
 
 $syncfilter = new SyncFilter();
 if ($syncfilters_id <= 0 || !$syncfilter->getFromDB($syncfilters_id)) {
