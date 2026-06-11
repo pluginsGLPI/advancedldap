@@ -634,67 +634,83 @@ class LdapSyncExecutor
     }
 
     /**
-     * Perform LDAP search using filter criteria.
+     * Perform a single (possibly paged) LDAP search request.
      *
-     * @param AuthLDAP      $authldap   The LDAP connection
-     * @param SyncFilter    $syncfilter The sync filter with search criteria
-     * @param array<string> $ldap_attrs LDAP attributes to fetch
+     * @param \LDAP\Connection $ds         The LDAP link
+     * @param string           $basedn     Search base DN
+     * @param string           $filter     LDAP filter
+     * @param array<string>    $ldap_attrs Attributes to fetch
+     * @param string           $cookie     Pagination cookie ('' for the first page)
+     * @param int              $pagesize   Page size (0 = pagination disabled)
      *
-     * @return array<int, array<string, mixed>>|false Array of LDAP entries or false on error
+     * @return array{entries: array<int, array<string, mixed>>, next_cookie: string}|false
      */
-    private function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $ldap_attrs): array|false
-    {
-        $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
-        $basedn = $syncfilter->fields['basedn'] ?? '';
-
-        if (!is_string($connection_filter) || ($connection_filter === '' || $connection_filter === '0') || !is_string($basedn) || ($basedn === '' || $basedn === '0')) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
-                $syncfilter->getID(),
-            ));
-            return false;
+    protected function fetchLdapPage(
+        \LDAP\Connection $ds,
+        string $basedn,
+        string $filter,
+        array $ldap_attrs,
+        string $cookie,
+        int $pagesize,
+    ): array|false {
+        $controls = [];
+        if ($pagesize > 0) {
+            $controls = [
+                [
+                    'oid'        => LDAP_CONTROL_PAGEDRESULTS,
+                    'iscritical' => true,
+                    'value'      => [
+                        'size'   => $pagesize,
+                        'cookie' => $cookie,
+                    ],
+                ],
+            ];
         }
 
-        Toolbox::logDebug(sprintf(
-            'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", Attrs: [%s]',
-            $connection_filter,
-            $basedn,
-            implode(', ', $ldap_attrs),
-        ));
-
-        $ds = $this->connectToLdap($authldap);
-
-        if ($ds === false) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
-                $authldap->getID(),
-            ));
-            return false;
-        }
-
-        // Perform the LDAP search
-        $sr = @ldap_search($ds, $basedn, $connection_filter, $ldap_attrs);
+        $sr = @ldap_search($ds, $basedn, $filter, $ldap_attrs, 0, -1, -1, LDAP_DEREF_NEVER, $controls);
 
         if ($sr === false) {
             $errno = ldap_errno($ds);
             // 32 = LDAP_NO_SUCH_OBJECT (no results, not an error)
-            if ($errno !== 32) {
-                Toolbox::logDebug(sprintf(
-                    'AdvancedLDAP: LDAP search failed - Error %d: %s',
-                    $errno,
-                    ldap_error($ds),
-                ));
-                return false;
+            if ($errno === 32) {
+                Toolbox::logDebug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
+                return ['entries' => [], 'next_cookie' => ''];
             }
 
-            Toolbox::logDebug('AdvancedLDAP: LDAP search returned no results (LDAP_NO_SUCH_OBJECT)');
-            return [];
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: LDAP search failed - Error %d: %s',
+                $errno,
+                ldap_error($ds),
+            ));
+            return false;
         }
 
-        // Get entries - $sr is guaranteed to be LDAP\Result after the false check above
         if (!$sr instanceof Result) {
             Toolbox::logDebug('AdvancedLDAP: Unexpected LDAP search result type');
             return false;
+        }
+
+        $next_cookie = '';
+        if ($pagesize > 0) {
+            // Same pattern as core AuthLDAP::searchForUsers(): read the pagination cookie
+            // from the parsed result controls. Narrow each offset (the by-ref output is mixed).
+            $errcode = $matcheddn = $errmsg = $referrals = null;
+            $parsed_controls = [];
+            $parsed = @ldap_parse_result($ds, $sr, $errcode, $matcheddn, $errmsg, $referrals, $parsed_controls); // @phpstan-ignore theCodingMachineSafe.function
+
+            $paged       = is_array($parsed_controls) ? ($parsed_controls[LDAP_CONTROL_PAGEDRESULTS] ?? null) : null;
+            $paged_value = is_array($paged) ? ($paged['value'] ?? null) : null;
+            $cookie      = is_array($paged_value) ? ($paged_value['cookie'] ?? null) : null;
+
+            if ($parsed !== false && (is_string($cookie) || is_int($cookie))) {
+                $next_cookie = (string) $cookie;
+            }
+        }
+
+        // 4 (openldap) / 11 = size limit exceeded: the server refused to return everything
+        if (in_array(ldap_errno($ds), [4, 11], true)) {
+            Toolbox::logDebug('AdvancedLDAP: LDAP size limit exceeded, result set is truncated');
+            $this->last_search_complete = false;
         }
 
         try {
@@ -708,23 +724,78 @@ class LdapSyncExecutor
         }
 
         $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
-        Toolbox::logDebug(sprintf(
-            'AdvancedLDAP: LDAP search found %d entries',
-            $count,
-        ));
 
         // Convert LDAP entries to clean array (remove 'count' key and numeric indexes)
-        /** @var array<int, array<string, mixed>> $results */
-        $results = [];
+        /** @var array<int, array<string, mixed>> $page_entries */
+        $page_entries = [];
         for ($i = 0; $i < $count; $i++) {
             if (isset($entries[$i]) && is_array($entries[$i])) {
                 /** @var array<string, mixed> $entry */
                 $entry = $entries[$i];
-                $results[] = $entry;
+                $page_entries[] = $entry;
             }
         }
 
-        return $results;
+        return ['entries' => $page_entries, 'next_cookie' => $next_cookie];
+    }
+
+    /**
+     * Perform LDAP search using filter criteria, fetching all result pages.
+     *
+     * @param AuthLDAP      $authldap   The LDAP connection
+     * @param SyncFilter    $syncfilter The sync filter with search criteria
+     * @param array<string> $ldap_attrs LDAP attributes to fetch
+     *
+     * @return array<int, array<string, mixed>>|false Array of LDAP entries or false on error
+     */
+    protected function performLdapSearch(AuthLDAP $authldap, SyncFilter $syncfilter, array $ldap_attrs): array|false
+    {
+        $this->last_search_complete = true;
+
+        $connection_filter = $syncfilter->fields['connection_filter'] ?? '';
+        $basedn = $syncfilter->fields['basedn'] ?? '';
+
+        if (!is_string($connection_filter) || ($connection_filter === '' || $connection_filter === '0') || !is_string($basedn) || ($basedn === '' || $basedn === '0')) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Missing filter or basedn for SyncFilter %d',
+                $syncfilter->getID(),
+            ));
+            $this->last_search_complete = false;
+            return false;
+        }
+
+        $ds = $this->connectToLdap($authldap);
+
+        if ($ds === false) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
+                $authldap->getID(),
+            ));
+            $this->last_search_complete = false;
+            return false;
+        }
+
+        $pagesize = $this->getPageSize($authldap);
+
+        Toolbox::logDebug(sprintf(
+            'AdvancedLDAP: Searching LDAP - Filter: "%s", BaseDN: "%s", PageSize: %d, Attrs: [%s]',
+            $connection_filter,
+            $basedn,
+            $pagesize,
+            implode(', ', $ldap_attrs),
+        ));
+
+        $entries = $this->collectAllPages(
+            fn (string $cookie): array|false => $this->fetchLdapPage($ds, $basedn, $connection_filter, $ldap_attrs, $cookie, $pagesize),
+        );
+
+        if ($entries === false) {
+            return false;
+        }
+
+        Toolbox::logDebug(sprintf('AdvancedLDAP: LDAP search found %d entries', count($entries)));
+
+        return $entries;
     }
 
     /**
