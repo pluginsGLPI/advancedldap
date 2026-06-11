@@ -616,6 +616,24 @@ class LdapSyncExecutor
     }
 
     /**
+     * Get the page size to use for LDAP searches on this connection.
+     *
+     * @param AuthLDAP $authldap The LDAP connection configuration
+     *
+     * @return int Page size, or 0 when pagination is not available
+     */
+    protected function getPageSize(AuthLDAP $authldap): int
+    {
+        if (!AuthLDAP::isLdapPageSizeAvailable($authldap)) {
+            return 0;
+        }
+
+        $pagesize = $authldap->fields['pagesize'] ?? 0;
+
+        return is_numeric($pagesize) ? max(0, (int) $pagesize) : 0;
+    }
+
+    /**
      * Perform LDAP search using filter criteria.
      *
      * @param AuthLDAP      $authldap   The LDAP connection

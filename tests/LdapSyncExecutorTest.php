@@ -465,6 +465,34 @@ final class LdapSyncExecutorTest extends DbTestCase
         $this->assertFalse($this->executor->wasLastSearchComplete());
     }
 
+    // --- getPageSize ---
+
+    public function testGetPageSizeReturnsConfiguredValueWhenPaginationSupported(): void
+    {
+        $authldap = $this->createItem(\AuthLDAP::class, [
+            'name'                 => 'paged ldap',
+            'host'                 => 'ldap.example.com',
+            'basedn'               => 'dc=example,dc=com',
+            'port'                 => 389,
+            'can_support_pagesize' => 1,
+            'pagesize'             => 500,
+        ]);
+        $this->assertEquals(500, $this->executor->callGetPageSize($authldap));
+    }
+
+    public function testGetPageSizeReturnsZeroWhenPaginationNotSupported(): void
+    {
+        $authldap = $this->createItem(\AuthLDAP::class, [
+            'name'                 => 'unpaged ldap',
+            'host'                 => 'ldap.example.com',
+            'basedn'               => 'dc=example,dc=com',
+            'port'                 => 389,
+            'can_support_pagesize' => 0,
+            'pagesize'             => 500,
+        ]);
+        $this->assertEquals(0, $this->executor->callGetPageSize($authldap));
+    }
+
     // --- helpers ---
 
     private function createSyncFilter(): SyncFilter
