@@ -64,13 +64,14 @@ class LdapSyncExecutor
     /**
      * Results of the last synchronization.
      *
-     * @var array{created: int, updated: int, errors: int, skipped: int}
+     * @var array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int}
      */
     private array $results = [
-        'created' => 0,
-        'updated' => 0,
-        'errors'  => 0,
-        'skipped' => 0,
+        'created'       => 0,
+        'updated'       => 0,
+        'errors'        => 0,
+        'skipped'       => 0,
+        'ldap_complete' => 1,
     ];
 
     /**
@@ -125,7 +126,7 @@ class LdapSyncExecutor
      *
      * @param AuthLDAP $authldap The LDAP connection
      *
-     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     * @return array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int} Sync results
      */
     public function executeForConnection(AuthLDAP $authldap): array
     {
@@ -145,7 +146,7 @@ class LdapSyncExecutor
      *
      * @param SyncFilter $syncfilter The sync filter to execute
      *
-     * @return array{created: int, updated: int, errors: int, skipped: int} Sync results
+     * @return array{created: int, updated: int, errors: int, skipped: int, ldap_complete: int} Sync results
      */
     public function executeSingleFilter(SyncFilter $syncfilter): array
     {
@@ -264,6 +265,10 @@ class LdapSyncExecutor
 
         // 3. Perform LDAP search
         $ldap_entries = $this->performLdapSearch($authldap, $syncfilter, $ldap_attrs);
+
+        if (!$this->last_search_complete) {
+            $this->results['ldap_complete'] = 0;
+        }
 
         if ($ldap_entries === false) {
             $this->results['errors']++;
@@ -888,10 +893,11 @@ class LdapSyncExecutor
     private function resetResults(): void
     {
         $this->results = [
-            'created' => 0,
-            'updated' => 0,
-            'errors'  => 0,
-            'skipped' => 0,
+            'created'       => 0,
+            'updated'       => 0,
+            'errors'        => 0,
+            'skipped'       => 0,
+            'ldap_complete' => 1,
         ];
     }
 

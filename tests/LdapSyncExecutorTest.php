@@ -493,6 +493,25 @@ final class LdapSyncExecutorTest extends DbTestCase
         $this->assertEquals(0, $this->executor->callGetPageSize($authldap));
     }
 
+    // --- ldap_complete propagation ---
+
+    public function testExecuteSingleFilterResultsContainLdapCompleteFlag(): void
+    {
+        // No linked AuthLDAP: executor returns early, no network access.
+        $syncfilter = $this->createSyncFilter();
+
+        $results = $this->executor->executeSingleFilter($syncfilter);
+
+        // executeSingleFilter logs the missing-AuthLDAP path (gate-hardening pass).
+        $this->hasPhpLogRecordThatContains(
+            'AdvancedLDAP: SyncFilter ' . $syncfilter->getID() . ' has no linked AuthLDAP, nothing to synchronize',
+            'Debug',
+        );
+
+        $this->assertArrayHasKey('ldap_complete', $results);
+        $this->assertEquals(1, $results['ldap_complete']);
+    }
+
     // --- helpers ---
 
     private function createSyncFilter(): SyncFilter
