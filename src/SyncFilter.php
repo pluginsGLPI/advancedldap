@@ -272,23 +272,22 @@ class SyncFilter extends CommonDropdown
             || !class_exists($builder_itemtype)
             || !is_subclass_of($builder_itemtype, AbstractBuilderMapping::class)
         ) {
-            echo '<div class="alert alert-warning">';
-            echo __s('No Builder Mapping associated with this SyncFilter.', 'advancedldap');
-            echo '</div>';
+            TemplateRenderer::getInstance()->display('@advancedldap/builder_mapping_alert.html.twig', [
+                'type'    => 'warning',
+                'message' => __('No Builder Mapping associated with this SyncFilter.', 'advancedldap'),
+            ]);
             return;
         }
 
         /** @var class-string<AbstractBuilderMapping> $builder_itemtype */
         $builder = new $builder_itemtype();
         if (!$builder->getFromDB((int) $builder_items_id)) {
-            echo '<div class="alert alert-danger">';
-            echo __s('Failed to load Builder Mapping.', 'advancedldap');
-            echo '</div>';
+            TemplateRenderer::getInstance()->display('@advancedldap/builder_mapping_alert.html.twig', [
+                'type'    => 'danger',
+                'message' => __('Failed to load Builder Mapping.', 'advancedldap'),
+            ]);
             return;
         }
-
-        // Load Monaco CSS (required for AJAX-loaded content)
-        echo Html::css("lib/monaco.css");
 
         // Prepare sections data for template
         $sections = [];
@@ -311,6 +310,8 @@ class SyncFilter extends CommonDropdown
             'sections'         => $sections,
             'completions'      => $this->getLdapCompletions($this->getID()),
             'authldap_status'  => $this->getAuthLdapStatus(),
+            // Monaco CSS, required for AJAX-loaded content (link tag built by Html::css)
+            'monaco_css'       => Html::css('lib/monaco.css'),
         ]);
     }
 
@@ -515,7 +516,7 @@ class SyncFilter extends CommonDropdown
         $rootdn = $authldap->fields['rootdn'] ?? '';
         $rootdn_passwd = $authldap->fields['rootdn_passwd'] ?? '';
         $use_tls = $authldap->fields['use_tls'] ?? false;
-        $deref = $authldap->fields['deref'] ?? 0;
+        $deref = $authldap->fields['deref_option'] ?? 0;
 
         $decrypted_passwd = (new GLPIKey())->decrypt(is_string($rootdn_passwd) ? $rootdn_passwd : '');
 
@@ -526,7 +527,7 @@ class SyncFilter extends CommonDropdown
             is_string($rootdn) ? $rootdn : '',
             is_string($decrypted_passwd) ? $decrypted_passwd : '',
             (bool) $use_tls,
-            is_int($deref) ? $deref : 0,
+            is_numeric($deref) ? (int) $deref : 0,
         );
 
         if ($ds === false) {
@@ -676,7 +677,7 @@ class SyncFilter extends CommonDropdown
         $rootdn = $authldap->fields['rootdn'] ?? '';
         $rootdn_passwd = $authldap->fields['rootdn_passwd'] ?? '';
         $use_tls = $authldap->fields['use_tls'] ?? false;
-        $deref = $authldap->fields['deref'] ?? 0;
+        $deref = $authldap->fields['deref_option'] ?? 0;
 
         $decrypted_passwd = (new GLPIKey())->decrypt(is_string($rootdn_passwd) ? $rootdn_passwd : '');
 
@@ -687,7 +688,7 @@ class SyncFilter extends CommonDropdown
             is_string($rootdn) ? $rootdn : '',
             is_string($decrypted_passwd) ? $decrypted_passwd : '',
             (bool) $use_tls,
-            is_int($deref) ? $deref : 0,
+            is_numeric($deref) ? (int) $deref : 0,
         );
 
         if ($ds === false) {

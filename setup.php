@@ -48,6 +48,9 @@ function plugin_init_advancedldap(): void
     /** @var array<string, array<string, string|array<int|string, string>>> $PLUGIN_HOOKS */
     global $PLUGIN_HOOKS;
 
+    // Note: Hooks::CSRF_COMPLIANT is deprecated since GLPI 11.0 — CSRF is enforced
+    // automatically by the CheckCsrfListener middleware, so it is intentionally not declared.
+
     $PLUGIN_HOOKS[Hooks::ITEM_PURGE]['advancedldap'] = [
         AuthLDAP::class => 'plugin_advancedldap_item_purge',
         SyncFilter::class => 'plugin_advancedldap_item_purge',
