@@ -131,7 +131,7 @@ final class SyncFilterTest extends DbTestCase
 
         $builder = new ComputerBuilderMapping();
         $builder->getFromDB($builder_id);
-        foreach (['main', 'hardware', 'bios', 'operatingsystem'] as $section) {
+        foreach (['main', 'hardware', 'bios', 'operatingsystem', 'networks', 'cpus', 'memories', 'drives', 'storages'] as $section) {
             $this->assertNotEmpty($builder->getSection($section));
         }
     }

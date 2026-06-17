@@ -60,7 +60,7 @@ final class ComputerBuilderMappingTest extends DbTestCase
         $loaded = new ComputerBuilderMapping();
         $loaded->getFromDB($id);
 
-        foreach (['main', 'hardware', 'bios', 'operatingsystem'] as $section) {
+        foreach (['main', 'hardware', 'bios', 'operatingsystem', 'networks', 'cpus', 'memories', 'drives', 'storages'] as $section) {
             $content = $loaded->getSection($section);
             $this->assertIsArray($content);
             $this->assertNotEmpty($content);
