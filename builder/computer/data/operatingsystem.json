@@ -1,0 +1,15 @@
+{
+    "name": "{{ ldap.operatingSystem }}",
+    "version": "{{ ldap.operatingSystemVersion }}",
+    "arch": "",
+    "boot_time": "",
+    "dns_domain": "",
+    "fqdn": "",
+    "full_name": "",
+    "hostid": "",
+    "install_date": "",
+    "kernel_name": "",
+    "kernel_version": "",
+    "ssh_key": "",
+    "service_pack": ""
+}

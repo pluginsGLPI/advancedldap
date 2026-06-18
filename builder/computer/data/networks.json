@@ -1,0 +1,11 @@
+[
+    {
+        "description": "",
+        "mac": "{{ ldap.macAddress }}",
+        "pciid": "",
+        "pnpdeviceid": "",
+        "status": "",
+        "type": "",
+        "virtualdev": ""
+    }
+]
