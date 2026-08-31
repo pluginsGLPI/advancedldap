@@ -40,8 +40,9 @@ use GlpiPlugin\Advancedldap\LdapConnection;
 final class LdapConnectionTest extends DbTestCase
 {
     /**
-     * Values are given as strings on purpose: that is how they come back from
-     * the database.
+     * Types mirror the glpi_authldaps schema as mysqlnd returns it: `port`,
+     * `deref_option` and `timeout` are int columns, `use_tls` and `use_bind`
+     * are tinyint, and only the varchar columns come back as strings.
      *
      * @return array<string, mixed>
      */
@@ -49,14 +50,14 @@ final class LdapConnectionTest extends DbTestCase
     {
         return [
             'host'         => 'ldap.example.org',
-            'port'         => '636',
+            'port'         => 636,
             'rootdn'       => 'cn=admin,dc=example,dc=org',
-            'use_tls'      => '1',
-            'deref_option' => '3',
+            'use_tls'      => 1,
+            'deref_option' => 3,
             'tls_certfile' => '/etc/ssl/client.crt',
             'tls_keyfile'  => '/etc/ssl/client.key',
-            'use_bind'     => '1',
-            'timeout'      => '25',
+            'use_bind'     => 1,
+            'timeout'      => 25,
             'tls_version'  => '1.3',
         ];
     }
@@ -87,9 +88,17 @@ final class LdapConnectionTest extends DbTestCase
         $this->assertCount(11, LdapConnection::buildConnectionParameters($this->fullyConfiguredFields(), ''));
     }
 
+    public function testBuildConnectionParametersPreservesNonDefaultPort(): void
+    {
+        // `port` is an int column, so a string check would silently fall back
+        // to 389 and send every LDAPS connection to the wrong port.
+        $parameters = LdapConnection::buildConnectionParameters(['port' => 636], '');
+        $this->assertSame('636', $parameters[1]);
+    }
+
     public function testBuildConnectionParametersReadsDerefOptionAsInt(): void
     {
-        $parameters = LdapConnection::buildConnectionParameters(['deref_option' => '3'], '');
+        $parameters = LdapConnection::buildConnectionParameters(['deref_option' => 3], '');
         $this->assertSame(3, $parameters[5]);
     }
 
@@ -97,7 +106,7 @@ final class LdapConnectionTest extends DbTestCase
     {
         // The AuthLDAP column is `deref_option`; `deref` does not exist and
         // must not be mistaken for it.
-        $parameters = LdapConnection::buildConnectionParameters(['deref' => '3'], '');
+        $parameters = LdapConnection::buildConnectionParameters(['deref' => 3], '');
         $this->assertSame(0, $parameters[5]);
     }
 

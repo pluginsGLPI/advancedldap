@@ -36,6 +36,8 @@ namespace GlpiPlugin\Advancedldap;
 use AuthLDAP;
 use GLPIKey;
 use LDAP\Connection;
+use RuntimeException;
+use Toolbox;
 
 /**
  * Single entry point for opening an LDAP connection from an AuthLDAP entry.
@@ -56,6 +58,11 @@ final class LdapConnection
     /**
      * Open a connection using every parameter of the given AuthLDAP entry.
      *
+     * connectToServer() throws when the entry has no host, which happens for a
+     * half-configured directory (`host` is nullable). Callers only distinguish
+     * a usable connection from a failure, so that case is reported as false
+     * rather than propagated as a fatal error.
+     *
      * @param AuthLDAP $authldap The directory to connect to
      * @return Connection|false The connection, or false on failure
      */
@@ -69,7 +76,16 @@ final class LdapConnection
             is_string($decrypted_passwd) ? $decrypted_passwd : '',
         );
 
-        return AuthLDAP::connectToServer(...$parameters);
+        try {
+            return AuthLDAP::connectToServer(...$parameters);
+        } catch (RuntimeException $e) {
+            Toolbox::logDebug(sprintf(
+                'AdvancedLDAP: Cannot connect to AuthLDAP %d: %s',
+                $authldap->getID(),
+                $e->getMessage(),
+            ));
+            return false;
+        }
     }
 
     /**
@@ -90,7 +106,9 @@ final class LdapConnection
 
         return [
             is_string($fields['host'] ?? null) ? $fields['host'] : '',
-            is_string($fields['port'] ?? null) ? $fields['port'] : '389',
+            // `port` is an int column and mysqlnd returns it as a PHP int, so it
+            // must be tested for numericity rather than for being a string.
+            is_numeric($fields['port'] ?? null) ? (string) $fields['port'] : '389',
             is_string($fields['rootdn'] ?? null) ? $fields['rootdn'] : '',
             $decrypted_passwd,
             !empty($fields['use_tls']),
