@@ -32,6 +32,7 @@ namespace GlpiPlugin\Advancedldap\Tests;
 
 use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\ComputerBuilderMapping;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 use function Safe\json_encode;
 
@@ -114,5 +115,39 @@ final class ComputerBuilderMappingTest extends DbTestCase
 
         $default = ComputerBuilderMapping::loadDefaultTemplate('hardware');
         $this->assertEquals($default, $loaded->getSection('hardware'));
+    }
+
+    public function testLoadDefaultTemplateAcceptsEveryDeclaredSection(): void
+    {
+        foreach (ComputerBuilderMapping::getSectionNames() as $section) {
+            $content = ComputerBuilderMapping::loadDefaultTemplate($section);
+            $this->assertIsArray($content);
+            $this->assertNotEmpty($content, sprintf('Section "%s" should load its template', $section));
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function traversalSectionProvider(): iterable
+    {
+        yield 'plugin root traversal'   => ['../../../composer'];
+        yield 'glpi root traversal'     => ['../../../../../composer'];
+        yield 'sibling plugin traversal' => ['../../../../tag/composer'];
+        yield 'current directory'       => ['.'];
+        yield 'parent directory'        => ['..'];
+        yield 'absolute path'           => ['/var/www/glpi/composer'];
+        yield 'unknown section'         => ['not_a_section'];
+        yield 'section with suffix'     => ['hardware/../../../composer'];
+    }
+
+    #[DataProvider('traversalSectionProvider')]
+    public function testLoadDefaultTemplateRejectsPathTraversal(string $section): void
+    {
+        $this->assertEquals(
+            [],
+            ComputerBuilderMapping::loadDefaultTemplate($section),
+            sprintf('Section "%s" must not resolve to a file outside the template directory', $section),
+        );
     }
 }

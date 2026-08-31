@@ -36,6 +36,7 @@ use function Safe\json_encode;
 header('Content-Type: application/json');
 
 Session::checkLoginUser();
+Session::checkRight('config', READ);
 
 $action = $_POST['action'] ?? $_GET['action'] ?? null;
 $builder_itemtype = $_POST['builder_itemtype'] ?? $_GET['builder_itemtype'] ?? null;
@@ -53,6 +54,9 @@ switch ($action) {
         $section = $_POST['section'] ?? $_GET['section'] ?? null;
         if (!is_string($section) || empty($section)) {
             throw new BadRequestHttpException('Missing section parameter');
+        }
+        if (!in_array($section, $builder_itemtype::getSectionNames(), true)) {
+            throw new BadRequestHttpException('Invalid section parameter');
         }
 
         $default_content = $builder_itemtype::loadDefaultTemplate($section);

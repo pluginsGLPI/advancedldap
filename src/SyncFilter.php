@@ -37,7 +37,6 @@ use Computer;
 use DBConnection;
 use DisplayPreference;
 use Glpi\Application\View\TemplateRenderer;
-use GLPIKey;
 use Html;
 use Migration;
 use Toolbox;
@@ -487,25 +486,8 @@ class SyncFilter extends CommonDropdown
      */
     private function fetchAttributesFromLdap(AuthLDAP $authldap, SyncFilter $syncfilter): array
     {
-        // Extract connection parameters with type validation
-        $host = $authldap->fields['host'] ?? '';
-        $port = $authldap->fields['port'] ?? '389';
-        $rootdn = $authldap->fields['rootdn'] ?? '';
-        $rootdn_passwd = $authldap->fields['rootdn_passwd'] ?? '';
-        $use_tls = $authldap->fields['use_tls'] ?? false;
-        $deref = $authldap->fields['deref'] ?? 0;
-
-        $decrypted_passwd = (new GLPIKey())->decrypt(is_string($rootdn_passwd) ? $rootdn_passwd : '');
-
-        // Connect to LDAP
-        $ds = AuthLDAP::connectToServer(
-            is_string($host) ? $host : '',
-            is_string($port) ? $port : '389',
-            is_string($rootdn) ? $rootdn : '',
-            is_string($decrypted_passwd) ? $decrypted_passwd : '',
-            (bool) $use_tls,
-            is_int($deref) ? $deref : 0,
-        );
+        // Connect to LDAP, honouring the full TLS configuration of the entry
+        $ds = LdapConnection::connect($authldap);
 
         if ($ds === false) {
             return [];
@@ -648,25 +630,8 @@ class SyncFilter extends CommonDropdown
             return $status;
         }
 
-        // Extract connection parameters with type validation
-        $host = $authldap->fields['host'] ?? '';
-        $port = $authldap->fields['port'] ?? '389';
-        $rootdn = $authldap->fields['rootdn'] ?? '';
-        $rootdn_passwd = $authldap->fields['rootdn_passwd'] ?? '';
-        $use_tls = $authldap->fields['use_tls'] ?? false;
-        $deref = $authldap->fields['deref'] ?? 0;
-
-        $decrypted_passwd = (new GLPIKey())->decrypt(is_string($rootdn_passwd) ? $rootdn_passwd : '');
-
-        // Test LDAP connection
-        $ds = AuthLDAP::connectToServer(
-            is_string($host) ? $host : '',
-            is_string($port) ? $port : '389',
-            is_string($rootdn) ? $rootdn : '',
-            is_string($decrypted_passwd) ? $decrypted_passwd : '',
-            (bool) $use_tls,
-            is_int($deref) ? $deref : 0,
-        );
+        // Test LDAP connection with the exact parameters the sync will use
+        $ds = LdapConnection::connect($authldap);
 
         if ($ds === false) {
             $status['error_message'] = __('Unable to connect to LDAP server', 'advancedldap');
