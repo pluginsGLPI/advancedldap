@@ -458,11 +458,7 @@ class LdapSyncExecutor
         $ds = LdapConnection::connect($authldap);
 
         if ($ds === false) {
-            Toolbox::logDebug(sprintf(
-                'AdvancedLDAP: Failed to connect to LDAP server for AuthLDAP %d',
-                $authldap->getID(),
-            ));
-            return false;
+            return false; // connect() logged the reason
         }
 
         // Perform the LDAP search

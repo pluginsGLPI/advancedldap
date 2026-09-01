@@ -86,9 +86,7 @@ abstract class AbstractBuilderMapping extends CommonDBTM
     /**
      * Load default JSON content for a section from template file.
      *
-     * The section name is checked against the fixed list returned by
-     * getSectionNames() so that it can never be used to escape the template
-     * directory through path traversal sequences.
+     * Sections outside getSectionNames() are rejected: the name reaches a path.
      *
      * @param string $section Section name (e.g., 'main', 'hardware')
      * @return array<string, mixed> Decoded JSON content

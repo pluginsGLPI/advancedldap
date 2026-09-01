@@ -36,7 +36,8 @@ use function Safe\json_encode;
 header('Content-Type: application/json');
 
 Session::checkLoginUser();
-Session::checkRight('config', READ);
+// Both actions only feed the mapping editor, which already requires UPDATE.
+Session::checkRight('config', UPDATE);
 
 $action = $_POST['action'] ?? $_GET['action'] ?? null;
 $builder_itemtype = $_POST['builder_itemtype'] ?? $_GET['builder_itemtype'] ?? null;

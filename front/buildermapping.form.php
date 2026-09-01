@@ -78,8 +78,7 @@ if (isset($_POST['update'])) {
             if (!is_string($section_name) || !is_string($json_content)) {
                 continue;
             }
-            // Only the declared sections may be written; otherwise the posted
-            // key would select an arbitrary column of the mapping table.
+            // A posted key selects the target column: keep it to real sections.
             if (!in_array($section_name, $builder_itemtype::getSectionNames(), true)) {
                 continue;
             }

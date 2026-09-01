@@ -40,9 +40,7 @@ use GlpiPlugin\Advancedldap\LdapConnection;
 final class LdapConnectionTest extends DbTestCase
 {
     /**
-     * Types mirror the glpi_authldaps schema as mysqlnd returns it: `port`,
-     * `deref_option` and `timeout` are int columns, `use_tls` and `use_bind`
-     * are tinyint, and only the varchar columns come back as strings.
+     * Types mirror the glpi_authldaps schema: only varchar columns are strings.
      *
      * @return array<string, mixed>
      */
@@ -83,15 +81,13 @@ final class LdapConnectionTest extends DbTestCase
 
     public function testBuildConnectionParametersMatchesConnectToServerArity(): void
     {
-        // connectToServer() takes 11 configurable parameters; a shorter list
-        // would silently fall back to the core defaults and drop the hardening.
+        // A shorter list would fall back to core defaults, dropping the hardening.
         $this->assertCount(11, LdapConnection::buildConnectionParameters($this->fullyConfiguredFields(), ''));
     }
 
     public function testBuildConnectionParametersPreservesNonDefaultPort(): void
     {
-        // `port` is an int column, so a string check would silently fall back
-        // to 389 and send every LDAPS connection to the wrong port.
+        // Regression: an is_string() check sent every LDAPS connection to 389.
         $parameters = LdapConnection::buildConnectionParameters(['port' => 636], '');
         $this->assertSame('636', $parameters[1]);
     }
@@ -104,8 +100,7 @@ final class LdapConnectionTest extends DbTestCase
 
     public function testBuildConnectionParametersIgnoresMisspelledDerefField(): void
     {
-        // The AuthLDAP column is `deref_option`; `deref` does not exist and
-        // must not be mistaken for it.
+        // Regression: the column is `deref_option`; `deref` does not exist.
         $parameters = LdapConnection::buildConnectionParameters(['deref' => 3], '');
         $this->assertSame(0, $parameters[5]);
     }

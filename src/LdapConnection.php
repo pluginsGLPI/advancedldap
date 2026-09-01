@@ -40,28 +40,16 @@ use RuntimeException;
 use Toolbox;
 
 /**
- * Single entry point for opening an LDAP connection from an AuthLDAP entry.
- *
- * Every code path in this plugin must go through here so that the TLS
- * hardening configured on the AuthLDAP entry (client certificate, key,
- * minimum TLS version, bind mode, timeout) is applied consistently. Passing
- * only a subset of the parameters silently downgrades the connection compared
- * to what the administrator configured.
+ * Single entry point for opening an LDAP connection from an AuthLDAP entry:
+ * a partial parameter list silently downgrades the configured TLS hardening.
  */
 final class LdapConnection
 {
-    /**
-     * Default connection timeout, in seconds, when the AuthLDAP entry has none.
-     */
+    /** Seconds, when the AuthLDAP entry has no timeout of its own. */
     private const DEFAULT_TIMEOUT = 10;
 
     /**
-     * Open a connection using every parameter of the given AuthLDAP entry.
-     *
-     * connectToServer() throws when the entry has no host, which happens for a
-     * half-configured directory (`host` is nullable). Callers only distinguish
-     * a usable connection from a failure, so that case is reported as false
-     * rather than propagated as a fatal error.
+     * Open a connection, logging every failure so callers need not.
      *
      * @param AuthLDAP $authldap The directory to connect to
      * @return Connection|false The connection, or false on failure
@@ -76,24 +64,33 @@ final class LdapConnection
             is_string($decrypted_passwd) ? $decrypted_passwd : '',
         );
 
+        // connectToServer() keeps its $last_error private, so a plain false
+        // return gives us no detail; it throws only on a missing host or port.
+        $reason = 'the server refused the connection';
+
         try {
-            return AuthLDAP::connectToServer(...$parameters);
+            $ds = AuthLDAP::connectToServer(...$parameters);
         } catch (RuntimeException $e) {
+            $ds = false;
+            $reason = $e->getMessage();
+        }
+
+        if ($ds === false) {
             Toolbox::logDebug(sprintf(
                 'AdvancedLDAP: Cannot connect to AuthLDAP %d: %s',
                 $authldap->getID(),
-                $e->getMessage(),
+                $reason,
             ));
             return false;
         }
+
+        return $ds;
     }
 
     /**
      * Build the ordered argument list for AuthLDAP::connectToServer().
      *
-     * Kept separate from connect() so the parameter mapping can be asserted
-     * without a live directory. Values coming from the database are strings,
-     * hence the numeric coercions rather than is_int() checks.
+     * Kept separate from connect() so it can be asserted without a directory.
      *
      * @param array<string, mixed> $fields           AuthLDAP fields
      * @param string               $decrypted_passwd Already-decrypted bind password
@@ -106,8 +103,7 @@ final class LdapConnection
 
         return [
             is_string($fields['host'] ?? null) ? $fields['host'] : '',
-            // `port` is an int column and mysqlnd returns it as a PHP int, so it
-            // must be tested for numericity rather than for being a string.
+            // `port` is an int column: is_string() would always fall back to 389.
             is_numeric($fields['port'] ?? null) ? (string) $fields['port'] : '389',
             is_string($fields['rootdn'] ?? null) ? $fields['rootdn'] : '',
             $decrypted_passwd,
