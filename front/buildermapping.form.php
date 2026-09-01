@@ -78,6 +78,10 @@ if (isset($_POST['update'])) {
             if (!is_string($section_name) || !is_string($json_content)) {
                 continue;
             }
+            // A posted key selects the target column: keep it to real sections.
+            if (!in_array($section_name, $builder_itemtype::getSectionNames(), true)) {
+                continue;
+            }
             // Validate JSON
             try {
                 json_decode($json_content, true);

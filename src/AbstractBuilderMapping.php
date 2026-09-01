@@ -86,11 +86,17 @@ abstract class AbstractBuilderMapping extends CommonDBTM
     /**
      * Load default JSON content for a section from template file.
      *
+     * Sections outside getSectionNames() are rejected: the name reaches a path.
+     *
      * @param string $section Section name (e.g., 'main', 'hardware')
      * @return array<string, mixed> Decoded JSON content
      */
     public static function loadDefaultTemplate(string $section): array
     {
+        if (!in_array($section, static::getSectionNames(), true)) {
+            return [];
+        }
+
         $base_path = static::getTemplateBasePath();
         $path = PLUGIN_ADVANCEDLDAP_DIR . '/' . $base_path . '/' . $section . '.json';
 

@@ -98,8 +98,8 @@
 </div>
 
 <script type="module">
-    const sections = {{ sections|json_encode|raw }};
-    const completions = {{ completions|default([])|json_encode|raw }};
+    const sections = {{ sections|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+    const completions = {{ completions|default([])|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
     const editors = {};
 
     // Ensure Monaco module is loaded (needed for AJAX-loaded tabs)
