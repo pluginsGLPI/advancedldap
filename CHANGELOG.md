@@ -15,3 +15,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Empty sections no longer fall back to the default template when the DB columns are null.
 - Avoid multiple scrollbars on the builder mapping edition view.
+- CI: fix Psalm cache directory, drop the stray `glpi-project/tools` composer dependency, declare a unique composer autoloader suffix
