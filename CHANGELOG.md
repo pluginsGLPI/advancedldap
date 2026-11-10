@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Enrich computer inventory builder templates with all inventory schema fields (bios, operatingsystem, ...).
 
+### Changed
+
+- Use the shared GLPI plugin baselines for php-cs-fixer and rector.
+
 ### Fixed
 
 - Empty sections no longer fall back to the default template when the DB columns are null.

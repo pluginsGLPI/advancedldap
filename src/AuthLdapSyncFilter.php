@@ -30,7 +30,6 @@
 
 namespace GlpiPlugin\Advancedldap;
 
-use RuntimeException;
 use AuthLDAP;
 use CommonDBTM;
 use CommonGLPI;
@@ -38,6 +37,7 @@ use DBConnection;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QuerySubQuery;
 use Migration;
+use RuntimeException;
 use Session;
 
 class AuthLdapSyncFilter extends CommonDBTM

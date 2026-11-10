@@ -1,51 +1,28 @@
 <?php
 
-/**
- * -------------------------------------------------------------------------
- * advancedldap plugin for GLPI
- * -------------------------------------------------------------------------
- *
- * MIT License
- *
- * LICENSE
- *
- * This file is part of advancedldap.
- *
- * advancedldap is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * advancedldap is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with advancedldap. If not, see <http://www.gnu.org/licenses/>.
- * -------------------------------------------------------------------------
- * @copyright Copyright (C) 2018-2025 by Teclib'.
- * @license   GPLv3e https://www.gnu.org/licenses/gpl-3.0.html
- * @link      https://services.glpi-network.com
- * -------------------------------------------------------------------------
- */
-
 use PhpCsFixer\Config;
 use PhpCsFixer\Finder;
+
+$baseline_file = __DIR__ . '/../../PluginsPhpCsFixer.php';
+if (!file_exists($baseline_file)) {
+    throw new RuntimeException(
+        sprintf(
+            'Unable to find "%s". Running php-cs-fixer on a plugin requires a GLPI development checkout that ships PluginsPhpCsFixer.php.',
+            $baseline_file,
+        ),
+    );
+}
+
+$baseline = require $baseline_file;
 
 $finder = Finder::create()
     ->in(__DIR__)
     ->ignoreVCSIgnored(true)
     ->name('*.php');
 
-$config = new Config();
-
-$rules = [
-    '@PER-CS' => true, // Latest PER rules.
-];
+/** @var Config $config */
+$config = $baseline($finder);
 
 return $config
-    ->setRules($rules)
-    ->setFinder($finder)
     ->setCacheFile(__DIR__ . '/var/php-cs-fixer/.php-cs-fixer.cache')
 ;

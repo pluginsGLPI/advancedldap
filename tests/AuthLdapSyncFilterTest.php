@@ -30,10 +30,10 @@
 
 namespace GlpiPlugin\Advancedldap\Tests;
 
-use Glpi\Tests\DbTestCase;
 use AuthLDAP;
-use GlpiPlugin\Advancedldap\SyncFilter;
+use Glpi\Tests\DbTestCase;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
+use GlpiPlugin\Advancedldap\SyncFilter;
 
 /**
  * @method void assertTrue($condition, string $message = '')

@@ -28,8 +28,11 @@
  * -------------------------------------------------------------------------
  */
 
-require __DIR__ . '/../../../tests/bootstrap.php';
+$current_plugin_folder = basename(dirname(__DIR__));
 
-if (!Plugin::isPluginActive("advancedldap")) {
-    throw new RuntimeException("Plugin advancedldap is not active in the test database");
+require __DIR__ . '/../../../tests/bootstrap.php';
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+if (!Plugin::isPluginActive($current_plugin_folder)) {
+    throw new RuntimeException(sprintf('Plugin %s is not active in the test database', $current_plugin_folder));
 }
