@@ -28,9 +28,9 @@
  * -------------------------------------------------------------------------
  */
 
+use Glpi\Plugin\Hooks;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\SyncFilter;
-use Glpi\Plugin\Hooks;
 
 use function Safe\define;
 

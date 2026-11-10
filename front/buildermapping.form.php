@@ -27,8 +27,8 @@
  * @link      https://services.glpi-network.com
  * -------------------------------------------------------------------------
  */
-
 use GlpiPlugin\Advancedldap\AbstractBuilderMapping;
+use Safe\Exceptions\JsonException;
 
 use function Safe\json_decode;
 
@@ -57,7 +57,6 @@ if (!class_exists($builder_itemtype) || !is_subclass_of($builder_itemtype, Abstr
     Html::back();
 }
 
-/** @var AbstractBuilderMapping $builder */
 $builder = new $builder_itemtype();
 
 if (!$builder->getFromDB($id)) {
@@ -78,10 +77,11 @@ if (isset($_POST['update'])) {
             if (!is_string($section_name) || !is_string($json_content)) {
                 continue;
             }
+
             // Validate JSON
             try {
                 json_decode($json_content, true);
-            } catch (\Safe\Exceptions\JsonException $e) {
+            } catch (JsonException $e) {
                 Session::addMessageAfterRedirect(
                     sprintf(__('Invalid JSON in section "%s": %s', 'advancedldap'), $section_name, $e->getMessage()),
                     false,

@@ -68,6 +68,7 @@ switch ($action) {
         foreach ($defaults as $section_name => $content) {
             $sections[$section_name] = json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
+
         echo json_encode([
             'success'  => true,
             'sections' => $sections,

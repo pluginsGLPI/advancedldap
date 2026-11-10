@@ -33,14 +33,14 @@
 
 namespace GlpiPlugin\Advancedldap\Inventory;
 
-use Throwable;
-use LDAP\Result;
 use AuthLDAP;
 use Glpi\Inventory\Inventory;
 use GLPIKey;
 use GlpiPlugin\Advancedldap\AbstractBuilderMapping;
 use GlpiPlugin\Advancedldap\AuthLdapSyncFilter;
 use GlpiPlugin\Advancedldap\SyncFilter;
+use LDAP\Result;
+use Throwable;
 use Toolbox;
 
 use function Safe\json_decode;
@@ -173,7 +173,6 @@ class LdapSyncExecutor
             return null;
         }
 
-        /** @var AbstractBuilderMapping $builder */
         $builder = new $builder_itemtype();
         if (!$builder->getFromDB((int) $builder_items_id)) {
             return null;
