@@ -71,6 +71,7 @@ function plugin_version_advancedldap(): array
         'author'         => '<a href="http://www.teclib.com">Teclib\'</a>',
         'license'        => 'GPL v3+',
         'homepage'       => 'https://www.teclib.com',
+        'csp_compliant'  => true,
         'requirements'   => [
             'glpi' => [
                 'min' => PLUGIN_ADVANCEDLDAP_MIN_GLPI_VERSION,
