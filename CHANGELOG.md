@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Make the plugin compatible with the Content Security Policy
 - Use the shared GLPI plugin baselines for php-cs-fixer and rector.
 
 ### Fixed
