@@ -110,4 +110,4 @@
     </div>
 </div>
 
-{{ call('Html::script', ['/plugins/advancedldap/js/builder_mapping.js', {}, false])|raw }}
+{{ call('Html::script', ['/plugins/advancedldap/js/builder_mapping.js', {'version': constant('PLUGIN_ADVANCEDLDAP_VERSION')}, false])|raw }}
